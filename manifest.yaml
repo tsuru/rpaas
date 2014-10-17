@@ -1,0 +1,5 @@
+id: varnish
+password: abc123
+endpoint:
+    production: set.me
+    test: localhost:8000
