@@ -1,5 +1,4 @@
-id: reverse-proxy
+id: rpaas
 password: abc123
 endpoint:
-    production: set.me
-    test: localhost:8000
+    production: rpaas.192.168.50.4.nip.io

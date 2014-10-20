@@ -5,6 +5,7 @@
 # coding: utf-8
 
 import hm.managers.cloudstack  # NOQA
+import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
