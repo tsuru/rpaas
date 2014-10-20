@@ -7,7 +7,7 @@ import codecs
 
 from setuptools import setup, find_packages
 
-from hm import __version__
+from rpaas import __version__
 
 README = codecs.open('README.rst', encoding='utf-8').read()
 
