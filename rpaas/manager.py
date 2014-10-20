@@ -8,12 +8,13 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import hc, storage
+from rpaas import hc, storage, nginx
 
 
 class Manager(object):
     def __init__(self, config=None):
         self.config = config
+        self.nginx_manager = nginx.NginxDAV(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.hc = hc.Dumb()
@@ -56,8 +57,7 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
-            pass
-            # TODO: self.manager.write_vcl(unit.dns_name, unit.secret, app_host)
+            self.nginx_manager.update_binding(host.dns_name, app_host)
 
     def unbind(self, name, host):
         pass
