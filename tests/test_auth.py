@@ -1,4 +1,4 @@
-# Copyright 2014 varnishapi authors. All rights reserved.
+# Copyright 2014 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -25,8 +25,8 @@ class AuthTestCase(unittest.TestCase):
             return "hello world"
 
     def set_envs(self):
-        os.environ["API_USERNAME"] = self.username = "varnishapi"
-        os.environ["API_PASSWORD"] = self.password = "varnish123"
+        os.environ["API_USERNAME"] = self.username = "rpaas"
+        os.environ["API_PASSWORD"] = self.password = "rpaas123"
 
     def delete_envs(self):
         del os.environ["API_USERNAME"], os.environ["API_PASSWORD"]
@@ -49,8 +49,8 @@ class AuthTestCase(unittest.TestCase):
         self.assertEqual("you do not have access to this resource", resp.data)
 
     def test_authentication_required_wrong_data(self):
-        pairs = [("joao", "joao123"), ("joao", "varnish123"),
-                 ("varnishapi", "joao123")]
+        pairs = [("joao", "joao123"), ("joao", "rpaas123"),
+                 ("rpaas", "joao123")]
         self.set_envs()
         self.addCleanup(self.delete_envs)
         for user, password in pairs:

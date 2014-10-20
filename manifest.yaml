@@ -1,4 +1,4 @@
-id: varnish
+id: reverse-proxy
 password: abc123
 endpoint:
     production: set.me

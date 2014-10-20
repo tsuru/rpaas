@@ -1,4 +1,4 @@
-# Copyright 2014 varnishapi authors. All rights reserved.
+# Copyright 2014 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -35,11 +35,11 @@ class APITestCase(unittest.TestCase):
         self.assertEqual([], self.manager.instances)
 
     def test_start_instance_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources", method="POST",
                                    data={"names": "someapp"},
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -57,10 +57,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual([], self.manager.instances)
 
     def test_remove_instance_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp", method="DELETE",
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -87,11 +87,11 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("Instance not found", resp.data)
 
     def test_bind_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp", method="POST",
                                    data={"app-host": "someapp.cloud.tsuru.io"},
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -109,11 +109,11 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("Instance not found", resp.data)
 
     def test_unbind_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp/hostname/someapp.cloud.tsuru.io",
                                    method="DELETE",
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -131,10 +131,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("Instance not found", resp.data)
 
     def test_info_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp", method="GET",
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -164,10 +164,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("Instance not found", resp.data)
 
     def test_status_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp/status", method="GET",
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
@@ -207,11 +207,11 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("Instance not found", resp.data)
 
     def test_scale_instance_unauthorized(self):
-        self.set_auth_env("varnishapi", "varnish123")
+        self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
         resp = self.open_with_auth("/resources/someapp/scale", method="POST",
                                    data={"quantity": "2"},
-                                   user="varnishapi", password="wat")
+                                   user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
