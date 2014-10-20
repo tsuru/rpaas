@@ -53,7 +53,7 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
             pass
-            # self.manager.write_vcl(unit.dns_name, unit.secret, app_host)
+            # TODO: self.manager.write_vcl(unit.dns_name, unit.secret, app_host)
 
     def unbind(self, name, host):
         pass
@@ -71,16 +71,14 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        if quantity <= 0:
+            raise ScaleError("Can't have 0 instances")
         diff = quantity - len(lb.hosts)
-        is_add = True
-        if diff < 0:
-            is_add = False
-            diff = abs(diff)
-            if diff >= len(lb.hosts):
-                raise Exception("At least 1 instance must remain")
-        for i in xrange(diff):
-            if is_add:
-                host = Host.create(self.host_manager_name, name)
+        if diff == 0:
+            return
+        for i in xrange(abs(diff)):
+            if diff > 0:
+                host = Host.create(self.host_manager_name, name, self.config)
                 lb.add_host(host)
                 self.hc.add_url(name, host.dns_name)
             else:
@@ -88,3 +86,7 @@ class Manager(object):
                 host.destroy()
                 lb.remove_host(host)
                 self.hc.remove_url(name, host.dns_name)
+
+
+class ScaleError(Exception):
+    pass
