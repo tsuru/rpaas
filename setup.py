@@ -27,7 +27,7 @@ setup(
         "Flask==0.9",
         "requests==2.4.3",
         "gunicorn==0.17.2",
-        # "tsuru-hm",
+        "tsuru-hm",
     ],
     extras_require={
         'tests': [
