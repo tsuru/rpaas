@@ -3,13 +3,16 @@ import unittest
 import mock
 
 from rpaas.manager import Manager, ScaleError
+from rpaas import tasks
+
+tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
 
 class ManagerTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.lb_patcher = mock.patch('rpaas.manager.LoadBalancer')
-        self.host_patcher = mock.patch('rpaas.manager.Host')
+        self.lb_patcher = mock.patch('rpaas.tasks.LoadBalancer')
+        self.host_patcher = mock.patch('rpaas.tasks.Host')
         self.LoadBalancer = self.lb_patcher.start()
         self.Host = self.host_patcher.start()
         self.config = {
@@ -39,11 +42,12 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
 
-    def test_info(self):
-        lb = self.LoadBalancer.find.return_value
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_info(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
         lb.address = '192.168.1.1'
         info = self.m.info('x')
-        self.LoadBalancer.find.assert_called_with('x')
+        LoadBalancer.find.assert_called_with('x')
         self.assertItemsEqual(info, [{"label": "Address", "value": "192.168.1.1"}])
 
     def test_scale_instance_up(self):

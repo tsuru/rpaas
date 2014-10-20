@@ -28,6 +28,7 @@ setup(
         "requests==2.4.3",
         "gunicorn==0.17.2",
         "tsuru-hm==0.1.1",
+        "celery[redis]"
     ],
     extras_require={
         'tests': [
