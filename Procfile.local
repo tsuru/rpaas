@@ -1,0 +1,3 @@
+web: gunicorn rpaas.api:api -b 0.0.0.0:$PORT
+celery: celery -A rpaas.tasks worker
+flower: celery flower -A rpaas.tasks
