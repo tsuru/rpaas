@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NGINX_CONF=$(cat <<EOF
-user  www-data;
+user www-data;
 worker_processes  1;
 
 events {
@@ -33,13 +33,21 @@ http {
         }
     }
 
+    upstream tsuru_backend {
+        192.168.50.4:80;
+    }
+
     include sites-enabled/*;
 }
 EOF
 )
 
-sudo apt-get install nginx-extras
+DEBIAN_FRONTEND=noninteractive
+
+sudo apt-get update -qq
+sudo apt-get install nginx-extras -qqy
 sudo mkdir -p /etc/nginx/sites-enabled
-sudo chown nodoby:nobody /etc/nginx/sites-enabled
-echo "nobody ALL=(ALL) NOPASSWD: /usr/sbin/service nginx reload" | sudo tee -a /etc/sudoers
-# sudo /etc/nginx/
+sudo chown www-data:www-data /etc/nginx/sites-enabled
+echo "www-data ALL=(ALL) NOPASSWD: /usr/sbin/service nginx reload" | sudo tee -a /etc/sudoers > /dev/null
+echo "$NGINX_CONF" | sudo tee /etc/nginx/nginx.conf > /dev/null
+sudo /usr/sbin/service nginx restart
