@@ -50,3 +50,4 @@ Alright, let's configure the application, it'll need to talk with EC2 API, and
 it does so by using environment variables. Here's what you need:
 
 **TODO**
+
