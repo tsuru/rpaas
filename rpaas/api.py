@@ -67,8 +67,6 @@ def unbind(name):
 def info(name):
     try:
         info = get_manager().info(name)
-        if "secret" in info:
-            del info["secret"]
         return Response(response=json.dumps(info), status=200,
                         mimetype="application/json")
     except storage.InstanceNotFoundError:
@@ -78,12 +76,15 @@ def info(name):
 @api.route("/resources/<name>/status", methods=["GET"])
 @auth.required
 def status(name):
-    states = {"started": 204, "pending": 202, "scaling": 204}
     try:
         status = get_manager().status(name)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    return status, states.get(status, 500)
+    if status == manager.FAILURE:
+        return status, 500
+    if status == manager.PENDING:
+        return status, 202
+    return status, 204
 
 
 @api.route("/resources/<name>/scale", methods=["POST"])

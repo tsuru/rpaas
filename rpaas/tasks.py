@@ -14,6 +14,7 @@ redis_broker = os.environ.get('REDIS_BROKER', 'redis://localhost:6379/8')
 app = Celery('tasks', broker=redis_broker, backend=redis_broker)
 app.conf.update(
     CELERY_TASK_SERIALIZER='json',
+    CELERY_RESULT_SERIALIZER='json',
     CELERY_ACCEPT_CONTENT=['json'],
 )
 

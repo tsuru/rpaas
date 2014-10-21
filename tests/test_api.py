@@ -143,7 +143,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("you do not have access to this resource", resp.data)
 
     def test_status_started(self):
-        self.manager.new_instance("someapp", state="started")
+        self.manager.new_instance("someapp", state="anything.anything")
         resp = self.api.get("/resources/someapp/status")
         self.assertEqual(204, resp.status_code)
 
@@ -153,14 +153,9 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(202, resp.status_code)
 
     def test_status_error(self):
-        self.manager.new_instance("someapp", state="error")
+        self.manager.new_instance("someapp", state="failure")
         resp = self.api.get("/resources/someapp/status")
         self.assertEqual(500, resp.status_code)
-
-    def test_status_scaling(self):
-        self.manager.new_instance("someapp", state="scaling")
-        resp = self.api.get("/resources/someapp/status")
-        self.assertEqual(204, resp.status_code)
 
     def test_status_not_found(self):
         resp = self.api.get("/resources/someapp/status")

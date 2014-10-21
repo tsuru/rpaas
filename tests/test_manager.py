@@ -13,8 +13,10 @@ class ManagerTestCase(unittest.TestCase):
     def setUp(self):
         self.lb_patcher = mock.patch('rpaas.tasks.LoadBalancer')
         self.host_patcher = mock.patch('rpaas.tasks.Host')
+        self.storage_patcher = mock.patch('rpaas.manager.storage')
         self.LoadBalancer = self.lb_patcher.start()
         self.Host = self.host_patcher.start()
+        self.storage = self.storage_patcher.start()
         self.config = {
             'HOST_MANAGER': 'my-host-manager',
             'LB_MANAGER': 'my-lb-manager'
@@ -24,6 +26,7 @@ class ManagerTestCase(unittest.TestCase):
     def tearDown(self):
         self.lb_patcher.stop()
         self.host_patcher.stop()
+        self.storage_patcher.stop()
 
     def test_new_instance(self):
         self.m.new_instance('x')
@@ -32,6 +35,7 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', self.config)
         lb.add_host.assert_called_with(host)
+        self.storage.MongoDBStorage.return_value.store_task.assert_called()
 
     def test_remove_instance(self):
         lb = self.LoadBalancer.find.return_value
@@ -41,14 +45,57 @@ class ManagerTestCase(unittest.TestCase):
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
+        self.storage.MongoDBStorage.return_value.remove_task.assert_called()
 
+    @mock.patch('rpaas.manager.storage')
     @mock.patch('rpaas.manager.LoadBalancer')
-    def test_info(self, LoadBalancer):
+    def test_info(self, LoadBalancer, storage):
         lb = LoadBalancer.find.return_value
         lb.address = '192.168.1.1'
-        info = self.m.info('x')
+        manager = Manager(self.config)
+        info = manager.info('x')
+        storage.MongoDBStorage.return_value.remove_task.assert_called_with('x')
         LoadBalancer.find.assert_called_with('x')
         self.assertItemsEqual(info, [{"label": "Address", "value": "192.168.1.1"}])
+        self.assertEqual(self.m.status('x'), '192.168.1.1')
+
+    @mock.patch('rpaas.manager.tasks')
+    @mock.patch('rpaas.manager.storage')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_info_status_pending(self, LoadBalancer, storage, tasks):
+        LoadBalancer.find.return_value = None
+        find_task = storage.MongoDBStorage.return_value.find_task
+        find_task.return_value = {
+            'task_id': 'something-id'
+        }
+        async_init = tasks.NewInstanceTask.return_value.AsyncResult
+        async_init.return_value.status = 'PENDING'
+        manager = Manager(self.config)
+        info = manager.info('x')
+        self.assertItemsEqual(info, [{"label": "Address", "value": "pending"}])
+        LoadBalancer.find.assert_called_with('x')
+        find_task.assert_called_with('x')
+        async_init.assert_called_with('something-id')
+        self.assertEqual(manager.status('x'), 'pending')
+
+    @mock.patch('rpaas.manager.tasks')
+    @mock.patch('rpaas.manager.storage')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_info_status_failure(self, LoadBalancer, storage, tasks):
+        LoadBalancer.find.return_value = None
+        find_task = storage.MongoDBStorage.return_value.find_task
+        find_task.return_value = {
+            'task_id': 'something-id'
+        }
+        async_init = tasks.NewInstanceTask.return_value.AsyncResult
+        async_init.return_value.status = 'FAILURE'
+        manager = Manager(self.config)
+        info = manager.info('x')
+        self.assertItemsEqual(info, [{"label": "Address", "value": "failure"}])
+        LoadBalancer.find.assert_called_with('x')
+        find_task.assert_called_with('x')
+        async_init.assert_called_with('something-id')
+        self.assertEqual(manager.status('x'), 'failure')
 
     def test_scale_instance_up(self):
         lb = self.LoadBalancer.find.return_value

@@ -11,31 +11,48 @@ from hm.model.load_balancer import LoadBalancer
 from rpaas import storage, tasks
 
 
+PENDING = 'pending'
+FAILURE = 'failure'
+
+
 class Manager(object):
     def __init__(self, config=None):
         self.config = config
+        self.storage = storage.MongoDBStorage()
 
     def new_instance(self, name):
-        tasks.NewInstanceTask().delay(self.config, name)
+        task = tasks.NewInstanceTask().delay(self.config, name)
+        self.storage.store_task(name, task.task_id)
 
     def remove_instance(self, name):
+        self.storage.remove_task(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def bind(self, name, app_host):
         tasks.BindInstanceTask().delay(self.config, name, app_host)
 
-    def unbind(self, name, host):
-        # TODO
+    def unbind(self, name, app_host):
         pass
 
     def info(self, name):
-        lb = LoadBalancer.find(name)
-        if lb is None:
-            raise storage.InstanceNotFoundError()
-        return [{"label": "Address", "value": lb.address or "<pending>"}]
+        addr = self._get_address(name)
+        return [{"label": "Address", "value": addr}]
 
     def status(self, name):
-        return "TODO"
+        return self._get_address(name)
+
+    def _get_address(self, name):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            task = self.storage.find_task(name)
+            if task:
+                result = tasks.NewInstanceTask().AsyncResult(task['task_id'])
+                if result.status in ['FAILURE', 'REVOKED']:
+                    return FAILURE
+                return PENDING
+            raise storage.InstanceNotFoundError()
+        self.storage.remove_task(name)
+        return lb.address
 
     def scale_instance(self, name, quantity):
         if quantity <= 0:

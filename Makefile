@@ -2,19 +2,25 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-.PHONY: test test_deps
+.PHONY: test deps
 
-run:
+run: deps
 	python run.py
 
-test: test_deps
+worker: deps
+	celery -A rpaas.tasks worker
+
+flower: deps
+	celery flower -A rpaas.tasks
+
+test: deps
 	@python -m unittest discover
 	@flake8 --max-line-length=110 .
 
-test_deps:
+deps:
 	pip install -e .[tests]
 
-coverage: test_deps
+coverage: deps
 	rm -f .coverage
 	coverage run --source=. -m unittest discover
 	coverage report -m --omit=test\*,run\*.py

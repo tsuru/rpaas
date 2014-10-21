@@ -4,4 +4,4 @@
 
 from rpaas import api
 
-api.api.run(debug=True)
+api.api.run(debug=True, host='0.0.0.0', port=8888)
