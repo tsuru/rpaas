@@ -14,7 +14,8 @@ class NginxDAVTestCase(unittest.TestCase):
         nginx = NginxDAV()
         self.assertEqual(nginx.nginx_reload_path, '/reload')
         self.assertEqual(nginx.nginx_dav_put_path, '/dav')
-        self.assertEqual(nginx.nginx_manage_port, '8080')
+        self.assertEqual(nginx.nginx_manage_port, '8089')
+        self.assertEqual(nginx.nginx_app_port, '8080')
         self.assertEqual(nginx.nginx_tsuru_upstream, 'tsuru_backend')
 
     def test_init_config(self):
@@ -22,12 +23,14 @@ class NginxDAVTestCase(unittest.TestCase):
             'NGINX_RELOAD_PATH': '/1',
             'NGINX_DAV_PUT_PATH': '/2',
             'NGINX_TSURU_UPSTREAM': '3',
-            'NGINX_PORT': '4',
+            'NGINX_MANAGE_PORT': '4',
+            'NGINX_APP_PORT': '5',
         })
         self.assertEqual(nginx.nginx_reload_path, '/1')
         self.assertEqual(nginx.nginx_dav_put_path, '/2')
         self.assertEqual(nginx.nginx_tsuru_upstream, '3')
         self.assertEqual(nginx.nginx_manage_port, '4')
+        self.assertEqual(nginx.nginx_app_port, '5')
 
     @mock.patch('rpaas.nginx.requests')
     def test_update_binding(self, requests):
@@ -39,13 +42,17 @@ class NginxDAVTestCase(unittest.TestCase):
         nginx = NginxDAV()
 
         nginx.update_binding('myhost', 'mydestination')
-        requests.request.assert_called_once_with('PUT', 'http://myhost:8080/dav/base_location.conf', data="""
-location / {
-    add_header Host mydestination;
-    proxy_pass http://tsuru_backend;
+        requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/base_location.conf', data="""
+server {
+    listen 8080;
+    server_name  _tsuru_nginx_app;
+    location / {
+        add_header Host mydestination;
+        proxy_pass http://tsuru_backend;
+    }
 }
 """)
-        requests.get.assert_called_once_with('http://myhost:8080/reload')
+        requests.get.assert_called_once_with('http://myhost:8089/reload')
 
     @mock.patch('rpaas.nginx.requests')
     def test_update_binding_error_put(self, requests):
@@ -70,9 +77,13 @@ location / {
         with self.assertRaises(NginxError) as context:
             nginx.update_binding('myhost', 'mydestination')
         self.assertEqual(str(context.exception), "Error trying to reload config in nginx: my error")
-        requests.request.assert_called_once_with('PUT', 'http://myhost:8080/dav/base_location.conf', data="""
-location / {
-    add_header Host mydestination;
-    proxy_pass http://tsuru_backend;
+        requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/base_location.conf', data="""
+server {
+    listen 8080;
+    server_name  _tsuru_nginx_app;
+    location / {
+        add_header Host mydestination;
+        proxy_pass http://tsuru_backend;
+    }
 }
 """)

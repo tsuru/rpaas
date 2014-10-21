@@ -35,7 +35,7 @@ def remove_instance(name):
     return "", 200
 
 
-@api.route("/resources/<name>", methods=["POST"])
+@api.route("/resources/<name>/bind", methods=["POST"])
 @auth.required
 def bind(name):
     app_host = request.form.get("app-host")
@@ -49,11 +49,14 @@ def bind(name):
                     mimetype="application/json")
 
 
-@api.route("/resources/<name>/hostname/<host>", methods=["DELETE"])
+@api.route("/resources/<name>/bind", methods=["DELETE"])
 @auth.required
-def unbind(name, host):
+def unbind(name):
+    app_host = request.form.get("app-host")
+    if not app_host:
+        return "app-host is required", 400
     try:
-        get_manager().unbind(name, host)
+        get_manager().unbind(name, app_host)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     return "", 200

@@ -17,7 +17,7 @@ http {
     keepalive_timeout   65;
 
     server {
-        listen     80;
+        listen     8089;
         server_name  _tsuru_nginx_admin;
 
         location /reload {
@@ -34,10 +34,10 @@ http {
     }
 
     upstream tsuru_backend {
-        192.168.50.4:80;
+        server 192.168.50.4:80;
     }
 
-    include sites-enabled/*;
+    include sites-enabled/dav/*;
 }
 EOF
 )
@@ -48,6 +48,7 @@ sudo apt-get update -qq
 sudo apt-get install nginx-extras -qqy
 sudo mkdir -p /etc/nginx/sites-enabled
 sudo chown www-data:www-data /etc/nginx/sites-enabled
+sudo rm -f /etc/nginx/sites-enabled/default || true
 echo "www-data ALL=(ALL) NOPASSWD: /usr/sbin/service nginx reload" | sudo tee -a /etc/sudoers > /dev/null
 echo "$NGINX_CONF" | sudo tee /etc/nginx/nginx.conf > /dev/null
 sudo /usr/sbin/service nginx restart

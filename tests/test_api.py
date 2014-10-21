@@ -66,7 +66,7 @@ class APITestCase(unittest.TestCase):
 
     def test_bind(self):
         self.manager.new_instance("someapp")
-        resp = self.api.post("/resources/someapp",
+        resp = self.api.post("/resources/someapp/bind",
                              data={"app-host": "someapp.cloud.tsuru.io"})
         self.assertEqual(201, resp.status_code)
         self.assertEqual("null", resp.data)
@@ -75,13 +75,13 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("someapp.cloud.tsuru.io", bind)
 
     def test_bind_without_app_host(self):
-        resp = self.api.post("/resources/someapp",
+        resp = self.api.post("/resources/someapp/bind",
                              data={"app_hooost": "someapp.cloud.tsuru.io"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("app-host is required", resp.data)
 
     def test_bind_instance_not_found(self):
-        resp = self.api.post("/resources/someapp",
+        resp = self.api.post("/resources/someapp/bind",
                              data={"app-host": "someapp.cloud.tsuru.io"})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Instance not found", resp.data)
@@ -89,7 +89,7 @@ class APITestCase(unittest.TestCase):
     def test_bind_unauthorized(self):
         self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
-        resp = self.open_with_auth("/resources/someapp", method="POST",
+        resp = self.open_with_auth("/resources/someapp/bind", method="POST",
                                    data={"app-host": "someapp.cloud.tsuru.io"},
                                    user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
@@ -98,20 +98,24 @@ class APITestCase(unittest.TestCase):
     def test_unbind(self):
         self.manager.new_instance("someapp")
         self.manager.bind("someapp", "someapp.cloud.tsuru.io")
-        resp = self.api.delete("/resources/someapp/hostname/someapp.cloud.tsuru.io")
+        resp = self.api.delete("/resources/someapp/bind", data={"app-host": "someapp.cloud.tsuru.io"},
+                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual([], self.manager.instances[0].bound)
 
     def test_unbind_instance_not_found(self):
-        resp = self.api.delete("/resources/someapp/hostname/someapp.cloud.tsuru.io")
+        resp = self.api.delete("/resources/someapp/bind", data={"app-host": "someapp.cloud.tsuru.io"},
+                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Instance not found", resp.data)
 
     def test_unbind_unauthorized(self):
         self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
-        resp = self.open_with_auth("/resources/someapp/hostname/someapp.cloud.tsuru.io",
+        resp = self.open_with_auth("/resources/someapp/bind",
+                                   data={"app-host": "someapp.cloud.tsuru.io"},
+                                   headers={'Content-Type': 'application/x-www-form-urlencoded'},
                                    method="DELETE",
                                    user="rpaas", password="wat")
         self.assertEqual(401, resp.status_code)
