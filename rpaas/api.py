@@ -119,7 +119,7 @@ def get_plugin():
 
 
 def get_manager():
-    return manager.Manager(os.environ)
+    return manager.Manager(dict(os.environ))
 
 
 def main():
