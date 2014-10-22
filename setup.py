@@ -28,7 +28,8 @@ setup(
         "requests==2.4.3",
         "gunicorn==0.17.2",
         "tsuru-hm==0.1.2",
-        "celery[redis]"
+        "celery[redis]",
+        "flower==0.7.3",
     ],
     extras_require={
         'tests': [
