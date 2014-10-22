@@ -1,1 +1,1 @@
-web: gunicorn rpaas.api:api -b 0.0.0.0:$PORT
+app: sh runner.sh
