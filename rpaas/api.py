@@ -5,6 +5,7 @@
 import inspect
 import json
 import os
+import logging
 
 from flask import Flask, Response, request
 
@@ -13,6 +14,13 @@ from rpaas import auth, plugin, manager, storage
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
+if api.debug:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.WARN)
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.WARN)
+    api.logger.addHandler(handler)
 
 
 @api.route("/resources", methods=["POST"])
