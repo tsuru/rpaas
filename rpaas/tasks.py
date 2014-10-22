@@ -63,7 +63,7 @@ class RemoveInstanceTask(BaseManagerTask):
 
     def run(self, config, name):
         self.init_config(config)
-        lb = LoadBalancer.find(name)
+        lb = LoadBalancer.find(name, self.config)
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
@@ -76,7 +76,7 @@ class BindInstanceTask(BaseManagerTask):
 
     def run(self, config, name, app_host):
         self.init_config(config)
-        lb = LoadBalancer.find(name)
+        lb = LoadBalancer.find(name, self.config)
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
@@ -87,7 +87,7 @@ class ScaleInstanceTask(BaseManagerTask):
 
     def run(self, config, name, quantity):
         self.init_config(config)
-        lb = LoadBalancer.find(name)
+        lb = LoadBalancer.find(name, self.config)
         if lb is None:
             raise storage.InstanceNotFoundError()
         diff = quantity - len(lb.hosts)

@@ -41,7 +41,7 @@ class ManagerTestCase(unittest.TestCase):
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         self.m.remove_instance('x')
-        self.LoadBalancer.find.assert_called_with('x')
+        self.LoadBalancer.find.assert_called_with('x', self.config)
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
