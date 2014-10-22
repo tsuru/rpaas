@@ -5,7 +5,7 @@
 .PHONY: test deps
 
 run: deps
-	python run.py
+	python ./rpaas/api.py
 
 worker: deps
 	celery -A rpaas.tasks worker

@@ -111,4 +111,12 @@ def get_plugin():
 
 
 def get_manager():
-    return manager.Manager()
+    return manager.Manager(os.environ)
+
+
+def main():
+    api.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8888)))
+
+
+if __name__ == '__main__':
+    main()
