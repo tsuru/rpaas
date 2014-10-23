@@ -30,6 +30,7 @@ setup(
         "tsuru-hm==0.1.5",
         "celery[redis]",
         "flower==0.7.3",
+        "GloboNetworkAPI==0.2.2",
     ],
     extras_require={
         'tests': [
