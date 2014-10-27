@@ -118,3 +118,15 @@ class ManagerTestCase(unittest.TestCase):
         lb.hosts = [mock.Mock(), mock.Mock()]
         with self.assertRaises(ScaleError):
             self.m.scale_instance('x', 0)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_bind_instance(self, nginx):
+        lb = self.LoadBalancer.find.return_value
+        nginx_manager = nginx.NginxDAV.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = 'h1'
+        lb.hosts[1].dns_name = 'h2'
+        self.m.bind('x', 'apphost.com')
+        self.LoadBalancer.find.assert_called_with('x', self.config)
+        nginx_manager.update_binding.assert_any_call('h1', '/', 'apphost.com')
+        nginx_manager.update_binding.assert_any_call('h2', '/', 'apphost.com')

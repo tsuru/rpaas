@@ -37,7 +37,12 @@ http {
         server 192.168.50.4:80;
     }
 
-    include sites-enabled/dav/*;
+    server {
+        listen 8080;
+        server_name  _tsuru_nginx_app;
+
+        include sites-enabled/dav/*;
+    }
 }
 EOF
 )

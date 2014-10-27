@@ -82,7 +82,7 @@ class BindInstanceTask(BaseManagerTask):
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
-            self.nginx_manager.update_binding(host.dns_name, app_host)
+            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
 
 
 class ScaleInstanceTask(BaseManagerTask):
