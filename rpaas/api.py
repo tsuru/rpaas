@@ -8,19 +8,21 @@ import os
 import logging
 
 from flask import Flask, Response, request
+import hm.log
 
 from rpaas import auth, plugin, manager, storage
 
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
+handler = logging.StreamHandler()
 if api.debug:
     logging.basicConfig(level=logging.DEBUG)
+    handler.setLevel(logging.DEBUG)
 else:
-    logging.basicConfig(level=logging.WARN)
-    handler = logging.StreamHandler()
     handler.setLevel(logging.WARN)
-    api.logger.addHandler(handler)
+api.logger.addHandler(handler)
+hm.log.set_handler(handler)
 
 
 @api.route("/resources", methods=["POST"])
