@@ -32,7 +32,7 @@ class NginxDAV(object):
             return rsp.text
         return """
 location {path} {{
-    add_header Host {host};
+    proxy_set_header Host {host};
     proxy_pass http://{upstream};
 }}
 """

@@ -18,7 +18,7 @@ class NginxDAVTestCase(unittest.TestCase):
         self.assertEqual(nginx.nginx_tsuru_upstream, 'tsuru_backend')
         self.assertEqual(nginx.nginx_location_template, """
 location {path} {{
-    add_header Host {host};
+    proxy_set_header Host {host};
     proxy_pass http://{upstream};
 }}
 """)
@@ -60,7 +60,7 @@ location {path} {{
         nginx.update_binding('myhost', '/', 'mydestination')
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
-    add_header Host mydestination;
+    proxy_set_header Host mydestination;
     proxy_pass http://tsuru_backend;
 }
 """)
@@ -78,7 +78,7 @@ location / {
         nginx.update_binding('myhost', '/app/route', 'mydestination')
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:app:route.conf', data="""
 location /app/route {
-    add_header Host mydestination;
+    proxy_set_header Host mydestination;
     proxy_pass http://tsuru_backend;
 }
 """)
@@ -109,7 +109,7 @@ location /app/route {
         self.assertEqual(str(context.exception), "Error trying to reload config in nginx: my error")
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
-    add_header Host mydestination;
+    proxy_set_header Host mydestination;
     proxy_pass http://tsuru_backend;
 }
 """)
