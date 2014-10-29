@@ -130,3 +130,16 @@ class ManagerTestCase(unittest.TestCase):
         self.LoadBalancer.find.assert_called_with('x', self.config)
         nginx_manager.update_binding.assert_any_call('h1', '/', 'apphost.com')
         nginx_manager.update_binding.assert_any_call('h2', '/', 'apphost.com')
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_update_certificate(self, LoadBalancer, nginx):
+        lb = LoadBalancer.find.return_value
+        nginx_manager = nginx.NginxDAV.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.update_certificate('inst', 'cert', 'key')
+
+        nginx_manager.update_certificate.assert_any_call(lb.hosts[0].dns_name, 'cert', 'key')
+        nginx_manager.update_certificate.assert_any_call(lb.hosts[1].dns_name, 'cert', 'key')

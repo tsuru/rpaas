@@ -7,6 +7,7 @@ import inspect
 import json
 import os
 import unittest
+from io import BytesIO
 
 from rpaas import api, plugin
 from . import managers
@@ -225,6 +226,28 @@ class APITestCase(unittest.TestCase):
         resp = self.api.get("/plugin")
         self.assertEqual(200, resp.status_code)
         self.assertEqual(expected, resp.data)
+
+    def test_update_certificate_as_file(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/certificate", data={
+            'cert': (BytesIO('cert content'), ''),
+            'key': (BytesIO('key content'), ''),
+        })
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertEqual('cert content', instance.cert)
+        self.assertEqual('key content', instance.key)
+
+    def test_update_certificate_as_form(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/certificate", data={
+            'cert': BytesIO('cert content'),
+            'key': BytesIO('key content'),
+        })
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertEqual('cert content', instance.cert)
+        self.assertEqual('key content', instance.key)
 
     def open_with_auth(self, url, method, user, password, data=None, headers=None):
         encoded = base64.b64encode(user + ":" + password)

@@ -115,6 +115,22 @@ def scale_instance(name):
     return "", 201
 
 
+@api.route("/resources/<name>/certificate", methods=["POST"])
+@auth.required
+def update_certificate(name):
+    cert = request.form.get('cert')
+    if cert is None:
+        cert = request.files['cert'].read()
+    key = request.form.get('key')
+    if key is None:
+        key = request.files['key'].read()
+    try:
+        get_manager().update_certificate(name, cert, key)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    return "", 200
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

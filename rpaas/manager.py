@@ -8,7 +8,7 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import storage, tasks
+from rpaas import storage, tasks, nginx
 
 
 PENDING = 'pending'
@@ -19,6 +19,7 @@ class Manager(object):
     def __init__(self, config=None):
         self.config = config
         self.storage = storage.MongoDBStorage()
+        self.nginx_manager = nginx.NginxDAV(config)
 
     def new_instance(self, name):
         task = tasks.NewInstanceTask().delay(self.config, name)
@@ -40,6 +41,13 @@ class Manager(object):
 
     def status(self, name):
         return self._get_address(name)
+
+    def update_certificate(self, name, cert, key):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        for host in lb.hosts:
+            self.nginx_manager.update_certificate(host.dns_name, cert, key)
 
     def _get_address(self, name):
         lb = LoadBalancer.find(name)

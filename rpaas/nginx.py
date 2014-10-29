@@ -15,7 +15,6 @@ class NginxDAV(object):
     def __init__(self, conf=None):
         self.nginx_reload_path = config.get_config('NGINX_RELOAD_PATH', '/reload', conf)
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
-        self.nginx_tsuru_upstream = config.get_config('NGINX_TSURU_UPSTREAM', 'tsuru_backend', conf)
         self.nginx_dav_put_path = config.get_config('NGINX_DAV_PUT_PATH', '/dav', conf)
         self.nginx_location_template = self.load_location_template(conf)
 
@@ -33,7 +32,7 @@ class NginxDAV(object):
         return """
 location {path} {{
     proxy_set_header Host {host};
-    proxy_pass http://{upstream};
+    proxy_pass http://{host}:80;
 }}
 """
 
@@ -42,11 +41,15 @@ location {path} {{
         self._put(host, 'location_{}.conf'.format(path.replace('/', ':')), content)
         self._reload(host)
 
+    def update_certificate(self, host, cert_data, key_data):
+        self._put(host, 'ssl/nginx.crt', cert_data)
+        self._put(host, 'ssl/nginx.key', key_data)
+        self._reload(host)
+
     def _generate_host_config(self, path, destination):
         return self.nginx_location_template.format(
             path=path,
             host=destination,
-            upstream=self.nginx_tsuru_upstream,
         )
 
     def _put(self, host, name, content):

@@ -68,6 +68,13 @@ class FakeManager(object):
         instance.units += difference
         self.instances[index] = instance
 
+    def update_certificate(self, name, cert, key):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        instance.cert = cert
+        instance.key = key
+
     def find_instance(self, name):
         for i, instance in enumerate(self.instances):
             if instance.name == name:
