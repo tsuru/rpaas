@@ -57,10 +57,10 @@ location {path} {{
         url = "http://{}:{}{}".format(host, self.nginx_manage_port, path)
         rsp = requests.request('PUT', url, data=content)
         if rsp.status_code > 299:
-            raise NginxError("Error trying to update config in nginx: {}".format(rsp.text))
+            raise NginxError("Error trying to update file in nginx: {}\n{}".format(url, rsp.text))
 
     def _reload(self, host):
         url = "http://{}:{}/{}".format(host, self.nginx_manage_port, self.nginx_reload_path.lstrip('/'))
         rsp = requests.get(url)
         if rsp.status_code > 299:
-            raise NginxError("Error trying to reload config in nginx: {}".format(rsp.text))
+            raise NginxError("Error trying to reload config in nginx: {}\n{}".format(url, rsp.text))
