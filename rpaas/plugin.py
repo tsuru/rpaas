@@ -122,14 +122,15 @@ def proxy_request(instance_name, path, body=None, headers=None):
     return urllib2.urlopen(request)
 
 
-commands = {
-    "scale": scale,
-    "certificate": certificate,
-}
+def available_commands():
+    return {
+        "scale": scale,
+        "certificate": certificate,
+    }
 
 
 def get_command(name):
-    command = commands.get(name)
+    command = available_commands().get(name)
     if not command:
         raise CommandNotFoundError(name)
     return command
@@ -137,15 +138,17 @@ def get_command(name):
 
 def help_commands():
     sys.stderr.write('Available commands:\n')
-    for key in commands.keys():
+    for key in available_commands().keys():
         sys.stderr.write(' {}\n'.format(key))
 
 
-def main():
-    if len(sys.argv) < 2:
+def main(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    if len(args) == 0:
         help_commands()
         return
-    cmd, args = sys.argv[1], sys.argv[2:]
+    cmd, args = args[0], args[1:]
     try:
         command = get_command(cmd)
         command(args)

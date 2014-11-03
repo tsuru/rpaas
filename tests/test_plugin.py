@@ -167,15 +167,15 @@ class TsuruPluginTestCase(unittest.TestCase):
             plugin.scale = original_scale
         self.addCleanup(clean)
         plugin.scale = mock.Mock()
-        args = ["hello", "world"]
-        plugin.main("scale", args)
-        plugin.scale.assert_called_with(args)
+        base_args = ["hello", "world"]
+        plugin.main(["scale"] + base_args)
+        plugin.scale.assert_called_with(base_args)
 
     @mock.patch("sys.stderr")
     def test_main_command_not_found(self, stderr):
         args = ["hello", "world"]
         with self.assertRaises(SystemExit) as cm:
-            plugin.main("wat", args)
+            plugin.main(["wat"] + args)
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with(u'command "wat" not found\n')
