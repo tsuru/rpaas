@@ -4,6 +4,7 @@
 
 import os
 import unittest
+import re
 
 import mock
 
@@ -128,7 +129,7 @@ class TsuruPluginTestCase(unittest.TestCase):
             plugin.scale(["-n", "1"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        expected_msg = "usage: scale [-h] [-i INSTANCE] [-n QUANTITY]\n"
+        expected_msg = "scale: error: argument -i/--instance is required\n"
         stderr.write.assert_called_with(expected_msg)
 
     @mock.patch("sys.stderr")
@@ -137,7 +138,7 @@ class TsuruPluginTestCase(unittest.TestCase):
             plugin.scale(["-i", "abc"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        expected_msg = "usage: scale [-h] [-i INSTANCE] [-n QUANTITY]\n"
+        expected_msg = "scale: error: argument -n/--quantity is required\n"
         stderr.write.assert_called_with(expected_msg)
 
     @mock.patch("sys.stderr")
@@ -178,3 +179,27 @@ class TsuruPluginTestCase(unittest.TestCase):
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with(u'command "wat" not found\n')
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_certificate(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        with mock.patch("io.open", mock.mock_open()) as open:
+            open.return_value.read.return_value = 'my content'
+            plugin.certificate(['-i', 'inst1', '-c', 'cert.crt', '-k', 'key.key'])
+            open.assert_any_call('cert.crt', 'rb')
+            open.assert_any_call('key.key', 'rb')
+        Request.assert_called_with(self.target +
+                                   "services/proxy/inst1?" +
+                                   "callback=/resources/inst1/certificate")
+        request.add_header.assert_has_call("Authorization", "bearer " + self.token)
+        data = request.add_data.call_args[0][0]
+
+        has_content = re.search(r'cert\.crt.*my content.*key\.key.*my content', data, re.DOTALL)
+        self.assertTrue(has_content)
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("Certificate successfully updated\n")
