@@ -30,6 +30,7 @@ class NginxDAV(object):
 
     def delete_binding(self, host, path):
         self._delete(host, self._location_file_name(path))
+        self._reload(host)
 
     def _location_file_name(self, path):
         return 'location_{}.conf'.format(path.replace('/', ':'))
