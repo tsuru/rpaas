@@ -108,6 +108,7 @@ class ManagerTestCase(unittest.TestCase):
     def test_scale_instance_up_apply_binding_new_instances(self, nginx):
         self.storage.store_binding('x', 'myhost.com')
         self.storage.update_binding_certificate('x', 'my cert', 'my key')
+        self.storage.add_binding_redirect('x', '/trantor', 'olivaw.com')
         lb = self.LoadBalancer.find.return_value
         lb.name = 'x'
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -121,6 +122,7 @@ class ManagerTestCase(unittest.TestCase):
         created_host = self.Host.create.return_value
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.update_binding.assert_any_call(created_host.dns_name, '/', 'myhost.com')
+        nginx_manager.update_binding.assert_any_call(created_host.dns_name, '/trantor', 'olivaw.com')
         nginx_manager.update_certificate.assert_any_call(created_host.dns_name, 'my cert', 'my key')
 
     def test_scale_instance_down(self):

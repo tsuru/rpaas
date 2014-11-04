@@ -90,6 +90,11 @@ class ScaleInstanceTask(BaseManagerTask):
             self.nginx_manager.update_binding(host.dns_name, '/', app_host)
         if cert and key:
             self.nginx_manager.update_certificate(host.dns_name, cert, key)
+        redirects = binding_data.get('redirects') or []
+        for redirect in redirects:
+            path, dest = redirect.get('path'), redirect.get('destination')
+            if path and dest:
+                self.nginx_manager.update_binding(host.dns_name, path, dest)
 
     def _delete_host(self, lb, host):
         host.destroy()
