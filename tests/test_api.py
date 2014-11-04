@@ -249,6 +249,26 @@ class APITestCase(unittest.TestCase):
         self.assertEqual('cert content', instance.cert)
         self.assertEqual('key content', instance.key)
 
+    def test_add_redirect(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/redirect", data={
+            'path': '/somewhere',
+            'destination': 'something'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertEqual('something', instance.redirects.get('/somewhere'))
+
+    def test_delete_redirect(self):
+        instance = self.manager.new_instance("someapp")
+        instance.redirects['/somewhere'] = 'true.com'
+        resp = self.api.delete("/resources/someapp/redirect", data={
+            'path': '/somewhere'
+        }, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertIsNone(instance.redirects.get('/somewhere'))
+
     def open_with_auth(self, url, method, user, password, data=None, headers=None):
         encoded = base64.b64encode(user + ":" + password)
         if not headers:

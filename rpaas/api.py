@@ -131,6 +131,35 @@ def update_certificate(name):
     return "", 200
 
 
+@api.route("/resources/<name>/redirect", methods=["POST"])
+@auth.required
+def add_redirect(name):
+    path = request.form.get('path')
+    if not path:
+        return 'missing path', 400
+    destination = request.form.get('destination')
+    if not destination:
+        return 'missing destination', 400
+    try:
+        get_manager().add_redirect(name, path, destination)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    return "", 201
+
+
+@api.route("/resources/<name>/redirect", methods=["DELETE"])
+@auth.required
+def delete_redirect(name):
+    path = request.form.get('path')
+    if not path:
+        return 'missing path', 400
+    try:
+        get_manager().delete_redirect(name, path)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    return "", 200
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

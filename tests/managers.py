@@ -12,6 +12,7 @@ class FakeInstance(object):
         self.state = state
         self.units = 1
         self.bound = []
+        self.redirects = {}
 
     def bind(self, app_host):
         self.bound.append(app_host)
@@ -26,7 +27,9 @@ class FakeManager(object):
         self.instances = []
 
     def new_instance(self, name, state="running"):
-        self.instances.append(FakeInstance(name, state))
+        instance = FakeInstance(name, state)
+        self.instances.append(instance)
+        return instance
 
     def bind(self, name, app_host):
         index, instance = self.find_instance(name)
@@ -80,6 +83,14 @@ class FakeManager(object):
             if instance.name == name:
                 return i, instance
         return -1, None
+
+    def add_redirect(self, name, path, destination):
+        _, instance = self.find_instance(name)
+        instance.redirects[path] = destination
+
+    def delete_redirect(self, name, path):
+        _, instance = self.find_instance(name)
+        del instance.redirects[path]
 
     def reset(self):
         self.instances = []
