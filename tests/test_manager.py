@@ -156,6 +156,26 @@ class ManagerTestCase(unittest.TestCase):
 
     @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')
+    def test_bind_instance_multiple_bind_hosts(self, LoadBalancer, nginx):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        manager.bind('x', 'apphost.com')
+        binding_data = self.storage.find_binding('x')
+        self.assertDictEqual(binding_data, {'_id': 'x', 'app_host': 'apphost.com'})
+        LoadBalancer.find.assert_called_with('x')
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.update_binding.assert_any_call(lb.hosts[0].dns_name, '/', 'apphost.com')
+        nginx_manager.update_binding.assert_any_call(lb.hosts[1].dns_name, '/', 'apphost.com')
+        nginx_manager.reset_mock()
+        manager.bind('x', 'apphost.com')
+        self.assertEqual(len(nginx_manager.mock_calls), 0)
+        with self.assertRaises(rpaas.manager.BindError):
+            manager.bind('x', 'another.host.com')
+        self.assertEqual(len(nginx_manager.mock_calls), 0)
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
     def test_update_certificate(self, LoadBalancer, nginx):
         self.storage.store_binding('inst', 'app.host.com')
         lb = LoadBalancer.find.return_value

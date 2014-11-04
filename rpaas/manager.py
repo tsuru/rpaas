@@ -33,6 +33,13 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        binding_data = self.storage.find_binding(name)
+        if binding_data:
+            binded_host = binding_data.get('app_host')
+            if binded_host == app_host:
+                # Nothing to do, already binded
+                return
+            raise BindError('This service can only be binded to one application.')
         self.storage.store_binding(name, app_host)
         for host in lb.hosts:
             self.nginx_manager.update_binding(host.dns_name, '/', app_host)
@@ -97,6 +104,10 @@ class Manager(object):
         self.storage.delete_binding_redirect(name, path)
         for host in lb.hosts:
             self.nginx_manager.delete_binding(host.dns_name, path)
+
+
+class BindError(Exception):
+    pass
 
 
 class ScaleError(Exception):
