@@ -203,3 +203,62 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertTrue(has_content)
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Certificate successfully updated\n")
+
+    @mock.patch("sys.stderr")
+    def test_redirect_args(self, stderr):
+        parsed = plugin.get_redirect_args(
+            ['add', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
+        self.assertEqual(parsed.action, 'add')
+        self.assertEqual(parsed.path, '/path/out')
+        self.assertEqual(parsed.destination, 'destination.host')
+        parsed = plugin.get_redirect_args(['remove', '-i', 'myinst', '-p', '/path/out'])
+        self.assertEqual(parsed.action, 'remove')
+        self.assertEqual(parsed.path, '/path/out')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_redirect_args(['add', '-i', 'myinst', '-p', '/path/out'])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('destination is required to add action\n')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_redirect_args(['-i', 'myinst', '-p', '/path/out'])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('redirect: error: too few arguments\n')
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_redirect(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.redirect(['add', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/redirect")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("path=/path/out&destination=destination.host")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("Redirect successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_redirect_remove(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.redirect(['remove', '-i', 'myinst', '-p', '/path/out'])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/redirect")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("path=/path/out")
+        self.assertEqual(request.get_method(), 'DELETE')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("Redirect successfully removed\n")

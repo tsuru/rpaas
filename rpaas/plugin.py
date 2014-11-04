@@ -79,6 +79,28 @@ def certificate(args):
         sys.exit(1)
 
 
+def redirect(args):
+    args = get_redirect_args(args)
+    req_path = "/resources/{}/redirect".format(args.instance)
+    body = "path={}".format(args.path)
+    method = "DELETE"
+    message = "removed"
+    if args.action == 'add':
+        body = "{}&destination={}".format(body, args.destination)
+        method = "POST"
+        message = "added"
+    result = proxy_request(args.instance, req_path,
+                           body=body,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if result.getcode() in [200, 201]:
+        sys.stdout.write("Redirect successfully {}\n".format(message))
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
 def get_certificate_args(args):
     parser = argparse.ArgumentParser("certificate")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
@@ -99,6 +121,20 @@ def get_scale_args(args):
     return parsed_args.instance, parsed_args.quantity
 
 
+def get_redirect_args(args):
+    parser = argparse.ArgumentParser("redirect")
+    parser.add_argument("action", choices=["add", "remove"],
+                        help="Action, add or remove url")
+    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-p", "--path", required=True, help="Path to redirect")
+    parser.add_argument("-d", "--destination", required=False, help="Destination host")
+    parsed = parser.parse_args(args)
+    if parsed.action == 'add' and not parsed.destination:
+        sys.stderr.write("destination is required to add action\n")
+        sys.exit(2)
+    return parsed
+
+
 def get_env(name):
     env = os.environ.get(name)
     if not env:
@@ -107,13 +143,14 @@ def get_env(name):
     return env
 
 
-def proxy_request(instance_name, path, body=None, headers=None):
+def proxy_request(instance_name, path, body=None, headers=None, method='POST'):
     target = get_env("TSURU_TARGET").rstrip("/")
     token = get_env("TSURU_TOKEN")
     url = "{}/services/proxy/{}?callback={}".format(target, instance_name,
                                                     path)
     request = urllib2.Request(url)
     request.add_header("Authorization", "bearer " + token)
+    request.get_method = lambda: method
     if body:
         request.add_data(body)
     if headers:
@@ -126,6 +163,7 @@ def available_commands():
     return {
         "scale": scale,
         "certificate": certificate,
+        "redirect": redirect,
     }
 
 
