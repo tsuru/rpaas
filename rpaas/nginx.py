@@ -69,7 +69,7 @@ location {path} {{
     def _put(self, host, name, content):
         return self._request('PUT', host, name, content)
 
-    def _delete(self, host, name, content):
+    def _delete(self, host, name):
         return self._request('DELETE', host, name, None)
 
     def _reload(self, host):
