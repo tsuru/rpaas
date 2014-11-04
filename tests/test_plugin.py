@@ -262,3 +262,26 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertEqual(request.get_method(), 'DELETE')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Redirect successfully removed\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_redirect_list(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
+            '"redirects": [{"path": "/a", "destination": "desta"}, {"path": "/b", "destination": "destb"}]}'
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.redirect(['list', '-i', 'myinst'])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/redirect")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual(request.get_method(), 'GET')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("""path: destination
+
+/a: desta
+/b: destb
+""")

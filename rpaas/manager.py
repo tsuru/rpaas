@@ -105,6 +105,9 @@ class Manager(object):
         for host in lb.hosts:
             self.nginx_manager.delete_binding(host.dns_name, path)
 
+    def list_redirects(self, name):
+        return self.storage.find_binding(name)
+
 
 class BindError(Exception):
     pass

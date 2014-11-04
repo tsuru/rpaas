@@ -160,6 +160,17 @@ def delete_redirect(name):
     return "", 200
 
 
+@api.route("/resources/<name>/redirect", methods=["GET"])
+@auth.required
+def list_redirects(name):
+    try:
+        info = get_manager().list_redirects(name)
+        return Response(response=json.dumps(info), status=200,
+                        mimetype="application/json")
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

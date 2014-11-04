@@ -269,6 +269,15 @@ class APITestCase(unittest.TestCase):
         _, instance = self.manager.find_instance("someapp")
         self.assertIsNone(instance.redirects.get('/somewhere'))
 
+    def test_list_redirects(self):
+        instance = self.manager.new_instance("someapp")
+        instance.redirects['/somewhere'] = 'true.com'
+        resp = self.api.get("/resources/someapp/redirect")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("application/json", resp.mimetype)
+        data = json.loads(resp.data)
+        self.assertDictEqual({"/somewhere": "true.com"}, data)
+
     def open_with_auth(self, url, method, user, password, data=None, headers=None):
         encoded = base64.b64encode(user + ":" + password)
         if not headers:

@@ -10,6 +10,7 @@ import urllib2
 import sys
 import uuid
 import io
+import json
 
 
 def encode_multipart_formdata(files):
@@ -82,19 +83,30 @@ def certificate(args):
 def redirect(args):
     args = get_redirect_args(args)
     req_path = "/resources/{}/redirect".format(args.instance)
-    body = "path={}".format(args.path)
-    method = "DELETE"
-    message = "removed"
+    body = None
+    method = "GET"
     if args.action == 'add':
-        body = "{}&destination={}".format(body, args.destination)
+        body = "path={}&destination={}".format(args.path, args.destination)
         method = "POST"
         message = "added"
+    elif args.action == 'remove':
+        body = "path={}".format(args.path)
+        method = "DELETE"
+        message = "removed"
     result = proxy_request(args.instance, req_path,
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
     if result.getcode() in [200, 201]:
-        sys.stdout.write("Redirect successfully {}\n".format(message))
+        if args.action == 'list':
+            parsed = json.loads(result.read())
+            redirects = parsed.get('redirects') or []
+            out = ["path: destination", ""]
+            for redirect in redirects:
+                out.append("{}: {}".format(redirect.get('path'), redirect.get('destination')))
+            sys.stdout.write('\n'.join(out) + '\n')
+        else:
+            sys.stdout.write("Redirect successfully {}\n".format(message))
     else:
         msg = result.read().rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
@@ -123,14 +135,17 @@ def get_scale_args(args):
 
 def get_redirect_args(args):
     parser = argparse.ArgumentParser("redirect")
-    parser.add_argument("action", choices=["add", "remove"],
+    parser.add_argument("action", choices=["add", "list", "remove"],
                         help="Action, add or remove url")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
-    parser.add_argument("-p", "--path", required=True, help="Path to redirect")
+    parser.add_argument("-p", "--path", required=False, help="Path to redirect")
     parser.add_argument("-d", "--destination", required=False, help="Destination host")
     parsed = parser.parse_args(args)
     if parsed.action == 'add' and not parsed.destination:
         sys.stderr.write("destination is required to add action\n")
+        sys.exit(2)
+    if parsed.action != 'list' and not parsed.path:
+        sys.stderr.write("path is required to add/remove action\n")
         sys.exit(2)
     return parsed
 

@@ -92,5 +92,9 @@ class FakeManager(object):
         _, instance = self.find_instance(name)
         del instance.redirects[path]
 
+    def list_redirects(self, name):
+        _, instance = self.find_instance(name)
+        return instance.redirects
+
     def reset(self):
         self.instances = []
