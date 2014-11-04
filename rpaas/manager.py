@@ -18,7 +18,7 @@ FAILURE = 'failure'
 class Manager(object):
     def __init__(self, config=None):
         self.config = config
-        self.storage = storage.MongoDBStorage()
+        self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
 
     def new_instance(self, name):

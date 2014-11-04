@@ -94,6 +94,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_scale_instance_up(self):
         lb = self.LoadBalancer.find.return_value
+        lb.name = 'x'
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         manager.scale_instance('x', 5)
@@ -101,6 +102,25 @@ class ManagerTestCase(unittest.TestCase):
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_scale_instance_up_apply_binding_new_instances(self, nginx):
+        self.storage.store_binding('x', 'myhost.com')
+        self.storage.update_binding_certificate('x', 'my cert', 'my key')
+        lb = self.LoadBalancer.find.return_value
+        lb.name = 'x'
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        manager.scale_instance('x', 5)
+        self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
+        self.assertEqual(self.Host.create.call_count, 3)
+        lb.add_host.assert_called_with(self.Host.create.return_value)
+        self.assertEqual(lb.add_host.call_count, 3)
+        nginx.NginxDAV.assert_called_once_with(self.config)
+        created_host = self.Host.create.return_value
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.update_binding.assert_any_call(created_host.dns_name, '/', 'myhost.com')
+        nginx_manager.update_certificate.assert_any_call(created_host.dns_name, 'my cert', 'my key')
 
     def test_scale_instance_down(self):
         lb = self.LoadBalancer.find.return_value

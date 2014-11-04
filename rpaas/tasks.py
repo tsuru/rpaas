@@ -31,6 +31,7 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.hc = hc.Dumb()
+        self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:
             self.hc = hc.HCAPI(storage.MongoDBStorage(),
@@ -76,6 +77,25 @@ class RemoveInstanceTask(BaseManagerTask):
 
 class ScaleInstanceTask(BaseManagerTask):
 
+    def _add_host(self, lb):
+        host = Host.create(self.host_manager_name, lb.name, self.config)
+        lb.add_host(host)
+        self.hc.add_url(lb.name, host.dns_name)
+        binding_data = self.storage.find_binding(lb.name)
+        if not binding_data:
+            return
+        app_host = binding_data.get('app_host')
+        cert, key = binding_data.get('cert'), binding_data.get('key')
+        if app_host:
+            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
+        if cert and key:
+            self.nginx_manager.update_certificate(host.dns_name, cert, key)
+
+    def _delete_host(self, lb, host):
+        host.destroy()
+        lb.remove_host(host)
+        self.hc.remove_url(lb.name, host.dns_name)
+
     def run(self, config, name, quantity):
         self.init_config(config)
         lb = LoadBalancer.find(name, self.config)
@@ -86,11 +106,6 @@ class ScaleInstanceTask(BaseManagerTask):
             return
         for i in xrange(abs(diff)):
             if diff > 0:
-                host = Host.create(self.host_manager_name, name, self.config)
-                lb.add_host(host)
-                self.hc.add_url(name, host.dns_name)
+                self._add_host(lb)
             else:
-                host = lb.hosts[i]
-                host.destroy()
-                lb.remove_host(host)
-                self.hc.remove_url(name, host.dns_name)
+                self._delete_host(lb, lb.hosts[i])
