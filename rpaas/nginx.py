@@ -48,13 +48,13 @@ class NginxDAV(object):
         return """
 location {path} {{
     proxy_set_header Host {host};
-    proxy_pass http://{host}:80;
+    proxy_pass http://{host}:80/;
 }}
 """
 
     def _generate_host_config(self, path, destination):
         return self.nginx_location_template.format(
-            path=path,
+            path=path.rstrip('/') + '/',
             host=destination,
         )
 

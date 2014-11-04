@@ -18,7 +18,7 @@ class NginxDAVTestCase(unittest.TestCase):
         self.assertEqual(nginx.nginx_location_template, """
 location {path} {{
     proxy_set_header Host {host};
-    proxy_pass http://{host}:80;
+    proxy_pass http://{host}:80/;
 }}
 """)
 
@@ -58,7 +58,7 @@ location {path} {{
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
     proxy_set_header Host mydestination;
-    proxy_pass http://mydestination:80;
+    proxy_pass http://mydestination:80/;
 }
 """)
         requests.get.assert_called_once_with('http://myhost:8089/reload')
@@ -74,9 +74,9 @@ location / {
 
         nginx.update_binding('myhost', '/app/route', 'mydestination')
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:app:route.conf', data="""
-location /app/route {
+location /app/route/ {
     proxy_set_header Host mydestination;
-    proxy_pass http://mydestination:80;
+    proxy_pass http://mydestination:80/;
 }
 """)
         requests.get.assert_called_once_with('http://myhost:8089/reload')
@@ -111,7 +111,7 @@ location /app/route {
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
     proxy_set_header Host mydestination;
-    proxy_pass http://mydestination:80;
+    proxy_pass http://mydestination:80/;
 }
 """)
 
