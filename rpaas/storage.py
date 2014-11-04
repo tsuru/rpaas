@@ -51,3 +51,25 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def find_binding(self, name):
         return self.db[self.bindings_collection].find_one({'_id': name})
+
+    def add_binding_redirect(self, name, path, destination):
+        result = self.db[self.bindings_collection].update({'_id': name}, {'$addToSet': {'redirects': {
+            'path': path,
+            'destination': destination,
+        }}})
+        if result['n'] == 0:
+            raise InstanceNotFoundError()
+
+    def delete_binding_redirect(self, name, path):
+        result = self.db[self.bindings_collection].update({
+            '_id': name,
+            'redirects.path': path,
+        }, {
+            '$pull': {
+                'redirects': {
+                    'path': path
+                }
+            }
+        })
+        if result['n'] == 0:
+            raise InstanceNotFoundError()

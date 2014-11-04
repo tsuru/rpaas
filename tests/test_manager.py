@@ -3,6 +3,7 @@ import os
 
 import mock
 
+import rpaas.manager
 from rpaas.manager import Manager, ScaleError
 from rpaas import tasks, storage
 
@@ -168,11 +169,101 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager.update_certificate.assert_any_call(lb.hosts[0].dns_name, 'cert', 'key')
         nginx_manager.update_certificate.assert_any_call(lb.hosts[1].dns_name, 'cert', 'key')
 
-    @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')
-    def test_update_certificate_no_binding(self, LoadBalancer, nginx):
+    def test_update_certificate_no_binding(self, LoadBalancer):
         manager = Manager(self.config)
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.update_certificate('inst', 'cert', 'key')
+        LoadBalancer.find.assert_called_with('inst')
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_add_redirect(self, LoadBalancer, nginx):
+        self.storage.store_binding('inst', 'app.host.com')
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.add_redirect('inst', '/somewhere', 'my.other.host')
 
         LoadBalancer.find.assert_called_with('inst')
+        binding_data = self.storage.find_binding('inst')
+        self.assertDictEqual(binding_data, {
+            '_id': 'inst',
+            'app_host': 'app.host.com',
+            'redirects': [
+                {
+                    'path': '/somewhere',
+                    'destination': 'my.other.host',
+                }
+            ]
+        })
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.update_binding.assert_any_call(lb.hosts[0].dns_name, '/somewhere', 'my.other.host')
+        nginx_manager.update_binding.assert_any_call(lb.hosts[1].dns_name, '/somewhere', 'my.other.host')
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_add_redirect_no_binding(self, LoadBalancer, nginx):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.add_redirect('inst', '/somewhere', 'my.other.host')
+        LoadBalancer.find.assert_called_with('inst')
+        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_add_redirect_to_root(self, LoadBalancer, nginx):
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.RedirectError):
+            manager.add_redirect('inst', '/', 'my.other.host')
+        self.assertEqual(len(LoadBalancer.mock_calls), 0)
+        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_delete_redirect(self, LoadBalancer, nginx):
+        self.storage.store_binding('inst', 'app.host.com')
+        self.storage.add_binding_redirect('inst', '/arrakis', 'dune.com')
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.delete_redirect('inst', '/arrakis')
+
+        LoadBalancer.find.assert_called_with('inst')
+        binding_data = self.storage.find_binding('inst')
+        self.assertDictEqual(binding_data, {
+            '_id': 'inst',
+            'app_host': 'app.host.com',
+            'redirects': []
+        })
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, '/arrakis')
+        nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, '/arrakis')
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_delete_redirect_error_no_redirect(self, LoadBalancer, nginx):
+        self.storage.store_binding('inst', 'app.host.com')
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.delete_redirect('inst', '/')
+        LoadBalancer.find.assert_called_with('inst')
+        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)
+
+    @mock.patch('rpaas.manager.nginx')
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_delete_redirect_no_binding(self, LoadBalancer, nginx):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.delete_redirect('inst', '/zahadum')
+        LoadBalancer.find.assert_called_with('inst')
+        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)

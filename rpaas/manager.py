@@ -78,6 +78,30 @@ class Manager(object):
             raise ScaleError("Can't have 0 instances")
         tasks.ScaleInstanceTask().delay(self.config, name, quantity)
 
+    def add_redirect(self, name, path, destination):
+        path = path.strip()
+        if path == '/':
+            raise RedirectError("You cannot set a redirect for / location, bind to another app for that.")
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.storage.add_binding_redirect(name, path, destination)
+        for host in lb.hosts:
+            self.nginx_manager.update_binding(host.dns_name, path, destination)
+
+    def delete_redirect(self, name, path):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        path = path.strip()
+        self.storage.delete_binding_redirect(name, path)
+        for host in lb.hosts:
+            self.nginx_manager.delete_binding(host.dns_name, path)
+
 
 class ScaleError(Exception):
+    pass
+
+
+class RedirectError(Exception):
     pass
