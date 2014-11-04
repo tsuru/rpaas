@@ -74,17 +74,6 @@ class RemoveInstanceTask(BaseManagerTask):
         self.hc.destroy(name)
 
 
-class BindInstanceTask(BaseManagerTask):
-
-    def run(self, config, name, app_host):
-        self.init_config(config)
-        lb = LoadBalancer.find(name, self.config)
-        if lb is None:
-            raise storage.InstanceNotFoundError()
-        for host in lb.hosts:
-            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
-
-
 class ScaleInstanceTask(BaseManagerTask):
 
     def run(self, config, name, quantity):

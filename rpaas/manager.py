@@ -30,10 +30,20 @@ class Manager(object):
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def bind(self, name, app_host):
-        tasks.BindInstanceTask().delay(self.config, name, app_host)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.storage.store_binding(name, app_host)
+        for host in lb.hosts:
+            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
 
     def unbind(self, name, app_host):
-        pass
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.storage.remove_binding(name)
+        for host in lb.hosts:
+            self.nginx_manager.delete_binding(host.dns_name, '/')
 
     def info(self, name):
         addr = self._get_address(name)
@@ -46,6 +56,7 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        self.storage.update_binding_certificate(name, cert, key)
         for host in lb.hosts:
             self.nginx_manager.update_certificate(host.dns_name, cert, key)
 

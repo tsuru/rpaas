@@ -12,6 +12,7 @@ class InstanceNotFoundError(Exception):
 class MongoDBStorage(storage.MongoDBStorage):
     hcs_collections = "hcs"
     tasks_collection = "tasks"
+    bindings_collection = "bindings"
 
     def store_hc(self, hc):
         self.db[self.hcs_collections].update({"name": hc["name"]}, hc, upsert=True)
@@ -33,3 +34,20 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
+
+    def store_binding(self, name, app_host):
+        self.db[self.bindings_collection].insert({'_id': name, 'app_host': app_host})
+
+    def update_binding_certificate(self, name, cert, key):
+        result = self.db[self.bindings_collection].update({'_id': name}, {'$set': {
+            'cert': cert,
+            'key': key,
+        }})
+        if result['n'] == 0:
+            raise InstanceNotFoundError()
+
+    def remove_binding(self, name):
+        self.db[self.bindings_collection].remove({'_id': name})
+
+    def find_binding(self, name):
+        return self.db[self.bindings_collection].find_one({'_id': name})

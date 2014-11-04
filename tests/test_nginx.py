@@ -90,7 +90,9 @@ location /app/route {
         nginx = NginxDAV()
         with self.assertRaises(NginxError) as context:
             nginx.update_binding('myhost', '/', 'mydestination')
-        self.assertEqual(str(context.exception), "Error trying to update config in nginx: my error")
+        self.assertEqual(
+            str(context.exception),
+            "Error trying to update file in nginx: PUT http://myhost:8089/dav/location_:.conf: my error")
 
     @mock.patch('rpaas.nginx.requests')
     def test_update_binding_error_reload(self, requests):
@@ -103,7 +105,9 @@ location /app/route {
         nginx = NginxDAV()
         with self.assertRaises(NginxError) as context:
             nginx.update_binding('myhost', '/', 'mydestination')
-        self.assertEqual(str(context.exception), "Error trying to reload config in nginx: my error")
+        self.assertEqual(
+            str(context.exception),
+            "Error trying to reload config in nginx: http://myhost:8089/reload: my error")
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
     proxy_set_header Host mydestination;

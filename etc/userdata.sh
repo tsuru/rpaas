@@ -27,7 +27,7 @@ http {
         location /dav {
             allow           0.0.0.0/0;
             root            /etc/nginx/sites-enabled;
-            dav_methods     PUT;
+            dav_methods     PUT DELETE;
             create_full_put_path    on;
             dav_access      group:rw all:r;
         }
