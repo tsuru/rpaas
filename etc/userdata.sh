@@ -25,7 +25,6 @@ http {
         }
 
         location /dav {
-            allow           0.0.0.0/0;
             root            /etc/nginx/sites-enabled;
             dav_methods     PUT DELETE;
             create_full_put_path    on;
@@ -41,6 +40,7 @@ http {
         ssl_certificate_key /etc/nginx/sites-enabled/dav/ssl/nginx.key;
 
         server_name  _tsuru_nginx_app;
+        port_in_redirect off;
 
         location /_nginx_healthcheck/ {
             echo "WORKING";
