@@ -84,6 +84,7 @@ class ScaleInstanceTask(BaseManagerTask):
         binding_data = self.storage.find_binding(lb.name)
         if not binding_data:
             return
+        self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
         app_host = binding_data.get('app_host')
         cert, key = binding_data.get('cert'), binding_data.get('key')
         if app_host:

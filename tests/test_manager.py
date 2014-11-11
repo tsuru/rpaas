@@ -121,6 +121,7 @@ class ManagerTestCase(unittest.TestCase):
         nginx.NginxDAV.assert_called_once_with(self.config)
         created_host = self.Host.create.return_value
         nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_any_call(created_host.dns_name, timeout=300)
         nginx_manager.update_binding.assert_any_call(created_host.dns_name, '/', 'myhost.com')
         nginx_manager.update_binding.assert_any_call(created_host.dns_name, '/trantor', 'olivaw.com')
         nginx_manager.update_certificate.assert_any_call(created_host.dns_name, 'my cert', 'my key')
