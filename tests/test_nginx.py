@@ -29,11 +29,13 @@ location {path} {{
             'NGINX_DAV_PUT_PATH': '/2',
             'NGINX_MANAGE_PORT': '4',
             'NGINX_LOCATION_TEMPLATE_TXT': '5',
+            'NGINX_HEALTHCHECK_PATH': '6',
         })
         self.assertEqual(nginx.nginx_reload_path, '/1')
         self.assertEqual(nginx.nginx_dav_put_path, '/2')
         self.assertEqual(nginx.nginx_manage_port, '4')
         self.assertEqual(nginx.nginx_location_template, '5')
+        self.assertEqual(nginx.nginx_healthcheck_path, '6')
 
     @mock.patch('rpaas.nginx.requests')
     def test_init_config_location_url(self, requests):

@@ -19,7 +19,7 @@ class NginxDAV(object):
         self.nginx_reload_path = config.get_config('NGINX_RELOAD_PATH', '/reload', conf)
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
         self.nginx_dav_put_path = config.get_config('NGINX_DAV_PUT_PATH', '/dav', conf)
-        self.nginx_healthcheck_path = config.get_config('NGINX_DAV_PUT_PATH', '/healthcheck', conf)
+        self.nginx_healthcheck_path = config.get_config('NGINX_HEALTHCHECK_PATH', '/healthcheck', conf)
         self.nginx_location_template = self._load_location_template(conf)
 
     def update_binding(self, host, path, destination):
