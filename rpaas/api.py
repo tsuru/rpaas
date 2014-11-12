@@ -31,7 +31,10 @@ def add_instance():
     name = request.form.get("name")
     if not name:
         return "name is required", 400
-    get_manager().new_instance(name)
+    try:
+        get_manager().new_instance(name)
+    except storage.DuplicateError:
+        return "{} instance already exists".format(name), 409
     return "", 201
 
 
@@ -53,6 +56,8 @@ def bind(name):
         return "app-host is required", 400
     try:
         get_manager().bind(name, app_host)
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     return Response(response="null", status=201,
@@ -67,6 +72,8 @@ def unbind(name):
         return "app-host is required", 400
     try:
         get_manager().unbind(name, app_host)
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     return "", 200
@@ -105,6 +112,8 @@ def scale_instance(name):
         return "missing quantity", 400
     try:
         get_manager().scale_instance(name, int(quantity))
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     except ValueError as e:
         msg = " ".join(e.args)
         if "invalid literal" in msg:
@@ -128,6 +137,8 @@ def update_certificate(name):
         get_manager().update_certificate(name, cert, key)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     return "", 200
 
 
@@ -144,6 +155,8 @@ def add_redirect(name):
         get_manager().add_redirect(name, path, destination)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     return "", 201
 
 
@@ -157,6 +170,8 @@ def delete_redirect(name):
         get_manager().delete_redirect(name, path)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
     return "", 200
 
 

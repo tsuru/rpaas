@@ -31,7 +31,8 @@ class ManagerTestCase(unittest.TestCase):
         self.lb_patcher.stop()
         self.host_patcher.stop()
 
-    def test_new_instance(self):
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance(self, nginx):
         manager = Manager(self.config)
         manager.new_instance('x')
         host = self.Host.create.return_value
@@ -39,10 +40,27 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', self.config)
         lb.add_host.assert_called_with(host)
-        self.assertIsNotNone(self.storage.find_task('x'))
+        self.assertIsNone(self.storage.find_task('x'))
+        nginx.NginxDAV.assert_called_once_with(self.config)
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=300)
+
+    def test_new_instance_error_already_running(self):
+        self.storage.store_task('x')
+        manager = Manager(self.config)
+        with self.assertRaises(storage.DuplicateError):
+            manager.new_instance('x')
+
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_new_instance_error_already_exists(self, LoadBalancer):
+        LoadBalancer.find.return_value = 'something'
+        manager = Manager(self.config)
+        with self.assertRaises(storage.DuplicateError):
+            manager.new_instance('x')
+        LoadBalancer.find.assert_called_once_with('x')
 
     def test_remove_instance(self):
-        self.storage.store_task('x', 'something-id')
+        self.storage.store_task('x')
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -55,41 +73,35 @@ class ManagerTestCase(unittest.TestCase):
 
     @mock.patch('rpaas.manager.LoadBalancer')
     def test_info(self, LoadBalancer):
-        self.storage.store_task('x', 'something-id')
         lb = LoadBalancer.find.return_value
         lb.address = '192.168.1.1'
         manager = Manager(self.config)
         info = manager.info('x')
-        self.assertIsNone(self.storage.find_task('x'))
         LoadBalancer.find.assert_called_with('x')
         self.assertItemsEqual(info, [{"label": "Address", "value": "192.168.1.1"}])
         self.assertEqual(manager.status('x'), '192.168.1.1')
 
     @mock.patch('rpaas.manager.tasks')
-    @mock.patch('rpaas.manager.LoadBalancer')
-    def test_info_status_pending(self, LoadBalancer, tasks):
-        LoadBalancer.find.return_value = None
-        self.storage.store_task('x', 'something-id')
+    def test_info_status_pending(self, tasks):
+        self.storage.store_task('x')
+        self.storage.update_task('x', 'something-id')
         async_init = tasks.NewInstanceTask.return_value.AsyncResult
         async_init.return_value.status = 'PENDING'
         manager = Manager(self.config)
         info = manager.info('x')
         self.assertItemsEqual(info, [{"label": "Address", "value": "pending"}])
-        LoadBalancer.find.assert_called_with('x')
         async_init.assert_called_with('something-id')
         self.assertEqual(manager.status('x'), 'pending')
 
     @mock.patch('rpaas.manager.tasks')
-    @mock.patch('rpaas.manager.LoadBalancer')
-    def test_info_status_failure(self, LoadBalancer, tasks):
-        LoadBalancer.find.return_value = None
-        self.storage.store_task('x', 'something-id')
+    def test_info_status_failure(self, tasks):
+        self.storage.store_task('x')
+        self.storage.update_task('x', 'something-id')
         async_init = tasks.NewInstanceTask.return_value.AsyncResult
         async_init.return_value.status = 'FAILURE'
         manager = Manager(self.config)
         info = manager.info('x')
         self.assertItemsEqual(info, [{"label": "Address", "value": "failure"}])
-        LoadBalancer.find.assert_called_with('x')
         async_init.assert_called_with('something-id')
         self.assertEqual(manager.status('x'), 'failure')
 
@@ -103,6 +115,12 @@ class ManagerTestCase(unittest.TestCase):
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+
+    def test_scale_instance_error_task_running(self):
+        self.storage.store_task('x')
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.NotReadyError):
+            manager.scale_instance('x', 5)
 
     @mock.patch('rpaas.tasks.nginx')
     def test_scale_instance_up_apply_binding_new_instances(self, nginx):
@@ -157,6 +175,12 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager.update_binding.assert_any_call('h1', '/', 'apphost.com')
         nginx_manager.update_binding.assert_any_call('h2', '/', 'apphost.com')
 
+    def test_bind_instance_error_task_running(self):
+        self.storage.store_task('x')
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.NotReadyError):
+            manager.bind('x', 'apphost.com')
+
     @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')
     def test_bind_instance_multiple_bind_hosts(self, LoadBalancer, nginx):
@@ -199,6 +223,12 @@ class ManagerTestCase(unittest.TestCase):
             manager.update_certificate('inst', 'cert', 'key')
         LoadBalancer.find.assert_called_with('inst')
 
+    def test_update_certificate_error_task_running(self):
+        self.storage.store_task('inst')
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.NotReadyError):
+            manager.update_certificate('inst', 'cert', 'key')
+
     @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')
     def test_add_redirect(self, LoadBalancer, nginx):
@@ -224,6 +254,12 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.update_binding.assert_any_call(lb.hosts[0].dns_name, '/somewhere', 'my.other.host')
         nginx_manager.update_binding.assert_any_call(lb.hosts[1].dns_name, '/somewhere', 'my.other.host')
+
+    def test_add_redirect_error_task_running(self):
+        self.storage.store_task('inst')
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.NotReadyError):
+            manager.add_redirect('inst', '/somewhere', 'my.other.host')
 
     @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')
@@ -266,6 +302,12 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, '/arrakis')
         nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, '/arrakis')
+
+    def test_delete_redirect_error_task_running(self):
+        self.storage.store_task('inst')
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.NotReadyError):
+            manager.delete_redirect('inst', '/arrakis')
 
     @mock.patch('rpaas.manager.nginx')
     @mock.patch('rpaas.manager.LoadBalancer')

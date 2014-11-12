@@ -53,8 +53,10 @@ class NewInstanceTask(BaseManagerTask):
         try:
             lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
             lb.add_host(host)
+            self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
             self.hc.create(name)
             self.hc.add_url(name, host.dns_name)
+            self.storage.remove_task(name)
         except:
             if lb is not None:
                 lb.destroy()
@@ -103,15 +105,18 @@ class ScaleInstanceTask(BaseManagerTask):
         self.hc.remove_url(lb.name, host.dns_name)
 
     def run(self, config, name, quantity):
-        self.init_config(config)
-        lb = LoadBalancer.find(name, self.config)
-        if lb is None:
-            raise storage.InstanceNotFoundError()
-        diff = quantity - len(lb.hosts)
-        if diff == 0:
-            return
-        for i in xrange(abs(diff)):
-            if diff > 0:
-                self._add_host(lb)
-            else:
-                self._delete_host(lb, lb.hosts[i])
+        try:
+            self.init_config(config)
+            lb = LoadBalancer.find(name, self.config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+            diff = quantity - len(lb.hosts)
+            if diff == 0:
+                return
+            for i in xrange(abs(diff)):
+                if diff > 0:
+                    self._add_host(lb)
+                else:
+                    self._delete_host(lb, lb.hosts[i])
+        finally:
+            self.storage.remove_task(name)

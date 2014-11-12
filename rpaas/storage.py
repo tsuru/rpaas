@@ -2,10 +2,16 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import pymongo.errors
+
 from hm import storage
 
 
 class InstanceNotFoundError(Exception):
+    pass
+
+
+class DuplicateError(Exception):
     pass
 
 
@@ -24,13 +30,19 @@ class MongoDBStorage(storage.MongoDBStorage):
         return hc
 
     def remove_hc(self, name):
-        self.db[self.hcs_collections].remove({"name": name})
+            self.db[self.hcs_collections].remove({"name": name})
 
-    def store_task(self, name, task_id):
-        self.db[self.tasks_collection].insert({'_id': name, 'task_id': task_id})
+    def store_task(self, name):
+        try:
+            self.db[self.tasks_collection].insert({'_id': name})
+        except pymongo.errors.DuplicateKeyError:
+            raise DuplicateError(name)
 
     def remove_task(self, name):
         self.db[self.tasks_collection].remove({'_id': name})
+
+    def update_task(self, name, task_id):
+        self.db[self.tasks_collection].update({'_id': name}, {'$set': {'task_id': task_id}})
 
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
