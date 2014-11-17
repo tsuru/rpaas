@@ -61,6 +61,7 @@ class NewInstanceTask(BaseManagerTask):
             if lb is not None:
                 lb.destroy()
             host.destroy()
+            self.hc.destroy(name)
             raise
 
 

@@ -54,6 +54,8 @@ class HCAPI(object):
 
     def destroy(self, name):
         hc = self.storage.retrieve_hc(name)
+        if hc is None:
+            return
         self._issue_request("DELETE", "/resources/" + hc["resource_name"])
         self.storage.remove_hc(hc["_id"])
 
