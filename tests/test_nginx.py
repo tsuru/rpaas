@@ -20,6 +20,7 @@ class NginxDAVTestCase(unittest.TestCase):
 location {path} {{
     proxy_set_header Host {host};
     proxy_pass http://{host}:80/;
+    proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
 }}
 """)
 
@@ -62,6 +63,7 @@ location {path} {{
 location / {
     proxy_set_header Host mydestination;
     proxy_pass http://mydestination:80/;
+    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
 }
 """)
         requests.get.assert_called_once_with('http://myhost:8089/reload')
@@ -80,6 +82,7 @@ location / {
 location /app/route/ {
     proxy_set_header Host mydestination;
     proxy_pass http://mydestination:80/;
+    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /app/route/$2;
 }
 """)
         requests.get.assert_called_once_with('http://myhost:8089/reload')
@@ -115,6 +118,7 @@ location /app/route/ {
 location / {
     proxy_set_header Host mydestination;
     proxy_pass http://mydestination:80/;
+    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
 }
 """)
 

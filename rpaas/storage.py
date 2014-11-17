@@ -21,16 +21,13 @@ class MongoDBStorage(storage.MongoDBStorage):
     bindings_collection = "bindings"
 
     def store_hc(self, hc):
-        self.db[self.hcs_collections].update({"name": hc["name"]}, hc, upsert=True)
+        self.db[self.hcs_collections].update({"_id": hc["_id"]}, hc, upsert=True)
 
     def retrieve_hc(self, name):
-        hc = self.db[self.hcs_collections].find_one({"name": name})
-        if hc:
-            del hc["_id"]
-        return hc
+        return self.db[self.hcs_collections].find_one({"_id": name})
 
     def remove_hc(self, name):
-            self.db[self.hcs_collections].remove({"name": name})
+        self.db[self.hcs_collections].remove({"_id": name})
 
     def store_task(self, name):
         try:

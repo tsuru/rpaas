@@ -29,12 +29,14 @@ class Dumb(object):
 
 class HCAPI(object):
 
-    def __init__(self, storage, url, user=None, password=None, hc_format=None):
+    def __init__(self, storage, url, user=None, password=None,
+                 hc_format=None, expected_string="WORKING"):
         self.storage = storage
         self.url = url
         self.user = user
         self.password = password
         self.hc_format = hc_format
+        self.expected_string = expected_string
 
     def _issue_request(self, method, path, data=None):
         url = "/".join((self.url.rstrip("/"), path.lstrip("/")))
@@ -44,23 +46,23 @@ class HCAPI(object):
         return requests.request(method, url, **kwargs)
 
     def create(self, name):
-        name = "rpaas_%s_%s" % (name, uuid.uuid4().hex)
-        resp = self._issue_request("POST", "/resources", data={"name": name})
+        resource_name = "rpaas_%s_%s" % (name, uuid.uuid4().hex)
+        resp = self._issue_request("POST", "/resources", data={"name": resource_name})
         if resp.status_code > 299:
             raise HCCreationError(resp.data)
-        self.storage.store_hc({"name": name})
+        self.storage.store_hc({"_id": name, "resource_name": resource_name})
 
     def destroy(self, name):
         hc = self.storage.retrieve_hc(name)
-        self._issue_request("DELETE", "/resources/" + hc["name"])
-        self.storage.remove_hc(hc["name"])
+        self._issue_request("DELETE", "/resources/" + hc["resource_name"])
+        self.storage.remove_hc(hc["_id"])
 
     def add_url(self, name, url):
         hc = self.storage.retrieve_hc(name)
         if self.hc_format:
             url = self.hc_format.format(url)
-        data = {"name": hc["name"], "url": url,
-                "expected_string": "WORKING"}
+        data = {"name": hc["resource_name"], "url": url,
+                "expected_string": self.expected_string}
         resp = self._issue_request("POST", "/url", data=json.dumps(data))
         if resp.status_code > 399:
             raise URLCreationError(resp.data)
@@ -73,7 +75,7 @@ class HCAPI(object):
         hc = self.storage.retrieve_hc(name)
         if self.hc_format:
             url = self.hc_format.format(url)
-        data = {"name": hc["name"], "url": url}
+        data = {"name": hc["resource_name"], "url": url}
         self._issue_request("DELETE", "/url", data=json.dumps(data))
         hc["urls"].remove(url)
         self.storage.store_hc(hc)

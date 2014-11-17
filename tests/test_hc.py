@@ -2,11 +2,12 @@
 
 import json
 import unittest
+import os
 
 import mock
 from requests import auth
 
-from rpaas import hc
+from rpaas import hc, storage
 
 
 class DumbTestCase(unittest.TestCase):
@@ -38,7 +39,11 @@ class DumbTestCase(unittest.TestCase):
 class HCAPITestCase(unittest.TestCase):
 
     def setUp(self):
-        self.storage = mock.Mock()
+        os.environ['MONGO_DATABASE'] = 'host_manager_test'
+        self.storage = storage.MongoDBStorage()
+        colls = self.storage.db.collection_names(False)
+        for coll in colls:
+            self.storage.db.drop_collection(coll)
         self.hc = hc.HCAPI(self.storage, "http://localhost", hc_format="http://{}:8080/")
         self.hc._issue_request = self.issue_request = mock.Mock()
 
@@ -75,8 +80,10 @@ class HCAPITestCase(unittest.TestCase):
         self.issue_request.assert_called_with("POST", "/resources",
                                               data={"name":
                                                     "rpaas_myinstance_abc123"})
-        self.storage.store_hc.assert_called_with({"name":
-                                                  "rpaas_myinstance_abc123"})
+        hc = self.storage.retrieve_hc("myinstance")
+        self.assertDictEqual(hc, {
+            "_id": "myinstance", "resource_name": "rpaas_myinstance_abc123"
+        })
 
     def test_create_response_error(self):
         self.issue_request.return_value = mock.Mock(status_code=409,
@@ -87,42 +94,52 @@ class HCAPITestCase(unittest.TestCase):
         self.assertEqual(("something went wrong",), exc.args)
 
     def test_destroy(self):
-        self.storage.retrieve_hc.return_value = {"name": "rpaas_myinstance_qwe123"}
+        self.storage.store_hc({"_id": "myinstance", "resource_name": "my_resource"})
         self.hc.destroy("myinstance")
-        self.issue_request.assert_called_with("DELETE",
-                                              "/resources/rpaas_myinstance_qwe123")
-        self.storage.remove_hc.assert_called_with("rpaas_myinstance_qwe123")
+        self.issue_request.assert_called_with("DELETE", "/resources/my_resource")
 
     def test_add_url(self):
+        self.storage.store_hc({"_id": "myinstance", "resource_name": "my_resource"})
         self.issue_request.return_value = mock.Mock(status_code=200)
-        self.storage.retrieve_hc.return_value = {"name": "rpaas_myinstance_qwe123"}
         self.hc.add_url("myinstance", "something.tsuru.io")
         hcheck_url = "http://something.tsuru.io:8080/"
-        data = {"name": "rpaas_myinstance_qwe123", "url": hcheck_url,
+        data = {"name": "my_resource", "url": hcheck_url,
                 "expected_string": "WORKING"}
         self.issue_request.assert_called_with("POST", "/url",
                                               data=json.dumps(data))
-        self.storage.store_hc.assert_called_with({"name": "rpaas_myinstance_qwe123",
-                                                  "urls": [hcheck_url]})
+        hc = self.storage.retrieve_hc("myinstance")
+        self.assertDictEqual(hc, {
+            "_id": "myinstance",
+            "resource_name": "my_resource",
+            "urls": ["http://something.tsuru.io:8080/"]
+        })
 
     def test_add_second_url(self):
+        self.storage.store_hc({
+            "_id": "myinstance", "resource_name": "my_resource",
+            "urls": ["http://a.com:8080/health"],
+        })
         self.issue_request.return_value = mock.Mock(status_code=200)
-        self.storage.retrieve_hc.return_value = {"name": "rpaas_myinstance_qwe123",
-                                                 "urls": ["http://a.com:8080/health"]}
         self.hc.add_url("myinstance", "something.tsuru.io")
         hcheck_url = "http://something.tsuru.io:8080/"
-        data = {"name": "rpaas_myinstance_qwe123", "url": hcheck_url,
+        data = {"name": "my_resource", "url": hcheck_url,
                 "expected_string": "WORKING"}
         self.issue_request.assert_called_with("POST", "/url",
                                               data=json.dumps(data))
-        self.storage.store_hc.assert_called_with({"name": "rpaas_myinstance_qwe123",
-                                                  "urls": ["http://a.com:8080/health",
-                                                           hcheck_url]})
+        hc = self.storage.retrieve_hc("myinstance")
+        self.assertDictEqual(hc, {
+            "_id": "myinstance",
+            "resource_name": "my_resource",
+            "urls": ["http://a.com:8080/health", "http://something.tsuru.io:8080/"]
+        })
 
     def test_add_url_request_error(self):
+        self.storage.store_hc({
+            "_id": "myinstance",
+            "resource_name": "my_resource",
+        })
         self.issue_request.return_value = mock.Mock(status_code=500,
                                                     data="failed to add url")
-        self.storage.retrieve_hc.return_value = {"name": "rpaas_myinstance_qwe123"}
         with self.assertRaises(hc.URLCreationError) as cm:
             self.hc.add_url("myinstance", "wat")
         exc = cm.exception
@@ -130,10 +147,17 @@ class HCAPITestCase(unittest.TestCase):
 
     def test_remove_url(self):
         hcheck_url = "http://something.tsuru.io:8080/"
-        self.storage.retrieve_hc.return_value = {"name": "rpaas_myinstance_qwe123",
-                                                 "urls": [hcheck_url]}
+        self.storage.store_hc({
+            "_id": "myinstance", "resource_name": "my_resource",
+            "urls": [hcheck_url]
+        })
         self.hc.remove_url("myinstance", "something.tsuru.io")
-        data = {"name": "rpaas_myinstance_qwe123", "url": hcheck_url}
+        data = {"name": "my_resource", "url": hcheck_url}
         self.issue_request.assert_called_with("DELETE", "/url",
                                               data=json.dumps(data))
-        self.storage.store_hc.assert_called_with({"name": "rpaas_myinstance_qwe123", "urls": []})
+        hc = self.storage.retrieve_hc("myinstance")
+        self.assertDictEqual(hc, {
+            "_id": "myinstance",
+            "resource_name": "my_resource",
+            "urls": []
+        })
