@@ -34,7 +34,7 @@ class BaseManagerTask(Task):
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:
-            self.hc = hc.HCAPI(storage.MongoDBStorage(),
+            self.hc = hc.HCAPI(self.storage,
                                url=hc_url,
                                user=self._get_conf("HCAPI_USER"),
                                password=self._get_conf("HCAPI_PASSWORD"),
