@@ -67,6 +67,7 @@ class NginxDAV(object):
 location {path} {{
     proxy_set_header Host {host};
     proxy_pass http://{host}:80/;
+    proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
 }}
 """
 
