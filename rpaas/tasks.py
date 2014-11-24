@@ -48,16 +48,20 @@ class NewInstanceTask(BaseManagerTask):
 
     def run(self, config, name):
         self.init_config(config)
+        healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         host = Host.create(self.host_manager_name, name, self.config)
         lb = None
         try:
             lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
             lb.add_host(host)
-            self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
+            self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
             self.hc.create(name)
             self.hc.add_url(name, host.dns_name)
             self.storage.remove_task(name)
         except:
+            rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
+            if not rollback:
+                raise
             if lb is not None:
                 lb.destroy()
             host.destroy()

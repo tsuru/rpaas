@@ -43,7 +43,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(self.storage.find_task('x'))
         nginx.NginxDAV.assert_called_once_with(self.config)
         nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=300)
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
     def test_new_instance_error_already_running(self):
         self.storage.store_task('x')
