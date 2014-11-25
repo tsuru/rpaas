@@ -87,7 +87,7 @@ class HCAPITestCase(unittest.TestCase):
 
     def test_create_response_error(self):
         self.issue_request.return_value = mock.Mock(status_code=409,
-                                                    data="something went wrong")
+                                                    text="something went wrong")
         with self.assertRaises(hc.HCCreationError) as cm:
             self.hc.create("myinstance")
         exc = cm.exception
@@ -139,7 +139,7 @@ class HCAPITestCase(unittest.TestCase):
             "resource_name": "my_resource",
         })
         self.issue_request.return_value = mock.Mock(status_code=500,
-                                                    data="failed to add url")
+                                                    text="failed to add url")
         with self.assertRaises(hc.URLCreationError) as cm:
             self.hc.add_url("myinstance", "wat")
         exc = cm.exception

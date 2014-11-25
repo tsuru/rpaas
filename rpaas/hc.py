@@ -49,7 +49,7 @@ class HCAPI(object):
         resource_name = "rpaas_%s_%s" % (name, uuid.uuid4().hex)
         resp = self._issue_request("POST", "/resources", data={"name": resource_name})
         if resp.status_code > 299:
-            raise HCCreationError(resp.data)
+            raise HCCreationError(resp.text)
         self.storage.store_hc({"_id": name, "resource_name": resource_name})
 
     def destroy(self, name):
@@ -67,7 +67,7 @@ class HCAPI(object):
                 "expected_string": self.expected_string}
         resp = self._issue_request("POST", "/url", data=json.dumps(data))
         if resp.status_code > 399:
-            raise URLCreationError(resp.data)
+            raise URLCreationError(resp.text)
         if "urls" not in hc:
             hc["urls"] = []
         hc["urls"].append(url)
