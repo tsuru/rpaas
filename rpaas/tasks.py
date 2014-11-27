@@ -92,17 +92,15 @@ class ScaleInstanceTask(BaseManagerTask):
         if not binding_data:
             return
         self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
-        app_host = binding_data.get('app_host')
         cert, key = binding_data.get('cert'), binding_data.get('key')
-        if app_host:
-            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
         if cert and key:
             self.nginx_manager.update_certificate(host.dns_name, cert, key)
-        redirects = binding_data.get('redirects') or []
-        for redirect in redirects:
-            path, dest = redirect.get('path'), redirect.get('destination')
-            if path and dest:
-                self.nginx_manager.update_binding(host.dns_name, path, dest)
+        paths = binding_data.get('paths') or []
+        for path_data in paths:
+            self.nginx_manager.update_binding(host.dns_name,
+                                              path_data.get('path'),
+                                              path_data.get('destination'),
+                                              path_data.get('content'))
 
     def _delete_host(self, lb, host):
         host.destroy()

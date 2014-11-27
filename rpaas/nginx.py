@@ -22,8 +22,9 @@ class NginxDAV(object):
         self.nginx_healthcheck_path = config.get_config('NGINX_HEALTHCHECK_PATH', '/healthcheck', conf)
         self.nginx_location_template = self._load_location_template(conf)
 
-    def update_binding(self, host, path, destination):
-        content = self._generate_host_config(path, destination)
+    def update_binding(self, host, path, destination=None, content=None):
+        if not content:
+            content = self._generate_host_config(path, destination)
         self._dav_put(host, self._location_file_name(path), content)
         self._reload(host)
 

@@ -257,7 +257,23 @@ class APITestCase(unittest.TestCase):
         })
         self.assertEqual(201, resp.status_code)
         _, instance = self.manager.find_instance("someapp")
-        self.assertEqual('something', instance.redirects.get('/somewhere'))
+        self.assertDictEqual(instance.redirects.get('/somewhere'), {
+            'destination': 'something',
+            'content': None,
+        })
+
+    def test_add_redirect_with_content(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/redirect", data={
+            'path': '/somewhere',
+            'content': 'my content'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertDictEqual(instance.redirects.get('/somewhere'), {
+            'destination': None,
+            'content': 'my content',
+        })
 
     def test_delete_redirect(self):
         instance = self.manager.new_instance("someapp")

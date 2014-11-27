@@ -54,9 +54,14 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        binding_data = self.storage.find_binding(name)
+        if not binding_data:
+            return
         self.storage.remove_binding(name)
-        for host in lb.hosts:
-            self.nginx_manager.delete_binding(host.dns_name, '/')
+        paths = binding_data.get('paths') or []
+        for path_data in paths:
+            for host in lb.hosts:
+                self.nginx_manager.delete_binding(host.dns_name, path_data['path'])
 
     def info(self, name):
         addr = self._get_address(name)
@@ -94,25 +99,25 @@ class Manager(object):
         task = tasks.ScaleInstanceTask().delay(self.config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
-    def add_redirect(self, name, path, destination):
+    def add_redirect(self, name, path, destination, content):
         self._ensure_ready(name)
         path = path.strip()
-        if path == '/':
-            raise RedirectError("You cannot set a redirect for / location, bind to another app for that.")
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.storage.add_binding_redirect(name, path, destination)
+        self.storage.replace_binding_path(name, path, destination, content)
         for host in lb.hosts:
-            self.nginx_manager.update_binding(host.dns_name, path, destination)
+            self.nginx_manager.update_binding(host.dns_name, path, destination, content)
 
     def delete_redirect(self, name, path):
         self._ensure_ready(name)
+        path = path.strip()
+        if path == '/':
+            raise RedirectError("You cannot remove a redirect for / location, unbind the app.")
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        path = path.strip()
-        self.storage.delete_binding_redirect(name, path)
+        self.storage.delete_binding_path(name, path)
         for host in lb.hosts:
             self.nginx_manager.delete_binding(host.dns_name, path)
 

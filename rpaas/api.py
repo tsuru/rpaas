@@ -149,10 +149,13 @@ def add_redirect(name):
     if not path:
         return 'missing path', 400
     destination = request.form.get('destination')
-    if not destination:
-        return 'missing destination', 400
+    content = request.form.get('content')
+    if not destination and not content:
+        return 'either content xor destination are required', 400
+    if destination and content:
+        return 'cannot have both content and destination', 400
     try:
-        get_manager().add_redirect(name, path, destination)
+        get_manager().add_redirect(name, path, destination, content)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except manager.NotReadyError as e:

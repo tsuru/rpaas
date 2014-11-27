@@ -84,9 +84,9 @@ class FakeManager(object):
                 return i, instance
         return -1, None
 
-    def add_redirect(self, name, path, destination):
+    def add_redirect(self, name, path, destination, content):
         _, instance = self.find_instance(name)
-        instance.redirects[path] = destination
+        instance.redirects[path] = {'destination': destination, 'content': content}
 
     def delete_redirect(self, name, path):
         _, instance = self.find_instance(name)

@@ -45,7 +45,11 @@ class MongoDBStorage(storage.MongoDBStorage):
         return self.db[self.tasks_collection].find_one({'_id': name})
 
     def store_binding(self, name, app_host):
-        self.db[self.bindings_collection].insert({'_id': name, 'app_host': app_host})
+        self.db[self.bindings_collection].insert({
+            '_id': name,
+            'app_host': app_host,
+            'paths': [{'path': '/', 'destination': app_host}]
+        })
 
     def update_binding_certificate(self, name, cert, key):
         result = self.db[self.bindings_collection].update({'_id': name}, {'$set': {
@@ -61,21 +65,26 @@ class MongoDBStorage(storage.MongoDBStorage):
     def find_binding(self, name):
         return self.db[self.bindings_collection].find_one({'_id': name})
 
-    def add_binding_redirect(self, name, path, destination):
-        result = self.db[self.bindings_collection].update({'_id': name}, {'$addToSet': {'redirects': {
+    def replace_binding_path(self, name, path, destination=None, content=None):
+        try:
+            self.delete_binding_path(name, path)
+        except:
+            pass
+        result = self.db[self.bindings_collection].update({'_id': name}, {'$push': {'paths': {
             'path': path,
             'destination': destination,
+            'content': content,
         }}})
         if result['n'] == 0:
             raise InstanceNotFoundError()
 
-    def delete_binding_redirect(self, name, path):
+    def delete_binding_path(self, name, path):
         result = self.db[self.bindings_collection].update({
             '_id': name,
-            'redirects.path': path,
+            'paths.path': path,
         }, {
             '$pull': {
-                'redirects': {
+                'paths': {
                     'path': path
                 }
             }

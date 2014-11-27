@@ -123,6 +123,20 @@ location / {
 """)
 
     @mock.patch('rpaas.nginx.requests')
+    def test_update_binding_custom_content(self, requests):
+        rsp = requests.request.return_value
+        rsp.status_code = 200
+        rsp_get = requests.get.return_value
+        rsp_get.status_code = 200
+
+        nginx = NginxDAV()
+
+        nginx.update_binding('myhost', '/', content='location @rad {}')
+        requests.request.assert_called_once_with(
+            'PUT', 'http://myhost:8089/dav/location_:.conf', data="location @rad {}")
+        requests.get.assert_called_once_with('http://myhost:8089/reload')
+
+    @mock.patch('rpaas.nginx.requests')
     def test_update_certificate(self, requests):
         rsp = requests.request.return_value
         rsp.status_code = 200
