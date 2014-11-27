@@ -80,9 +80,9 @@ def certificate(args):
         sys.exit(1)
 
 
-def redirect(args):
-    args = get_redirect_args(args)
-    req_path = "/resources/{}/redirect".format(args.instance)
+def route(args):
+    args = get_route_args(args)
+    req_path = "/resources/{}/route".format(args.instance)
     body = None
     method = "GET"
     if args.action == 'add':
@@ -100,13 +100,13 @@ def redirect(args):
     if result.getcode() in [200, 201]:
         if args.action == 'list':
             parsed = json.loads(result.read())
-            redirects = parsed.get('redirects') or []
+            routes = parsed.get('routes') or []
             out = ["path: destination", ""]
-            for redirect in redirects:
-                out.append("{}: {}".format(redirect.get('path'), redirect.get('destination')))
+            for route in routes:
+                out.append("{}: {}".format(route.get('path'), route.get('destination')))
             sys.stdout.write('\n'.join(out) + '\n')
         else:
-            sys.stdout.write("Redirect successfully {}\n".format(message))
+            sys.stdout.write("route successfully {}\n".format(message))
     else:
         msg = result.read().rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
@@ -133,12 +133,12 @@ def get_scale_args(args):
     return parsed_args.instance, parsed_args.quantity
 
 
-def get_redirect_args(args):
-    parser = argparse.ArgumentParser("redirect")
+def get_route_args(args):
+    parser = argparse.ArgumentParser("route")
     parser.add_argument("action", choices=["add", "list", "remove"],
                         help="Action, add or remove url")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
-    parser.add_argument("-p", "--path", required=False, help="Path to redirect")
+    parser.add_argument("-p", "--path", required=False, help="Path to route")
     parser.add_argument("-d", "--destination", required=False, help="Destination host")
     parsed = parser.parse_args(args)
     if parsed.action == 'add' and not parsed.destination:
@@ -178,7 +178,7 @@ def available_commands():
     return {
         "scale": scale,
         "certificate": certificate,
-        "redirect": redirect,
+        "route": route,
     }
 
 

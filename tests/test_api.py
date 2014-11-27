@@ -249,46 +249,46 @@ class APITestCase(unittest.TestCase):
         self.assertEqual('cert content', instance.cert)
         self.assertEqual('key content', instance.key)
 
-    def test_add_redirect(self):
+    def test_add_route(self):
         self.manager.new_instance("someapp")
-        resp = self.api.post("/resources/someapp/redirect", data={
+        resp = self.api.post("/resources/someapp/route", data={
             'path': '/somewhere',
             'destination': 'something'
         })
         self.assertEqual(201, resp.status_code)
         _, instance = self.manager.find_instance("someapp")
-        self.assertDictEqual(instance.redirects.get('/somewhere'), {
+        self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': 'something',
             'content': None,
         })
 
-    def test_add_redirect_with_content(self):
+    def test_add_route_with_content(self):
         self.manager.new_instance("someapp")
-        resp = self.api.post("/resources/someapp/redirect", data={
+        resp = self.api.post("/resources/someapp/route", data={
             'path': '/somewhere',
             'content': 'my content'
         })
         self.assertEqual(201, resp.status_code)
         _, instance = self.manager.find_instance("someapp")
-        self.assertDictEqual(instance.redirects.get('/somewhere'), {
+        self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': None,
             'content': 'my content',
         })
 
-    def test_delete_redirect(self):
+    def test_delete_route(self):
         instance = self.manager.new_instance("someapp")
-        instance.redirects['/somewhere'] = 'true.com'
-        resp = self.api.delete("/resources/someapp/redirect", data={
+        instance.routes['/somewhere'] = 'true.com'
+        resp = self.api.delete("/resources/someapp/route", data={
             'path': '/somewhere'
         }, headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         _, instance = self.manager.find_instance("someapp")
-        self.assertIsNone(instance.redirects.get('/somewhere'))
+        self.assertIsNone(instance.routes.get('/somewhere'))
 
-    def test_list_redirects(self):
+    def test_list_routes(self):
         instance = self.manager.new_instance("someapp")
-        instance.redirects['/somewhere'] = 'true.com'
-        resp = self.api.get("/resources/someapp/redirect")
+        instance.routes['/somewhere'] = 'true.com'
+        resp = self.api.get("/resources/someapp/route")
         self.assertEqual(200, resp.status_code)
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)

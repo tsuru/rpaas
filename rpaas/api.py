@@ -142,9 +142,9 @@ def update_certificate(name):
     return "", 200
 
 
-@api.route("/resources/<name>/redirect", methods=["POST"])
+@api.route("/resources/<name>/route", methods=["POST"])
 @auth.required
-def add_redirect(name):
+def add_route(name):
     path = request.form.get('path')
     if not path:
         return 'missing path', 400
@@ -155,7 +155,7 @@ def add_redirect(name):
     if destination and content:
         return 'cannot have both content and destination', 400
     try:
-        get_manager().add_redirect(name, path, destination, content)
+        get_manager().add_route(name, path, destination, content)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except manager.NotReadyError as e:
@@ -163,14 +163,14 @@ def add_redirect(name):
     return "", 201
 
 
-@api.route("/resources/<name>/redirect", methods=["DELETE"])
+@api.route("/resources/<name>/route", methods=["DELETE"])
 @auth.required
-def delete_redirect(name):
+def delete_route(name):
     path = request.form.get('path')
     if not path:
         return 'missing path', 400
     try:
-        get_manager().delete_redirect(name, path)
+        get_manager().delete_route(name, path)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except manager.NotReadyError as e:
@@ -178,11 +178,11 @@ def delete_redirect(name):
     return "", 200
 
 
-@api.route("/resources/<name>/redirect", methods=["GET"])
+@api.route("/resources/<name>/route", methods=["GET"])
 @auth.required
-def list_redirects(name):
+def list_routes(name):
     try:
-        info = get_manager().list_redirects(name)
+        info = get_manager().list_routes(name)
         return Response(response=json.dumps(info), status=200,
                         mimetype="application/json")
     except storage.InstanceNotFoundError:

@@ -99,7 +99,7 @@ class Manager(object):
         task = tasks.ScaleInstanceTask().delay(self.config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
-    def add_redirect(self, name, path, destination, content):
+    def add_route(self, name, path, destination, content):
         self._ensure_ready(name)
         path = path.strip()
         lb = LoadBalancer.find(name)
@@ -109,11 +109,11 @@ class Manager(object):
         for host in lb.hosts:
             self.nginx_manager.update_binding(host.dns_name, path, destination, content)
 
-    def delete_redirect(self, name, path):
+    def delete_route(self, name, path):
         self._ensure_ready(name)
         path = path.strip()
         if path == '/':
-            raise RedirectError("You cannot remove a redirect for / location, unbind the app.")
+            raise RouteError("You cannot remove a route for / location, unbind the app.")
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
@@ -121,7 +121,7 @@ class Manager(object):
         for host in lb.hosts:
             self.nginx_manager.delete_binding(host.dns_name, path)
 
-    def list_redirects(self, name):
+    def list_routes(self, name):
         return self.storage.find_binding(name)
 
     def _ensure_ready(self, name):
@@ -142,5 +142,5 @@ class ScaleError(Exception):
     pass
 
 
-class RedirectError(Exception):
+class RouteError(Exception):
     pass

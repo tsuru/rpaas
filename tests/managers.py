@@ -12,7 +12,7 @@ class FakeInstance(object):
         self.state = state
         self.units = 1
         self.bound = []
-        self.redirects = {}
+        self.routes = {}
 
     def bind(self, app_host):
         self.bound.append(app_host)
@@ -84,17 +84,17 @@ class FakeManager(object):
                 return i, instance
         return -1, None
 
-    def add_redirect(self, name, path, destination, content):
+    def add_route(self, name, path, destination, content):
         _, instance = self.find_instance(name)
-        instance.redirects[path] = {'destination': destination, 'content': content}
+        instance.routes[path] = {'destination': destination, 'content': content}
 
-    def delete_redirect(self, name, path):
+    def delete_route(self, name, path):
         _, instance = self.find_instance(name)
-        del instance.redirects[path]
+        del instance.routes[path]
 
-    def list_redirects(self, name):
+    def list_routes(self, name):
         _, instance = self.find_instance(name)
-        return instance.redirects
+        return instance.routes
 
     def reset(self):
         self.instances = []
