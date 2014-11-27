@@ -211,6 +211,11 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertEqual(parsed.action, 'add')
         self.assertEqual(parsed.path, '/path/out')
         self.assertEqual(parsed.destination, 'destination.host')
+        parsed = plugin.get_route_args(
+            ['add', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
+        self.assertEqual(parsed.action, 'add')
+        self.assertEqual(parsed.path, '/path/out')
+        self.assertEqual(parsed.content, 'my content')
         parsed = plugin.get_route_args(['remove', '-i', 'myinst', '-p', '/path/out'])
         self.assertEqual(parsed.action, 'remove')
         self.assertEqual(parsed.path, '/path/out')
@@ -218,7 +223,15 @@ class TsuruPluginTestCase(unittest.TestCase):
             plugin.get_route_args(['add', '-i', 'myinst', '-p', '/path/out'])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        stderr.write.assert_called_with('destination is required to add action\n')
+        stderr.write.assert_called_with('destination xor content are required to add action\n')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_route_args([
+                'add', '-i', 'myinst', '-p', '/path/out',
+                '-d', 'destination.host', '-c', 'my content',
+            ])
+        exc = cm.exception
+        self.assertEqual(3, exc.code)
+        stderr.write.assert_called_with('cannot have both destination and content\n')
         with self.assertRaises(SystemExit) as cm:
             plugin.get_route_args(['-i', 'myinst', '-p', '/path/out'])
         exc = cm.exception
@@ -239,7 +252,26 @@ class TsuruPluginTestCase(unittest.TestCase):
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
-        request.add_data.assert_called_with("path=/path/out&destination=destination.host")
+        request.add_data.assert_called_with("path=%2Fpath%2Fout&destination=destination.host")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("route successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_route_with_content(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.route(['add', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/route")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("content=my+content&path=%2Fpath%2Fout")
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
@@ -258,7 +290,7 @@ class TsuruPluginTestCase(unittest.TestCase):
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
-        request.add_data.assert_called_with("path=/path/out")
+        request.add_data.assert_called_with("path=%2Fpath%2Fout")
         self.assertEqual(request.get_method(), 'DELETE')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully removed\n")

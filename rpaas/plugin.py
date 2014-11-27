@@ -6,6 +6,7 @@
 
 import argparse
 import os
+import urllib
 import urllib2
 import sys
 import uuid
@@ -83,16 +84,21 @@ def certificate(args):
 def route(args):
     args = get_route_args(args)
     req_path = "/resources/{}/route".format(args.instance)
-    body = None
+    params = {}
     method = "GET"
     if args.action == 'add':
-        body = "path={}&destination={}".format(args.path, args.destination)
+        params['path'] = args.path
+        if args.destination:
+            params['destination'] = args.destination
+        if args.content:
+            params['content'] = args.content
         method = "POST"
         message = "added"
     elif args.action == 'remove':
-        body = "path={}".format(args.path)
+        params['path'] = args.path
         method = "DELETE"
         message = "removed"
+    body = urllib.urlencode(params)
     result = proxy_request(args.instance, req_path,
                            body=body,
                            method=method,
@@ -140,10 +146,16 @@ def get_route_args(args):
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-p", "--path", required=False, help="Path to route")
     parser.add_argument("-d", "--destination", required=False, help="Destination host")
+    parser.add_argument("-c", "--content", required=False,
+                        help="(advanced) raw nginx location content")
     parsed = parser.parse_args(args)
-    if parsed.action == 'add' and not parsed.destination:
-        sys.stderr.write("destination is required to add action\n")
-        sys.exit(2)
+    if parsed.action == 'add':
+        if not parsed.destination and not parsed.content:
+            sys.stderr.write("destination xor content are required to add action\n")
+            sys.exit(2)
+        if parsed.destination and parsed.content:
+            sys.stderr.write("cannot have both destination and content\n")
+            sys.exit(3)
     if parsed.action != 'list' and not parsed.path:
         sys.stderr.write("path is required to add/remove action\n")
         sys.exit(2)
