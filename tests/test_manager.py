@@ -78,8 +78,33 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         info = manager.info('x')
         LoadBalancer.find.assert_called_with('x')
-        self.assertItemsEqual(info, [{"label": "Address", "value": "192.168.1.1"}])
+        self.assertItemsEqual(info, [
+            {"label": "Address", "value": "192.168.1.1"},
+            {"label": "Instances", "value": "0"},
+            {"label": "Routes", "value": ""},
+        ])
         self.assertEqual(manager.status('x'), '192.168.1.1')
+
+    @mock.patch('rpaas.manager.LoadBalancer')
+    def test_info_with_binding(self, LoadBalancer):
+        self.storage.store_binding('inst', 'app.host.com')
+        self.storage.replace_binding_path('inst', '/arrakis', None, "location /x {\n}")
+        lb = LoadBalancer.find.return_value
+        lb.address = '192.168.1.1'
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        info = manager.info('inst')
+        LoadBalancer.find.assert_called_with('inst')
+        self.assertItemsEqual(info, [
+            {"label": "Address", "value": "192.168.1.1"},
+            {"label": "Instances", "value": "2"},
+            {"label": "Routes", "value": """path = /
+destination = app.host.com
+path = /arrakis
+content = location /x {
+}"""},
+        ])
+        self.assertEqual(manager.status('inst'), '192.168.1.1')
 
     @mock.patch('rpaas.manager.tasks')
     def test_info_status_pending(self, tasks):
@@ -89,7 +114,11 @@ class ManagerTestCase(unittest.TestCase):
         async_init.return_value.status = 'PENDING'
         manager = Manager(self.config)
         info = manager.info('x')
-        self.assertItemsEqual(info, [{"label": "Address", "value": "pending"}])
+        self.assertItemsEqual(info, [
+            {"label": "Address", "value": "pending"},
+            {"label": "Instances", "value": "0"},
+            {"label": "Routes", "value": ""},
+        ])
         async_init.assert_called_with('something-id')
         self.assertEqual(manager.status('x'), 'pending')
 
@@ -101,7 +130,11 @@ class ManagerTestCase(unittest.TestCase):
         async_init.return_value.status = 'FAILURE'
         manager = Manager(self.config)
         info = manager.info('x')
-        self.assertItemsEqual(info, [{"label": "Address", "value": "failure"}])
+        self.assertItemsEqual(info, [
+            {"label": "Address", "value": "failure"},
+            {"label": "Instances", "value": "0"},
+            {"label": "Routes", "value": ""},
+        ])
         async_init.assert_called_with('something-id')
         self.assertEqual(manager.status('x'), 'failure')
 

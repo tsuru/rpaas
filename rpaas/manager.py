@@ -65,7 +65,36 @@ class Manager(object):
 
     def info(self, name):
         addr = self._get_address(name)
-        return [{"label": "Address", "value": addr}]
+        routes_data = []
+        binding_data = self.storage.find_binding(name)
+        if binding_data:
+            paths = binding_data.get('paths') or []
+            for path_data in paths:
+                routes_data.append("path = {}".format(path_data['path']))
+                dst = path_data.get('destination')
+                content = path_data.get('content')
+                if dst:
+                    routes_data.append("destination = {}".format(dst))
+                if content:
+                    routes_data.append("content = {}".format(content))
+        lb = LoadBalancer.find(name)
+        host_count = 0
+        if lb:
+            host_count = len(lb.hosts)
+        return [
+            {
+                "label": "Address",
+                "value": addr,
+            },
+            {
+                "label": "Instances",
+                "value": str(host_count),
+            },
+            {
+                "label": "Routes",
+                "value": "\n".join(routes_data),
+            },
+        ]
 
     def status(self, name):
         return self._get_address(name)
