@@ -48,7 +48,7 @@ def remove_instance(name):
     return "", 200
 
 
-@api.route("/resources/<name>/bind", methods=["POST"])
+@api.route("/resources/<name>/bind-app", methods=["POST"])
 @auth.required
 def bind(name):
     app_host = request.form.get("app-host")
@@ -64,7 +64,7 @@ def bind(name):
                     mimetype="application/json")
 
 
-@api.route("/resources/<name>/bind", methods=["DELETE"])
+@api.route("/resources/<name>/bind-app", methods=["DELETE"])
 @auth.required
 def unbind(name):
     app_host = request.form.get("app-host")
@@ -76,6 +76,18 @@ def unbind(name):
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
+    return "", 200
+
+
+@api.route("/resources/<name>/bind", methods=["POST"])
+@auth.required
+def bind_unit(name):
+    return "", 201
+
+
+@api.route("/resources/<name>/bind", methods=["DELETE"])
+@auth.required
+def unbind_unit(name):
     return "", 200
 
 
