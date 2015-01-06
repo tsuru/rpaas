@@ -86,21 +86,30 @@ class ScaleInstanceTask(BaseManagerTask):
 
     def _add_host(self, lb):
         host = Host.create(self.host_manager_name, lb.name, self.config)
-        lb.add_host(host)
-        self.hc.add_url(lb.name, host.dns_name)
-        binding_data = self.storage.find_binding(lb.name)
-        if not binding_data:
-            return
-        self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
-        cert, key = binding_data.get('cert'), binding_data.get('key')
-        if cert and key:
-            self.nginx_manager.update_certificate(host.dns_name, cert, key)
-        paths = binding_data.get('paths') or []
-        for path_data in paths:
-            self.nginx_manager.update_binding(host.dns_name,
-                                              path_data.get('path'),
-                                              path_data.get('destination'),
-                                              path_data.get('content'))
+        try:
+            lb.add_host(host)
+            self.hc.add_url(lb.name, host.dns_name)
+            binding_data = self.storage.find_binding(lb.name)
+            if not binding_data:
+                return
+            self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
+            cert, key = binding_data.get('cert'), binding_data.get('key')
+            if cert and key:
+                self.nginx_manager.update_certificate(host.dns_name, cert, key)
+            paths = binding_data.get('paths') or []
+            for path_data in paths:
+                self.nginx_manager.update_binding(host.dns_name,
+                                                  path_data.get('path'),
+                                                  path_data.get('destination'),
+                                                  path_data.get('content'))
+        except:
+            rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
+            if not rollback:
+                raise
+            host.destroy()
+            lb.remove_host(host)
+            self.hc.remove_url(lb.name, host.dns_name)
+            raise
 
     def _delete_host(self, lb, host):
         host.destroy()
