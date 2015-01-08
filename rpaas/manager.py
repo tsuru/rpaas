@@ -31,6 +31,7 @@ class Manager(object):
 
     def remove_instance(self, name):
         self.storage.remove_task(name)
+        self.storage.remove_binding(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def bind(self, name, app_host):
@@ -44,7 +45,8 @@ class Manager(object):
             if binded_host == app_host:
                 # Nothing to do, already binded
                 return
-            raise BindError('This service can only be binded to one application.')
+            if binded_host is not None:
+                raise BindError('This service can only be binded to one application.')
         for host in lb.hosts:
             self.nginx_manager.update_binding(host.dns_name, '/', app_host)
         self.storage.store_binding(name, app_host)
@@ -57,11 +59,9 @@ class Manager(object):
         binding_data = self.storage.find_binding(name)
         if not binding_data:
             return
-        self.storage.remove_binding(name)
-        paths = binding_data.get('paths') or []
-        for path_data in paths:
-            for host in lb.hosts:
-                self.nginx_manager.delete_binding(host.dns_name, path_data['path'])
+        self.storage.remove_root_binding(name)
+        for host in lb.hosts:
+            self.nginx_manager.delete_binding(host.dns_name, '/')
 
     def info(self, name):
         addr = self._get_address(name)
