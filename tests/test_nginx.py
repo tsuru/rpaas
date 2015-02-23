@@ -19,6 +19,10 @@ class NginxDAVTestCase(unittest.TestCase):
         self.assertEqual(nginx.nginx_location_template, """
 location {path} {{
     proxy_set_header Host {host};
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_pass http://{host}:80/;
     proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
 }}
@@ -62,6 +66,10 @@ location {path} {{
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
     proxy_set_header Host mydestination;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_pass http://mydestination:80/;
     proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
 }
@@ -81,6 +89,10 @@ location / {
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:app:route.conf', data="""
 location /app/route/ {
     proxy_set_header Host mydestination;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_pass http://mydestination:80/;
     proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /app/route/$2;
 }
@@ -117,6 +129,10 @@ location /app/route/ {
         requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
 location / {
     proxy_set_header Host mydestination;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
     proxy_pass http://mydestination:80/;
     proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
 }
