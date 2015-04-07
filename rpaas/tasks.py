@@ -110,15 +110,15 @@ class ScaleInstanceTask(BaseManagerTask):
             try:
                 host.destroy()
             except Exception as e:
-                logging.log("Error in rollback trying to destroy host: {}".format(e))
+                logging.error("Error in rollback trying to destroy host: {}".format(e))
             try:
                 lb.remove_host(host)
             except Exception as e:
-                logging.log("Error in rollback trying to remove from load balancer: {}".format(e))
+                logging.error("Error in rollback trying to remove from load balancer: {}".format(e))
             try:
                 self.hc.remove_url(lb.name, host.dns_name)
             except Exception as e:
-                logging.log("Error in rollback trying to remove healthcheck: {}".format(e))
+                logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
             raise
 
     def _delete_host(self, lb, host):
