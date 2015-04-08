@@ -1,5 +1,6 @@
 import os
 import logging
+import sys
 
 from celery import Celery, Task
 import hm.managers.cloudstack  # NOQA
@@ -104,6 +105,7 @@ class ScaleInstanceTask(BaseManagerTask):
                                                   path_data.get('destination'),
                                                   path_data.get('content'))
         except:
+            exc_info = sys.exc_info()
             rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
             if not rollback:
                 raise
@@ -119,7 +121,7 @@ class ScaleInstanceTask(BaseManagerTask):
                 self.hc.remove_url(lb.name, host.dns_name)
             except Exception as e:
                 logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
-            raise
+            raise exc_info[0], exc_info[1], exc_info[2]
 
     def _delete_host(self, lb, host):
         host.destroy()
