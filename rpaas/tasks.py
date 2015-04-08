@@ -61,14 +61,24 @@ class NewInstanceTask(BaseManagerTask):
             self.hc.add_url(name, host.dns_name)
             self.storage.remove_task(name)
         except:
+            exc_info = sys.exc_info()
             rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
             if not rollback:
                 raise
-            if lb is not None:
-                lb.destroy()
-            host.destroy()
-            self.hc.destroy(name)
-            raise
+            try:
+                if lb is not None:
+                    lb.destroy()
+            except Exception as e:
+                logging.error("Error in rollback trying to destroy load balancer: {}".format(e))
+            try:
+                host.destroy()
+            except Exception as e:
+                logging.error("Error in rollback trying to destroy host: {}".format(e))
+            try:
+                self.hc.destroy(name)
+            except Exception as e:
+                logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
+            raise exc_info[0], exc_info[1], exc_info[2]
 
 
 class RemoveInstanceTask(BaseManagerTask):
