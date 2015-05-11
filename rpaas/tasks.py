@@ -4,6 +4,7 @@ import sys
 
 from celery import Celery, Task
 import hm.managers.cloudstack  # NOQA
+import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm import config
 from hm.model.host import Host
@@ -31,7 +32,7 @@ class BaseManagerTask(Task):
         self.config = config
         self.nginx_manager = nginx.NginxDAV(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
-        self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
+        self.lb_manager_name = self._get_conf("LB_MANAGER", "cloudstack")
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
