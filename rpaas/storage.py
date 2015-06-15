@@ -19,6 +19,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     hcs_collections = "hcs"
     tasks_collection = "tasks"
     bindings_collection = "bindings"
+    quota_collection = "quota"
 
     def store_hc(self, hc):
         self.db[self.hcs_collections].update({"_id": hc["_id"]}, hc, upsert=True)
@@ -101,3 +102,19 @@ class MongoDBStorage(storage.MongoDBStorage):
         })
         if result['n'] == 0:
             raise InstanceNotFoundError()
+
+    def find_team_quota(self, teamname):
+        quota = self.db[self.quota_collection].find_one({'_id': teamname})
+        if quota is None:
+            quota = {'_id': teamname, 'used': [], 'quota': 5}
+            self.db[self.quota_collection].insert(quota)
+        return quota['used'], quota['quota']
+
+    def increment_quota(self, teamname, prev_used, servicename):
+        result = self.db[self.quota_collection].update(
+            {'_id': teamname, 'used': prev_used},
+            {'$addToSet': {'used': servicename}})
+        return result['n'] == 1
+
+    def decrement_quota(self, servicename):
+        self.db[self.quota_collection].update({}, {'$pull': {'used': servicename}}, multi=True)

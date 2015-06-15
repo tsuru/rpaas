@@ -21,7 +21,12 @@ class Manager(object):
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
 
-    def new_instance(self, name):
+    def new_instance(self, name, team=None):
+        used, quota = self.storage.find_team_quota(team)
+        if len(used) >= quota:
+            raise QuotaExceededError(len(used), quota)
+        if not self.storage.increment_quota(team, used, name):
+            raise Exception("concurrent operations updating team quota")
         lb = LoadBalancer.find(name)
         if lb is not None:
             raise storage.DuplicateError(name)
@@ -30,6 +35,7 @@ class Manager(object):
         self.storage.update_task(name, task.task_id)
 
     def remove_instance(self, name):
+        self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
@@ -173,3 +179,8 @@ class ScaleError(Exception):
 
 class RouteError(Exception):
     pass
+
+
+class QuotaExceededError(Exception):
+    def __init__(self, used, quota):
+        super(QuotaExceededError, self).__init__("quota execeeded {}/{} used".format(used, quota))

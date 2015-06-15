@@ -25,7 +25,7 @@ class APITestCase(unittest.TestCase):
         self.manager.reset()
 
     def test_start_instance(self):
-        resp = self.api.post("/resources", data={"name": "someapp"})
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
 
@@ -33,6 +33,12 @@ class APITestCase(unittest.TestCase):
         resp = self.api.post("/resources", data={"names": "someapp"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("name is required", resp.data)
+        self.assertEqual([], self.manager.instances)
+
+    def test_start_instance_without_team(self):
+        resp = self.api.post("/resources", data={"name": "someapp"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("team name is required", resp.data)
         self.assertEqual([], self.manager.instances)
 
     def test_start_instance_unauthorized(self):

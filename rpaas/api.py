@@ -31,10 +31,15 @@ def add_instance():
     name = request.form.get("name")
     if not name:
         return "name is required", 400
+    team = request.form.get("team")
+    if not team:
+        return "team name is required", 400
     try:
-        get_manager().new_instance(name)
+        get_manager().new_instance(name, team=team)
     except storage.DuplicateError:
         return "{} instance already exists".format(name), 409
+    except manager.QuotaExceededError as e:
+        return str(e), 403
     return "", 201
 
 

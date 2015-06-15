@@ -4,7 +4,7 @@ import os
 import mock
 
 import rpaas.manager
-from rpaas.manager import Manager, ScaleError
+from rpaas.manager import Manager, ScaleError, QuotaExceededError
 from rpaas import tasks, storage
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
@@ -45,6 +45,16 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance_over_quota(self, nginx):
+        manager = Manager(self.config)
+        for name in ['a', 'b', 'c', 'd', 'e']:
+            manager.new_instance(name, 'myteam')
+        with self.assertRaises(QuotaExceededError) as cm:
+            manager.new_instance('f', 'myteam')
+        self.assertEqual(str(cm.exception), "quota execeeded 5/5 used")
+        manager.new_instance('f', 'otherteam')
+
     def test_new_instance_error_already_running(self):
         self.storage.store_task('x')
         manager = Manager(self.config)
@@ -70,6 +80,19 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task('x'))
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_remove_instance_decrement_quota(self, nginx):
+        manager = Manager(self.config)
+        for name in ['a', 'b', 'c', 'd', 'e']:
+            manager.new_instance(name)
+        with self.assertRaises(QuotaExceededError):
+            manager.new_instance('f')
+        manager.remove_instance('e')
+        manager.new_instance('f')
+        manager.remove_instance('e')
+        with self.assertRaises(QuotaExceededError):
+            manager.new_instance('g')
 
     @mock.patch('rpaas.manager.LoadBalancer')
     def test_info(self, LoadBalancer):
