@@ -1,8 +1,6 @@
 language: python
+sudo: false
 python: "2.7"
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install `cat requirements.apt` -qqy
 script: make test
 services: mongodb
 notifications:
