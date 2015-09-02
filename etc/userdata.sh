@@ -59,7 +59,7 @@ sudo apt-get update -qq
 sudo apt-get install nginx-extras -qqy
 sudo mkdir -p /etc/nginx/sites-enabled/dav/ssl
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/sites-enabled/dav/ssl/nginx.key -out /etc/nginx/sites-enabled/dav/ssl/nginx.crt -subj "/C=BR/ST=RJ/L=RJ/O=do not use me/OU=do not use me/CN=rpaas.tsuru"
-sudo openssl openssl dhparam -out /etc/nginx/sites-enabled/dav/ssl/dhparams.pem 2048
+sudo openssl dhparam -out /etc/nginx/sites-enabled/dav/ssl/dhparams.pem 2048
 sudo chown -R www-data:www-data /etc/nginx/sites-enabled
 sudo rm -f /etc/nginx/sites-enabled/default || true
 echo "www-data ALL=(ALL) NOPASSWD: /usr/sbin/service nginx reload" | sudo tee -a /etc/sudoers > /dev/null
