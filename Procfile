@@ -1,1 +1,1 @@
-app: sh runner.sh
+web: sh runner.sh
