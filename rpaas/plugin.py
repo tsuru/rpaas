@@ -128,6 +128,18 @@ def get_certificate_args(args):
     return parsed
 
 
+def get_ssl_args(args):
+    parser = argparse.ArgumentParser("ssl")
+    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-a", "--domain", required=True, help="Registered domain name")
+    parsed = parser.parse_args(args)
+    return parsed
+
+def ssl(args):
+    args = get_ssl_args(args)
+    rpaas_path = "/resources/{}/ssl".format(args.instance)
+
+
 def get_scale_args(args):
     parser = argparse.ArgumentParser("scale")
     parser.add_argument("-i", "--instance", required=True)
@@ -191,6 +203,7 @@ def available_commands():
         "scale": scale,
         "certificate": certificate,
         "route": route,
+        "ssl": ssl,
     }
 
 

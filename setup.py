@@ -31,6 +31,13 @@ setup(
         "celery[redis]",
         "flower==0.7.3",
         "GloboNetworkAPI==0.2.2",
+        "cffi==1.2.1",
+        "cryptography==1.0.1",
+        "enum34==1.0.4",
+        "idna==2.0",
+        "ipaddress==1.0.14",
+        "pyasn1==0.1.8",
+        "pycparser==2.14",
     ],
     extras_require={
         'tests': [

@@ -8,6 +8,16 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes
+import os
+from base64 import b64encode
+import socket
+
 from rpaas import storage, tasks, nginx
 
 
@@ -163,6 +173,70 @@ class Manager(object):
         task = self.storage.find_task(name)
         if task:
             raise NotReadyError("Async task still running")
+
+    def _generate_key(self):
+        # Generate our key
+        key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+            backend=default_backend()
+        )
+        # Write our key to disk for safe keeping
+        with open("/etc/nginx/sites-enabled/dav/ssl/key.pem", "wb") as f:
+            passphrase = b64encode(os.urandom(16))
+            f.write(key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.BestAvailableEncryption(passphrase),
+            ))
+        return key
+
+    def _generate_csr(self, key, domainname):
+        # Generate a CSR
+        csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
+            # Provide various details about who we are.
+            x509.NameAttribute(NameOID.COUNTRY_NAME, u"BR"),
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"RJ"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, u"Rio de Janeiro"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"globo.com"),
+            x509.NameAttribute(NameOID.COMMON_NAME, domainname),
+        ])).add_extension(
+            x509.SubjectAlternativeName([
+                # Sites we want this certificate for.
+                x509.DNSName(domainname),
+            ]),
+            critical=False,
+        # Sign the CSR with our private key.
+        ).sign(key, hashes.SHA256(), default_backend())
+        # Write the CSR out to disk.
+        with open("/etc/nginx/sites-enabled/dav/ssl/csr.pem", "wb") as f:
+            f.write(csr.public_bytes(serialization.Encoding.PEM))
+        return csr
+
+    def _check_dns(self, domain):
+        ''' Check if the DNS name is registered for the rpaas VIP
+        @param domain Domain name
+        @param vip rpaas ip
+        '''
+        address = self._get_address(name)
+        if address == FAILURE or address == PENDING:
+            return False
+
+        answer = socket.getaddrinfo(domain, 0,0,0,0)
+        if address not in [ip[4][0] for ip in answer]:
+            return False
+
+        return True
+
+    def activate_ssl(self, name, domain):
+        # Check if DNS is registered for rpaas ip
+        if not self._check_dns(domain):
+            return 'rpaas IP is not registered for this DNS name'
+
+        # Key and CSR generated to request a certificate
+        key = self._generate_key()
+        csr = self._generate_csr(key, domain)
+
 
 
 class BindError(Exception):

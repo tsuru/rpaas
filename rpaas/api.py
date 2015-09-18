@@ -206,6 +206,21 @@ def list_routes(name):
         return "Instance not found", 404
 
 
+@api.route("/resources/<name>/ssl", methods=["POST"])
+@auth.required
+def add_https(name):
+    domain = request.form.get('domain')
+    if not domain:
+        return "missing domain name", 400
+    try:
+        get_manager().activate_ssl(name, domain)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "", 200
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)
