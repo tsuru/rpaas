@@ -1,4 +1,4 @@
-# Copyright 2014 rpaas authors. All rights reserved.
+# Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -23,6 +23,13 @@ else:
     handler.setLevel(logging.WARN)
 api.logger.addHandler(handler)
 hm.log.set_handler(handler)
+
+
+@api.route("/resources/plans", methods=["GET"])
+@auth.required
+def plans():
+    plans = []
+    return json.dumps(plans)
 
 
 @api.route("/resources", methods=["POST"])

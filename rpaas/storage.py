@@ -6,8 +6,14 @@ import pymongo.errors
 
 from hm import storage
 
+from rpaas import plan
+
 
 class InstanceNotFoundError(Exception):
+    pass
+
+
+class PlanNotFoundError(Exception):
     pass
 
 
@@ -19,6 +25,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     hcs_collections = "hcs"
     tasks_collection = "tasks"
     bindings_collection = "bindings"
+    plans_collection = "plans"
     quota_collection = "quota"
 
     def store_hc(self, hc):
@@ -44,6 +51,21 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
+
+    def find_plan(self, name):
+        plan_dict = self.db[self.plans_collection].find_one({'_id': name})
+        if not plan_dict:
+            raise PlanNotFoundError()
+        return self._plan_from_dict(plan_dict)
+
+    def list_plans(self):
+        plan_list = self.db[self.plans_collection].find()
+        return [self._plan_from_dict(p) for p in plan_list]
+
+    def _plan_from_dict(self, dict):
+        dict["name"] = dict["_id"]
+        del dict["_id"]
+        return plan.Plan(**dict)
 
     def store_binding(self, name, app_host):
         try:
