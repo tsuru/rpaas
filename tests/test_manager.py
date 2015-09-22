@@ -1,3 +1,4 @@
+import copy
 import unittest
 import os
 
@@ -18,13 +19,19 @@ class ManagerTestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
         self.lb_patcher = mock.patch('rpaas.tasks.LoadBalancer')
         self.host_patcher = mock.patch('rpaas.tasks.Host')
         self.LoadBalancer = self.lb_patcher.start()
         self.Host = self.host_patcher.start()
         self.config = {
             'HOST_MANAGER': 'my-host-manager',
-            'LB_MANAGER': 'my-lb-manager'
+            'LB_MANAGER': 'my-lb-manager',
+            'serviceofferingid': 'abcdef123459',
         }
 
     def tearDown(self):
@@ -44,6 +51,27 @@ class ManagerTestCase(unittest.TestCase):
         nginx.NginxDAV.assert_called_once_with(self.config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance_with_plan(self, nginx):
+        manager = Manager(self.config)
+        manager.new_instance('x', plan='small')
+        host = self.Host.create.return_value
+        config = copy.deepcopy(self.config)
+        config['serviceofferingid'] = 'abcdef123456'
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
+        lb.add_host.assert_called_with(host)
+        self.assertIsNone(self.storage.find_task('x'))
+        nginx.NginxDAV.assert_called_once_with(config)
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+
+    def test_new_instance_plan_not_found(self):
+        manager = Manager(self.config)
+        with self.assertRaises(storage.PlanNotFoundError):
+            manager.new_instance('x', plan='supersmall')
 
     @mock.patch('rpaas.tasks.nginx')
     def test_new_instance_over_quota(self, nginx):

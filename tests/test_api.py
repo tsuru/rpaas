@@ -24,9 +24,9 @@ class APITestCase(unittest.TestCase):
 
     def setUp(self):
         self.manager.reset()
+        self.storage.db[self.storage.plans_collection].remove()
 
     def test_plans(self):
-        self.storage.db[self.storage.plans_collection].remove()
         resp = self.api.get("/resources/plans")
         self.assertEqual(200, resp.status_code)
         self.assertEqual("[]", resp.data)
@@ -55,6 +55,17 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
 
+    def test_start_instance_with_plan(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1", "plan": "small"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("small", self.manager.instances[0].plan)
+
     def test_start_instance_without_name(self):
         resp = self.api.post("/resources", data={"names": "someapp"})
         self.assertEqual(400, resp.status_code)
@@ -65,6 +76,23 @@ class APITestCase(unittest.TestCase):
         resp = self.api.post("/resources", data={"name": "someapp"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("team name is required", resp.data)
+        self.assertEqual([], self.manager.instances)
+
+    def test_start_instance_without_required_plan(self):
+        os.environ["RPAAS_REQUIRE_PLAN"] = "1"
+        try:
+            resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
+            self.assertEqual(400, resp.status_code)
+            self.assertEqual("plan is required", resp.data)
+            self.assertEqual([], self.manager.instances)
+        finally:
+            del os.environ["RPAAS_REQUIRE_PLAN"]
+
+    def test_start_instance_plan_not_found(self):
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "plan": "small"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid plan", resp.data)
         self.assertEqual([], self.manager.instances)
 
     def test_start_instance_unauthorized(self):

@@ -41,8 +41,13 @@ def add_instance():
     team = request.form.get("team")
     if not team:
         return "team name is required", 400
+    plan = request.form.get("plan")
+    if require_plan() and not plan:
+        return "plan is required", 400
     try:
-        get_manager().new_instance(name, team=team)
+        get_manager().new_instance(name, team=team, plan=plan)
+    except storage.PlanNotFoundError:
+        return "invalid plan", 400
     except storage.DuplicateError:
         return "{} instance already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -220,6 +225,10 @@ def get_plugin():
 
 def get_manager():
     return manager.Manager(dict(os.environ))
+
+
+def require_plan():
+    return "RPAAS_REQUIRE_PLAN" in os.environ
 
 
 def main():

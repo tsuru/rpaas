@@ -7,10 +7,11 @@ from rpaas import storage
 
 class FakeInstance(object):
 
-    def __init__(self, name, state):
+    def __init__(self, name, state, plan):
         self.name = name
         self.state = state
         self.units = 1
+        self.plan = plan
         self.bound = []
         self.routes = {}
 
@@ -27,8 +28,10 @@ class FakeManager(object):
         self.instances = []
         self.storage = storage
 
-    def new_instance(self, name, state="running", team=None):
-        instance = FakeInstance(name, state)
+    def new_instance(self, name, state="running", team=None, plan=None):
+        if plan:
+            self.storage.find_plan(plan)
+        instance = FakeInstance(name, state, plan)
         self.instances.append(instance)
         return instance
 
