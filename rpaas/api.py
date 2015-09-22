@@ -28,8 +28,8 @@ hm.log.set_handler(handler)
 @api.route("/resources/plans", methods=["GET"])
 @auth.required
 def plans():
-    plans = []
-    return json.dumps(plans)
+    plans = get_manager().storage.list_plans()
+    return json.dumps([p.to_dict() for p in plans])
 
 
 @api.route("/resources", methods=["POST"])

@@ -9,7 +9,7 @@ import os
 import unittest
 from io import BytesIO
 
-from rpaas import api, plugin
+from rpaas import api, plugin, storage
 from . import managers
 
 
@@ -17,12 +17,38 @@ class APITestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.manager = managers.FakeManager()
+        cls.storage = storage.MongoDBStorage()
+        cls.manager = managers.FakeManager(storage=cls.storage)
         api.get_manager = lambda: cls.manager
         cls.api = api.api.test_client()
 
     def setUp(self):
         self.manager.reset()
+
+    def test_plans(self):
+        self.storage.db[self.storage.plans_collection].remove()
+        resp = self.api.get("/resources/plans")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("[]", resp.data)
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        resp = self.api.get("/resources/plans")
+        self.assertEqual(200, resp.status_code)
+        expected = [
+            {"name": "small", "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}},
+            {"name": "huge", "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}},
+        ]
+        self.assertEqual(expected, json.loads(resp.data))
 
     def test_start_instance(self):
         resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
@@ -105,14 +131,17 @@ class APITestCase(unittest.TestCase):
     def test_unbind(self):
         self.manager.new_instance("someapp")
         self.manager.bind("someapp", "someapp.cloud.tsuru.io")
-        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host": "someapp.cloud.tsuru.io"},
-                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = self.api.delete("/resources/someapp/bind-app",
+                               data={"app-host": "someapp.cloud.tsuru.io"},
+                               headers={'Content-Type':
+                                        'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual([], self.manager.instances[0].bound)
 
     def test_unbind_instance_not_found(self):
-        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host": "someapp.cloud.tsuru.io"},
+        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host":
+                                                                    "someapp.cloud.tsuru.io"},
                                headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Instance not found", resp.data)

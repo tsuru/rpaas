@@ -25,6 +25,7 @@ class FakeManager(object):
 
     def __init__(self, storage=None):
         self.instances = []
+        self.storage = storage
 
     def new_instance(self, name, state="running", team=None):
         instance = FakeInstance(name, state)
