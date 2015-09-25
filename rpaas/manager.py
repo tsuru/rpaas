@@ -19,6 +19,9 @@ from base64 import b64encode
 import socket
 
 from rpaas import storage, tasks, nginx
+import rpaas.ssl_plugins
+from rpaas.ssl_plugins import *
+import inspect
 
 
 PENDING = 'pending'
@@ -181,18 +184,21 @@ class Manager(object):
             key_size=2048,
             backend=default_backend()
         )
-        # Write our key to disk for safe keeping
-        with open("/etc/nginx/sites-enabled/dav/ssl/key.pem", "wb") as f:
-            passphrase = b64encode(os.urandom(16))
-            f.write(key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.BestAvailableEncryption(passphrase),
-            ))
-        return key
+
+        # Return serialized private key
+        return key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
 
     def _generate_csr(self, key, domainname):
         # Generate a CSR
+        private_key = serialization.load_pem_private_key(
+            key,
+            password=None,
+            backend=default_backend()
+        )
         csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
             # Provide various details about who we are.
             x509.NameAttribute(NameOID.COUNTRY_NAME, u"BR"),
@@ -207,13 +213,12 @@ class Manager(object):
             ]),
             critical=False,
         # Sign the CSR with our private key.
-        ).sign(key, hashes.SHA256(), default_backend())
-        # Write the CSR out to disk.
-        with open("/etc/nginx/sites-enabled/dav/ssl/csr.pem", "wb") as f:
-            f.write(csr.public_bytes(serialization.Encoding.PEM))
-        return csr
+        ).sign(private_key, hashes.SHA256(), default_backend())
 
-    def _check_dns(self, domain):
+        # Return serialized CSR
+        return csr.public_bytes(serialization.Encoding.PEM)
+
+    def _check_dns(self, name, domain):
         ''' Check if the DNS name is registered for the rpaas VIP
         @param domain Domain name
         @param vip rpaas ip
@@ -228,14 +233,42 @@ class Manager(object):
 
         return True
 
-    def activate_ssl(self, name, domain):
+    def activate_ssl(self, name, domain, plugin='default'):
         # Check if DNS is registered for rpaas ip
-        if not self._check_dns(domain):
+        if not self._check_dns(name, domain):
             return 'rpaas IP is not registered for this DNS name'
 
         # Key and CSR generated to request a certificate
         key = self._generate_key()
         csr = self._generate_csr(key, domain)
+
+        # load plugin if get as an arg
+        if plugin.isalpha() and \
+            plugin in rpaas.ssl_plugins.__all__ and \
+            plugin not in ['default', '__init__']:
+
+            try:
+                p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+
+                for name, obj in inspect.getmembers(p_ssl):
+                    if name != 'BaseSSLPlugin' and \
+                        inspect.isclass(obj) and \
+                        issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                        c_ssl = obj
+                plugin_obj = c_ssl()
+                print plugin_obj
+
+                # plugin_class.upload_csr(csr.public_bytes())
+            except Exception, e:
+                print e
+                return 'There is no such plugin'
+
+        else:
+            # default
+            p_ssl = rpaas.ssl_plugins.default.Default()
+            cert = p_ssl.download_crt(key=key)
+            self.update_certificate(name, cert, key)
+
 
 
 
