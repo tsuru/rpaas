@@ -10,8 +10,8 @@ import logging
 from flask import Flask, Response, request
 import hm.log
 
-from rpaas import auth, plugin, manager, storage
-
+from rpaas import (admin_api, auth, get_manager, manager, plugin,
+                   storage)
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
@@ -223,12 +223,10 @@ def get_plugin():
     return inspect.getsource(plugin)
 
 
-def get_manager():
-    return manager.Manager(dict(os.environ))
-
-
 def require_plan():
     return "RPAAS_REQUIRE_PLAN" in os.environ
+
+admin_api.register_views(api, plans)
 
 
 def main():
