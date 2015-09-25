@@ -6,7 +6,7 @@
 
 import unittest
 
-from rpaas import storage
+from rpaas import plan, storage
 
 
 class MongoDBStorageTestCase(unittest.TestCase):
@@ -42,3 +42,41 @@ class MongoDBStorageTestCase(unittest.TestCase):
         self.assertEqual(expected, plan.to_dict())
         with self.assertRaises(storage.PlanNotFoundError):
             self.storage.find_plan("something that doesn't exist")
+
+    def test_store_plan(self):
+        p = plan.Plan(name="super_huge", description="very huge thing",
+                      config={"serviceofferingid": "abcdef123"})
+        self.storage.store_plan(p)
+        got_plan = self.storage.find_plan(p.name)
+        self.assertEqual(p.to_dict(), got_plan.to_dict())
+
+    def test_store_plan_duplicate(self):
+        p = plan.Plan(name="small", description="small thing",
+                      config={"serviceofferingid": "abcdef123"})
+        with self.assertRaises(storage.DuplicateError):
+            self.storage.store_plan(p)
+
+    def test_update_plan(self):
+        p = plan.Plan(name="super_huge", description="very huge thing",
+                      config={"serviceofferingid": "abcdef123"})
+        self.storage.store_plan(p)
+        self.storage.update_plan(p.name, description="wat?",
+                                 config={"serviceofferingid": "abcdef123459"})
+        p = self.storage.find_plan(p.name)
+        self.assertEqual("super_huge", p.name)
+        self.assertEqual("wat?", p.description)
+        self.assertEqual({"serviceofferingid": "abcdef123459"}, p.config)
+
+    def test_update_plan_partial(self):
+        p = plan.Plan(name="super_huge", description="very huge thing",
+                      config={"serviceofferingid": "abcdef123"})
+        self.storage.store_plan(p)
+        self.storage.update_plan(p.name, config={"serviceofferingid": "abcdef123459"})
+        p = self.storage.find_plan(p.name)
+        self.assertEqual("super_huge", p.name)
+        self.assertEqual("very huge thing", p.description)
+        self.assertEqual({"serviceofferingid": "abcdef123459"}, p.config)
+
+    def test_update_plan_not_found(self):
+        with self.assertRaises(storage.PlanNotFoundError):
+            self.storage.update_plan("my_plan", description="woot")

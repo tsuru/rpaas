@@ -52,6 +52,28 @@ class MongoDBStorage(storage.MongoDBStorage):
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
 
+    def store_plan(self, plan):
+        plan.validate()
+        d = plan.to_dict()
+        d["_id"] = d["name"]
+        del d["name"]
+        try:
+            self.db[self.plans_collection].insert(d)
+        except pymongo.errors.DuplicateKeyError:
+            raise DuplicateError(plan.name)
+
+    def update_plan(self, name, description=None, config=None):
+        update = {}
+        if description:
+            update["description"] = description
+        if config:
+            update["config"] = config
+        if update:
+            result = self.db[self.plans_collection].update({"_id": name},
+                                                           {"$set": update})
+            if not result.get("updatedExisting"):
+                raise PlanNotFoundError()
+
     def find_plan(self, name):
         plan_dict = self.db[self.plans_collection].find_one({'_id': name})
         if not plan_dict:
