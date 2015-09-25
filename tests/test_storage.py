@@ -80,3 +80,15 @@ class MongoDBStorageTestCase(unittest.TestCase):
     def test_update_plan_not_found(self):
         with self.assertRaises(storage.PlanNotFoundError):
             self.storage.update_plan("my_plan", description="woot")
+
+    def test_delete_plan(self):
+        p = plan.Plan(name="super_huge", description="very huge thing",
+                      config={"serviceofferingid": "abcdef123"})
+        self.storage.store_plan(p)
+        self.storage.delete_plan(p.name)
+        with self.assertRaises(storage.PlanNotFoundError):
+            self.storage.find_plan(p.name)
+
+    def test_delete_plan_not_found(self):
+        with self.assertRaises(storage.PlanNotFoundError):
+            self.storage.delete_plan("super_huge")

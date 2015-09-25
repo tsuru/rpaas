@@ -74,6 +74,11 @@ class MongoDBStorage(storage.MongoDBStorage):
             if not result.get("updatedExisting"):
                 raise PlanNotFoundError()
 
+    def delete_plan(self, name):
+        result = self.db[self.plans_collection].remove({"_id": name})
+        if result.get("n", 0) < 1:
+            raise PlanNotFoundError()
+
     def find_plan(self, name):
         plan_dict = self.db[self.plans_collection].find_one({'_id': name})
         if not plan_dict:
