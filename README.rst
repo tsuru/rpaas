@@ -39,15 +39,9 @@ When you get an output like this you can proceed to push.
     +-------------+-------------------------+--------------------------------------+
     | Application | Units State Summary     | Address                              |
     +-------------+-------------------------+--------------------------------------+
-    | your-app    | 1 of 1 units in-service | your-app.somewhere.com |
+    | your-app    | 1 of 1 units in-service | your-app.somewhere.com               |
     +-------------+-------------------------+--------------------------------------+
 
 Now if you access our app endpoint at "/" (you can check with `tsuru app-info`
 cmd) you should get a 404, which is right, since the API does not respond
 through this url.
-
-Alright, let's configure the application, it'll need to talk with EC2 API, and
-it does so by using environment variables. Here's what you need:
-
-**TODO**
-
