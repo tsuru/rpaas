@@ -10,8 +10,8 @@ import logging
 from flask import Flask, Response, request
 import hm.log
 
-from rpaas import (admin_api, auth, get_manager, manager, plugin,
-                   storage)
+from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
+                   plugin, storage)
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
@@ -221,6 +221,15 @@ def list_routes(name):
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)
+
+
+@api.route("/admin/plugin", methods=["GET"])
+def get_admin_plugin():
+    service_name = os.environ.get("RPAAS_SERVICE_NAME")
+    if not service_name:
+        return "not found", 404
+    raw = inspect.getsource(admin_plugin)
+    return raw % {"RPAAS_SERVICE_NAME": service_name}
 
 
 def require_plan():
