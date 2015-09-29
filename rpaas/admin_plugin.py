@@ -85,7 +85,31 @@ def delete_plan(args):
 
 
 def retrieve_plan(args):
-    pass
+    name = _retrieve_plan_args(args)
+    result = proxy_request("/admin/plans/"+name, method="GET")
+    data = result.read().strip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + data + "\n")
+        sys.exit(1)
+    plan = json.loads(data)
+    _render_plan(plan)
+
+
+def _render_plan(plan):
+    sys.stdout.write("Name: {name}\nDescription: {description}\n".format(**plan))
+    sys.stdout.write("Config:\n\n")
+    vars = []
+    for name, value in plan["config"].iteritems():
+        vars.append("{}={}".format(name, value))
+    for var in sorted(vars):
+        sys.stdout.write("  {}\n".format(var))
+
+
+def _retrieve_plan_args(args):
+    parser = argparse.ArgumentParser("show-plan")
+    parser.add_argument("plan_name")
+    parsed_args = parser.parse_args(args)
+    return parsed_args.plan_name
 
 
 def available_commands():

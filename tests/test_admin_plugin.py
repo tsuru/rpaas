@@ -146,3 +146,65 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("ERROR: Invalid config format, supported format is KEY=VALUE\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_retrieve_plan(self, stdout, Request, urlopen):
+        lines = []
+        stdout.write.side_effect = lambda data, **kw: lines.append(data)
+        plan_data = u"""{"name":"small",
+                         "description":"small stuff",
+                         "config":{"SERVICEOFFERINGID":"abc123",
+                                   "DO_STUFF":true,
+                                   "PUBLIC_NETWORK_INDEX":0,
+                                   "CLOUDSTACK_ZONE_ID":"__wow__"}}"""
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        result.read.return_value = plan_data
+        urlopen.return_value = result
+        admin_plugin.retrieve_plan(["small"])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/small")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        expected_output = u"""Name: small
+Description: small stuff
+Config:
+
+  CLOUDSTACK_ZONE_ID=__wow__
+  DO_STUFF=True
+  PUBLIC_NETWORK_INDEX=0
+  SERVICEOFFERINGID=abc123
+"""
+        self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_retrieve_plan_failure(self, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 500
+        result.read.return_value = "something went wrong"
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.retrieve_plan(["medium"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/medium")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        stderr.write.assert_called_with("ERROR: something went wrong\n")
+
+    @mock.patch("sys.stderr")
+    def test_retrieve_plan_invalid_args(self, stderr):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.retrieve_plan([])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("show-plan: error: too few arguments\n")
