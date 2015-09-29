@@ -155,6 +155,68 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
+    def test_update_plan(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+                                  'SERVICE=abcdef-123 NAME="something nice" DATA=go go go DATE=\'2015\''])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/small")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type",
+                                           "application/x-www-form-urlencoded")
+        params = {
+            "description": "smalll vms",
+            "config": json.dumps({"SERVICE": "abcdef-123",
+                                  "NAME": "something nice",
+                                  "DATA": "go go go",
+                                  "DATE": "2015"}),
+        }
+        request.add_data.assert_called_with(urllib.urlencode(params))
+        self.assertEqual("PUT", request.get_method())
+        stdout.write.assert_called_with("Plan successfully updated\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_update_plan_failure(self, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 404
+        result.read.return_value = "plan not found\n"
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+                                      "SERVICE=abcdef-123"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/small")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type",
+                                           "application/x-www-form-urlencoded")
+        self.assertEqual("PUT", request.get_method())
+        stderr.write.assert_called_with("ERROR: plan not found\n")
+
+    @mock.patch("sys.stderr")
+    def test_update_plan_invalid_config(self, stderr):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+                                      "SERVICE"])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with(
+            "ERROR: Invalid config format, supported format is KEY=VALUE\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
     def test_retrieve_plan(self, stdout, Request, urlopen):
         lines = []
         stdout.write.side_effect = lambda data, **kw: lines.append(data)

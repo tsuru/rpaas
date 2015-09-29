@@ -42,7 +42,7 @@ def list_plans(args):
 
 
 def create_plan(args):
-    name, description, config = _create_plan_args(args)
+    name, description, config = _change_plan_args(args, "create-plan")
     params = {
         "name": name,
         "description": description,
@@ -56,8 +56,23 @@ def create_plan(args):
     sys.stdout.write("Plan successfully created\n")
 
 
-def _create_plan_args(args):
-    parser = argparse.ArgumentParser("create-plan")
+def update_plan(args):
+    name, description, config = _change_plan_args(args, "update-plan")
+    params = {
+        "description": description,
+        "config": json.dumps(config),
+    }
+    result = proxy_request("/admin/plans/"+name, body=urllib.urlencode(params),
+                           headers={"Content-Type": "application/x-www-form-urlencoded"},
+                           method="PUT")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
+        sys.exit(1)
+    sys.stdout.write("Plan successfully updated\n")
+
+
+def _change_plan_args(args, cmd_name):
+    parser = argparse.ArgumentParser(cmd_name)
     parser.add_argument("-n", "--name", required=True)
     parser.add_argument("-d", "--description", required=True)
     parser.add_argument("-c", "--config", required=True)
@@ -74,10 +89,6 @@ def _create_plan_args(args):
                 key = part[:-1]
                 config[key] = value
     return parsed_args.name, parsed_args.description, config
-
-
-def update_plan(args):
-    pass
 
 
 def delete_plan(args):
