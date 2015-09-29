@@ -57,6 +57,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "callback=/admin/plans")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
         urlopen.assert_called_with(request)
         expected_calls = [
             mock.call("List of available plans (use show-plan for details):\n\n"),
@@ -84,6 +85,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "callback=/admin/plans")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
         urlopen.assert_called_with(request)
         stderr.write.assert_called_with("ERROR: Something went wrong\n")
 
@@ -113,6 +115,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                   "DATE": "2015"}),
         }
         request.add_data.assert_called_with(urllib.urlencode(params))
+        self.assertEqual("POST", request.get_method())
         stdout.write.assert_called_with("Plan successfully created\n")
 
     @mock.patch("urllib2.urlopen")
@@ -136,6 +139,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type",
                                            "application/x-www-form-urlencoded")
+        self.assertEqual("POST", request.get_method())
         stderr.write.assert_called_with("ERROR: Plan already exists\n")
 
     @mock.patch("sys.stderr")
@@ -145,7 +149,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                       "SERVICE"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        stderr.write.assert_called_with("ERROR: Invalid config format, supported format is KEY=VALUE\n")
+        stderr.write.assert_called_with(
+            "ERROR: Invalid config format, supported format is KEY=VALUE\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
@@ -170,6 +175,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
         expected_output = u"""Name: small
 Description: small stuff
 Config:
@@ -199,6 +205,7 @@ Config:
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/medium")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
         stderr.write.assert_called_with("ERROR: something went wrong\n")
 
     @mock.patch("sys.stderr")
@@ -208,3 +215,49 @@ Config:
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("show-plan: error: too few arguments\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_delete_plan(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        admin_plugin.delete_plan(["medium"])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/medium")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("DELETE", request.get_method())
+        stdout.write.assert_called_with("Plan successfully deleted\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_delete_plan_failure(self, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 404
+        result.read.return_value = "plan not found\n"
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.delete_plan(["medium"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/plans/medium")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("DELETE", request.get_method())
+        stderr.write.assert_called_with("ERROR: plan not found\n")
+
+    @mock.patch("sys.stderr")
+    def test_delete_plan_invalid_args(self, stderr):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.delete_plan([])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("delete-plan: error: too few arguments\n")

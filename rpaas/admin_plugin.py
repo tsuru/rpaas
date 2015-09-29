@@ -81,11 +81,16 @@ def update_plan(args):
 
 
 def delete_plan(args):
-    pass
+    name = _plan_arg(args, "delete-plan")
+    result = proxy_request("/admin/plans/"+name, method="DELETE")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
+        sys.exit(1)
+    sys.stdout.write("Plan successfully deleted\n")
 
 
 def retrieve_plan(args):
-    name = _retrieve_plan_args(args)
+    name = _plan_arg(args, "show-plan")
     result = proxy_request("/admin/plans/"+name, method="GET")
     data = result.read().strip("\n")
     if result.getcode() != 200:
@@ -105,8 +110,8 @@ def _render_plan(plan):
         sys.stdout.write("  {}\n".format(var))
 
 
-def _retrieve_plan_args(args):
-    parser = argparse.ArgumentParser("show-plan")
+def _plan_arg(args, cmd_name):
+    parser = argparse.ArgumentParser(cmd_name)
     parser.add_argument("plan_name")
     parsed_args = parser.parse_args(args)
     return parsed_args.plan_name
