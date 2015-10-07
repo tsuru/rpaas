@@ -140,7 +140,12 @@ class Manager(object):
         if quantity <= 0:
             raise ScaleError("Can't have 0 instances")
         self.storage.store_task(name)
-        task = tasks.ScaleInstanceTask().delay(self.config, name, quantity)
+        config = copy.deepcopy(self.config)
+        instance_plan = self.storage.find_instance_plan(name)
+        if instance_plan:
+            plan = instance_plan["plan"]
+            config.update(plan.get("config") or {})
+        task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
     def add_route(self, name, path, destination, content):

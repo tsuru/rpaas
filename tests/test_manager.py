@@ -60,7 +60,7 @@ class ManagerTestCase(unittest.TestCase):
         manager.new_instance('x', plan='small')
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
-        config['serviceofferingid'] = 'abcdef123456'
+        config.update(self.plan['config'])
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
@@ -203,6 +203,21 @@ content = location /x {
         manager = Manager(self.config)
         manager.scale_instance('x', 5)
         self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
+        self.assertEqual(self.Host.create.call_count, 3)
+        lb.add_host.assert_called_with(self.Host.create.return_value)
+        self.assertEqual(lb.add_host.call_count, 3)
+
+    def test_scale_instance_up_with_plan(self):
+        lb = self.LoadBalancer.find.return_value
+        lb.name = 'x'
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_plan("x", self.plan)
+        self.addCleanup(self.storage.remove_instance_plan, "x")
+        config = copy.deepcopy(self.config)
+        config.update(self.plan['config'])
+        manager = Manager(self.config)
+        manager.scale_instance('x', 5)
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
