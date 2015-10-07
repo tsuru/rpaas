@@ -1,4 +1,4 @@
-# Copyright 2014 rpaas authors. All rights reserved.
+# Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -11,8 +11,8 @@ from socket import gaierror
 from flask import Flask, Response, request
 import hm.log
 
-from rpaas import auth, plugin, manager, storage
-
+from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
+                   plugin, storage)
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
@@ -26,6 +26,13 @@ api.logger.addHandler(handler)
 hm.log.set_handler(handler)
 
 
+@api.route("/resources/plans", methods=["GET"])
+@auth.required
+def plans():
+    plans = get_manager().storage.list_plans()
+    return json.dumps([p.to_dict() for p in plans])
+
+
 @api.route("/resources", methods=["POST"])
 @auth.required
 def add_instance():
@@ -35,8 +42,13 @@ def add_instance():
     team = request.form.get("team")
     if not team:
         return "team name is required", 400
+    plan = request.form.get("plan")
+    if require_plan() and not plan:
+        return "plan is required", 400
     try:
-        get_manager().new_instance(name, team=team)
+        get_manager().new_instance(name, team=team, plan=plan)
+    except storage.PlanNotFoundError:
+        return "invalid plan", 400
     except storage.DuplicateError:
         return "{} instance already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -238,8 +250,19 @@ def get_plugin():
     return inspect.getsource(plugin)
 
 
-def get_manager():
-    return manager.Manager(dict(os.environ))
+@api.route("/admin/plugin", methods=["GET"])
+def get_admin_plugin():
+    service_name = os.environ.get("RPAAS_SERVICE_NAME")
+    if not service_name:
+        return "not found", 404
+    raw = inspect.getsource(admin_plugin)
+    return raw % {"RPAAS_SERVICE_NAME": service_name}
+
+
+def require_plan():
+    return "RPAAS_REQUIRE_PLAN" in os.environ
+
+admin_api.register_views(api, plans)
 
 
 def main():

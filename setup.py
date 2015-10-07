@@ -7,13 +7,11 @@ import codecs
 
 from setuptools import setup, find_packages
 
-from rpaas import __version__
-
 README = codecs.open('README.rst', encoding='utf-8').read()
 
 setup(
     name="tsuru-rpaas",
-    version=__version__,
+    version="0.1.0",
     description="Reverse proxy as-a-service API for Tsuru PaaS",
     long_description=README,
     author="Tsuru",

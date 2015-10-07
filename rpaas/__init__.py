@@ -1,5 +1,11 @@
-# Copyright 2014 rpaas authors. All rights reserved.
+# Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-__version__ = "0.1.0"
+import os
+
+from rpaas import manager
+
+
+def get_manager():
+    return manager.Manager(dict(os.environ))

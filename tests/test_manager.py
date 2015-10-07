@@ -1,3 +1,4 @@
+import copy
 import unittest
 import os
 
@@ -18,13 +19,21 @@ class ManagerTestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
+        plan = {"_id": "small",
+                "description": "some cool plan",
+                "config": {"serviceofferingid": "abcdef123456"}}
+        self.plan = copy.deepcopy(plan)
+        self.plan["name"] = plan["_id"]
+        del self.plan["_id"]
+        self.storage.db[self.storage.plans_collection].insert(plan)
         self.lb_patcher = mock.patch('rpaas.tasks.LoadBalancer')
         self.host_patcher = mock.patch('rpaas.tasks.Host')
         self.LoadBalancer = self.lb_patcher.start()
         self.Host = self.host_patcher.start()
         self.config = {
             'HOST_MANAGER': 'my-host-manager',
-            'LB_MANAGER': 'my-lb-manager'
+            'LB_MANAGER': 'my-lb-manager',
+            'serviceofferingid': 'abcdef123459',
         }
 
     def tearDown(self):
@@ -44,6 +53,30 @@ class ManagerTestCase(unittest.TestCase):
         nginx.NginxDAV.assert_called_once_with(self.config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance_with_plan(self, nginx):
+        manager = Manager(self.config)
+        manager.new_instance('x', plan='small')
+        host = self.Host.create.return_value
+        config = copy.deepcopy(self.config)
+        config.update(self.plan['config'])
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
+        lb.add_host.assert_called_with(host)
+        self.assertIsNone(manager.storage.find_task('x'))
+        nginx.NginxDAV.assert_called_once_with(config)
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        instance_plan = manager.storage.find_instance_plan("x")
+        self.assertEqual({"_id": "x",
+                          "plan": self.plan}, instance_plan)
+
+    def test_new_instance_plan_not_found(self):
+        manager = Manager(self.config)
+        with self.assertRaises(storage.PlanNotFoundError):
+            manager.new_instance('x', plan='supersmall')
 
     @mock.patch('rpaas.tasks.nginx')
     def test_new_instance_over_quota(self, nginx):
@@ -71,6 +104,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task('x')
+        self.storage.store_instance_plan("x", {"serviceofferingid": "123"})
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -80,6 +114,7 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task('x'))
+        self.assertIsNone(self.storage.find_instance_plan("x"))
 
     @mock.patch('rpaas.tasks.nginx')
     def test_remove_instance_decrement_quota(self, nginx):
@@ -168,6 +203,21 @@ content = location /x {
         manager = Manager(self.config)
         manager.scale_instance('x', 5)
         self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
+        self.assertEqual(self.Host.create.call_count, 3)
+        lb.add_host.assert_called_with(self.Host.create.return_value)
+        self.assertEqual(lb.add_host.call_count, 3)
+
+    def test_scale_instance_up_with_plan(self):
+        lb = self.LoadBalancer.find.return_value
+        lb.name = 'x'
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_plan("x", self.plan)
+        self.addCleanup(self.storage.remove_instance_plan, "x")
+        config = copy.deepcopy(self.config)
+        config.update(self.plan['config'])
+        manager = Manager(self.config)
+        manager.scale_instance('x', 5)
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)

@@ -9,7 +9,7 @@ import os
 import unittest
 from io import BytesIO
 
-from rpaas import api, plugin
+from rpaas import admin_plugin, api, plugin, storage
 from . import managers
 
 
@@ -17,17 +17,54 @@ class APITestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.manager = managers.FakeManager()
+        cls.storage = storage.MongoDBStorage()
+        cls.manager = managers.FakeManager(storage=cls.storage)
         api.get_manager = lambda: cls.manager
         cls.api = api.api.test_client()
 
     def setUp(self):
         self.manager.reset()
+        self.storage.db[self.storage.plans_collection].remove()
+
+    def test_plans(self):
+        resp = self.api.get("/resources/plans")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("[]", resp.data)
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        resp = self.api.get("/resources/plans")
+        self.assertEqual(200, resp.status_code)
+        expected = [
+            {"name": "small", "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}},
+            {"name": "huge", "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}},
+        ]
+        self.assertEqual(expected, json.loads(resp.data))
 
     def test_start_instance(self):
         resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
+
+    def test_start_instance_with_plan(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1", "plan": "small"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("small", self.manager.instances[0].plan)
 
     def test_start_instance_without_name(self):
         resp = self.api.post("/resources", data={"names": "someapp"})
@@ -39,6 +76,23 @@ class APITestCase(unittest.TestCase):
         resp = self.api.post("/resources", data={"name": "someapp"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("team name is required", resp.data)
+        self.assertEqual([], self.manager.instances)
+
+    def test_start_instance_without_required_plan(self):
+        os.environ["RPAAS_REQUIRE_PLAN"] = "1"
+        try:
+            resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
+            self.assertEqual(400, resp.status_code)
+            self.assertEqual("plan is required", resp.data)
+            self.assertEqual([], self.manager.instances)
+        finally:
+            del os.environ["RPAAS_REQUIRE_PLAN"]
+
+    def test_start_instance_plan_not_found(self):
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "plan": "small"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid plan", resp.data)
         self.assertEqual([], self.manager.instances)
 
     def test_start_instance_unauthorized(self):
@@ -105,14 +159,17 @@ class APITestCase(unittest.TestCase):
     def test_unbind(self):
         self.manager.new_instance("someapp")
         self.manager.bind("someapp", "someapp.cloud.tsuru.io")
-        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host": "someapp.cloud.tsuru.io"},
-                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = self.api.delete("/resources/someapp/bind-app",
+                               data={"app-host": "someapp.cloud.tsuru.io"},
+                               headers={'Content-Type':
+                                        'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual([], self.manager.instances[0].bound)
 
     def test_unbind_instance_not_found(self):
-        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host": "someapp.cloud.tsuru.io"},
+        resp = self.api.delete("/resources/someapp/bind-app", data={"app-host":
+                                                                    "someapp.cloud.tsuru.io"},
                                headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Instance not found", resp.data)
@@ -244,6 +301,23 @@ class APITestCase(unittest.TestCase):
         resp = self.api.get("/plugin")
         self.assertEqual(200, resp.status_code)
         self.assertEqual(expected, resp.data)
+
+    def test_admin_plugin(self):
+        os.environ["RPAAS_SERVICE_NAME"] = "rpaas"
+
+        def remove():
+            del os.environ["RPAAS_SERVICE_NAME"]
+        self.addCleanup(remove)
+        expected = inspect.getsource(admin_plugin) % {"RPAAS_SERVICE_NAME":
+                                                      "rpaas"}
+        resp = self.api.get("/admin/plugin")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(expected, resp.data)
+
+    def test_admin_plugin_no_env_var(self):
+        resp = self.api.get("/admin/plugin")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("not found", resp.data)
 
     def test_update_certificate_as_file(self):
         self.manager.new_instance("someapp")

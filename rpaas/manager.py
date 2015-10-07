@@ -1,8 +1,10 @@
+# coding: utf-8
+
 # Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-# coding: utf-8
+import copy
 
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -37,7 +39,9 @@ class Manager(object):
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
 
-    def new_instance(self, name, team=None):
+    def new_instance(self, name, team=None, plan=None):
+        if plan:
+            plan = self.storage.find_plan(plan)
         used, quota = self.storage.find_team_quota(team)
         if len(used) >= quota:
             raise QuotaExceededError(len(used), quota)
@@ -47,13 +51,18 @@ class Manager(object):
         if lb is not None:
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
-        task = tasks.NewInstanceTask().delay(self.config, name)
+        config = copy.deepcopy(self.config)
+        if plan:
+            config.update(plan.config)
+            self.storage.store_instance_plan(name, plan.to_dict())
+        task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
     def remove_instance(self, name):
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
+        self.storage.remove_instance_plan(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def bind(self, name, app_host):
@@ -149,7 +158,12 @@ class Manager(object):
         if quantity <= 0:
             raise ScaleError("Can't have 0 instances")
         self.storage.store_task(name)
-        task = tasks.ScaleInstanceTask().delay(self.config, name, quantity)
+        config = copy.deepcopy(self.config)
+        instance_plan = self.storage.find_instance_plan(name)
+        if instance_plan:
+            plan = instance_plan["plan"]
+            config.update(plan.get("config") or {})
+        task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
     def add_route(self, name, path, destination, content):
