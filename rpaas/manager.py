@@ -38,6 +38,7 @@ class Manager(object):
         config = copy.deepcopy(self.config)
         if plan:
             config.update(plan.config)
+            self.storage.store_instance_plan(name, plan.to_dict())
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
@@ -45,6 +46,7 @@ class Manager(object):
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
+        self.storage.remove_instance_plan(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def bind(self, name, app_host):

@@ -53,10 +53,10 @@ class MongoDBStorage(storage.MongoDBStorage):
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
 
-    def store_instance_plan(self, instance_name, plan_name):
+    def store_instance_plan(self, instance_name, plan):
         self.db[self.instance_plan_collection].update({'_id': instance_name}, {
             '_id': instance_name,
-            'plan': plan_name,
+            'plan': plan,
         }, upsert=True)
 
     def find_instance_plan(self, instance_name):

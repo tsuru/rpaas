@@ -19,11 +19,13 @@ class ManagerTestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
-        self.storage.db[self.storage.plans_collection].insert(
-            {"_id": "small",
-             "description": "some cool plan",
-             "config": {"serviceofferingid": "abcdef123456"}}
-        )
+        plan = {"_id": "small",
+                "description": "some cool plan",
+                "config": {"serviceofferingid": "abcdef123456"}}
+        self.plan = copy.deepcopy(plan)
+        self.plan["name"] = plan["_id"]
+        del self.plan["_id"]
+        self.storage.db[self.storage.plans_collection].insert(plan)
         self.lb_patcher = mock.patch('rpaas.tasks.LoadBalancer')
         self.host_patcher = mock.patch('rpaas.tasks.Host')
         self.LoadBalancer = self.lb_patcher.start()
@@ -63,10 +65,13 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
         lb.add_host.assert_called_with(host)
-        self.assertIsNone(self.storage.find_task('x'))
+        self.assertIsNone(manager.storage.find_task('x'))
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        instance_plan = manager.storage.find_instance_plan("x")
+        self.assertEqual({"_id": "x",
+                          "plan": self.plan}, instance_plan)
 
     def test_new_instance_plan_not_found(self):
         manager = Manager(self.config)
@@ -99,6 +104,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task('x')
+        self.storage.store_instance_plan("x", {"serviceofferingid": "123"})
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -108,6 +114,7 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task('x'))
+        self.assertIsNone(self.storage.find_instance_plan("x"))
 
     @mock.patch('rpaas.tasks.nginx')
     def test_remove_instance_decrement_quota(self, nginx):
