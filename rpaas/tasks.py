@@ -11,6 +11,11 @@ from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
 from rpaas import hc, nginx, storage
+import requests
+import time
+import rpaas.ssl_plugins
+from rpaas.ssl_plugins import *
+import inspect
 
 
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -155,3 +160,45 @@ class ScaleInstanceTask(BaseManagerTask):
                     self._delete_host(lb, lb.hosts[i])
         finally:
             self.storage.remove_task(name)
+
+
+class DownloadCertTask(BaseManagerTask):
+
+    def run(self, config, name, plugin, csr, key):
+        try:
+            self.init_config(config)
+            lb = LoadBalancer.find(name, self.config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+
+            start = time.time()
+            timeout = 600 # 10 min
+            crt = None
+
+            # Get plugin class
+            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+            for obj_name, obj in inspect.getmembers(p_ssl):
+                if obj_name != 'BaseSSLPlugin' and \
+                inspect.isclass(obj) and \
+                issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                    c_ssl = obj()
+
+            # Upload csr and get an Id
+            plugin_id = c_ssl.upload_csr(csr)
+            while (crt == None) and (time.time() - start <= timeout):
+                hascert = c_ssl.download_crt(id=plugin_id)
+                if not hascert:
+                    time.sleep(60)
+                else:
+                    crt = hascert
+
+            # Download the certificate and update nginx with it
+            if crt:
+                self.storage.update_binding_certificate(name, crt, key)
+                for host in lb.hosts:
+                    self.nginx_manager.update_certificate(host.dns_name, crt, key)
+            else:
+                raise Exception('Could not download certificate')
+        finally:
+            self.storage.remove_task(name)
+        

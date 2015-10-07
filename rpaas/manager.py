@@ -14,6 +14,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.exceptions import InvalidSignature
+
 import os
 from base64 import b64encode
 import socket
@@ -123,6 +126,8 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        if not self._verify_crt(cert, key):
+            raise SslError('Invalid certificate')
         self.storage.update_binding_certificate(name, cert, key)
         for host in lb.hosts:
             self.nginx_manager.update_certificate(host.dns_name, cert, key)
@@ -176,6 +181,39 @@ class Manager(object):
         task = self.storage.find_task(name)
         if task:
             raise NotReadyError("Async task still running")
+
+    def _verify_crt(self, raw_crt, raw_key):
+        ''' Verify if a random private key signed message is valid
+        '''
+        try:
+            crt = x509.load_pem_x509_certificate(raw_crt, default_backend())
+            key = serialization.load_pem_private_key(raw_key, None, default_backend())
+
+            signer = key.signer(
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA1()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            message = b"A message I want to sign"
+            signer.update(message)
+            signature = signer.finalize()
+
+            public_key = crt.public_key()
+            verifier = public_key.verifier(
+                signature,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA1()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            verifier.update(message)
+            verifier.verify()
+        except:
+            return False
+        return True
 
     def _generate_key(self):
         # Generate our key
@@ -236,7 +274,7 @@ class Manager(object):
     def activate_ssl(self, name, domain, plugin='default'):
         # Check if DNS is registered for rpaas ip
         if not self._check_dns(name, domain):
-            return 'rpaas IP is not registered for this DNS name'
+            raise SslError('rpaas IP is not registered for this DNS name')
 
         # Key and CSR generated to request a certificate
         key = self._generate_key()
@@ -250,24 +288,26 @@ class Manager(object):
             try:
                 p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
 
-                for name, obj in inspect.getmembers(p_ssl):
-                    if name != 'BaseSSLPlugin' and \
-                        inspect.isclass(obj) and \
-                        issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                for obj_name, obj in inspect.getmembers(p_ssl):
+                    if obj_name != 'BaseSSLPlugin' and \
+                    inspect.isclass(obj) and \
+                    issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
                         c_ssl = obj
-                plugin_obj = c_ssl()
-                print plugin_obj
 
-                # plugin_class.upload_csr(csr.public_bytes())
+                self.storage.store_task(name)
+                task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key)
+                self.storage.update_task(name, task.task_id)
+                return str(task)
+
             except Exception, e:
-                print e
-                return 'There is no such plugin'
+                raise SslError('rpaas IP is not registered for this DNS name')
 
         else:
             # default
             p_ssl = rpaas.ssl_plugins.default.Default()
             cert = p_ssl.download_crt(key=key)
             self.update_certificate(name, cert, key)
+            return ''
 
 
 
@@ -287,6 +327,8 @@ class ScaleError(Exception):
 class RouteError(Exception):
     pass
 
+class SslError(Exception):
+    pass
 
 class QuotaExceededError(Exception):
     def __init__(self, used, quota):

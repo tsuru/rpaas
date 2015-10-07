@@ -12,10 +12,6 @@ class BaseSSLPlugin(object):
 		pass
 
 	@abstractmethod
-	def auth(self, username, password, *args, **kwargs):
-		raise NotImplementedError()
-
-	@abstractmethod
 	def upload_csr(self, *args, **kwargs):
 		raise NotImplementedError()
 

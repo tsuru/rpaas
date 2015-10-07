@@ -6,6 +6,7 @@ import inspect
 import json
 import os
 import logging
+from socket import gaierror
 
 from flask import Flask, Response, request
 import hm.log
@@ -156,6 +157,8 @@ def update_certificate(name):
         return "Instance not found", 404
     except manager.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
+    except manager.SslError:
+        return "Invalid key or certificate", 412
     return "", 200
 
 
@@ -212,13 +215,21 @@ def add_https(name):
     domain = request.form.get('domain')
     if not domain:
         return "missing domain name", 400
-    plugin = request.form.get('plugin') if request.form.get('plugin') else 'default'
+    plugin = request.form.get('plugin', 'default')
+    ret = ''
     try:
-        get_manager().activate_ssl(name, domain, plugin)
+        ret = get_manager().activate_ssl(name, domain, plugin)
+        return ret, 200
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except manager.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
+    except gaierror:
+        return "can't find domain", 404
+    except manager.SslError, e:
+        return str(e), 412
+    except:
+        return 'Unexpected error', 500
     return "", 200
 
 
