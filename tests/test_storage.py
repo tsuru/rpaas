@@ -92,3 +92,15 @@ class MongoDBStorageTestCase(unittest.TestCase):
     def test_delete_plan_not_found(self):
         with self.assertRaises(storage.PlanNotFoundError):
             self.storage.delete_plan("super_huge")
+
+    def test_instance_plan_storage(self):
+        self.storage.store_instance_plan("myinstance", "small")
+        inst_plan = self.storage.find_instance_plan("myinstance")
+        self.assertEqual({"_id": "myinstance",
+                          "plan": "small"}, inst_plan)
+        self.storage.store_instance_plan("myinstance", "medium")
+        inst_plan = self.storage.find_instance_plan("myinstance")
+        self.assertEqual({"_id": "myinstance", "plan": "medium"}, inst_plan)
+        self.storage.remove_instance_plan("myinstance")
+        inst_plan = self.storage.find_instance_plan("myinstance")
+        self.assertIsNone(inst_plan)

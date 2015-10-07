@@ -26,6 +26,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     tasks_collection = "tasks"
     bindings_collection = "bindings"
     plans_collection = "plans"
+    instance_plan_collection = "instance_plan"
     quota_collection = "quota"
 
     def store_hc(self, hc):
@@ -51,6 +52,18 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def find_task(self, name):
         return self.db[self.tasks_collection].find_one({'_id': name})
+
+    def store_instance_plan(self, instance_name, plan_name):
+        self.db[self.instance_plan_collection].update({'_id': instance_name}, {
+            '_id': instance_name,
+            'plan': plan_name,
+        }, upsert=True)
+
+    def find_instance_plan(self, instance_name):
+        return self.db[self.instance_plan_collection].find_one({'_id': instance_name})
+
+    def remove_instance_plan(self, instance_name):
+        self.db[self.instance_plan_collection].remove({'_id': instance_name})
 
     def store_plan(self, plan):
         plan.validate()
