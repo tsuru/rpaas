@@ -5,7 +5,6 @@
 import json
 import os
 import unittest
-import urllib
 import urllib2
 
 import mock
@@ -125,17 +124,16 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
-        request.add_header.assert_any_call("Content-Type",
-                                           "application/x-www-form-urlencoded")
+        request.add_header.assert_any_call("Content-Type", "application/json")
         params = {
             "name": "small",
             "description": "smalll vms",
-            "config": json.dumps({"SERVICE": "abcdef-123",
-                                  "NAME": "something nice",
-                                  "DATA": "go go go",
-                                  "DATE": "2015"}),
+            "config": {"SERVICE": "abcdef-123",
+                       "NAME": "something nice",
+                       "DATA": "go go go",
+                       "DATE": "2015"},
         }
-        request.add_data.assert_called_with(urllib.urlencode(params))
+        request.add_data.assert_called_with(json.dumps(params))
         self.assertEqual("POST", request.get_method())
         stdout.write.assert_called_with("Plan successfully created\n")
 
@@ -158,8 +156,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
-        request.add_header.assert_any_call("Content-Type",
-                                           "application/x-www-form-urlencoded")
+        request.add_header.assert_any_call("Content-Type", "application/json")
         self.assertEqual("POST", request.get_method())
         stderr.write.assert_called_with("ERROR: Plan already exists\n")
 
@@ -188,16 +185,15 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
-        request.add_header.assert_any_call("Content-Type",
-                                           "application/x-www-form-urlencoded")
+        request.add_header.assert_any_call("Content-Type", "application/json")
         params = {
             "description": "smalll vms",
-            "config": json.dumps({"SERVICE": "abcdef-123",
-                                  "NAME": "something nice",
-                                  "DATA": "go go go",
-                                  "DATE": "2015"}),
+            "config": {"SERVICE": "abcdef-123",
+                       "NAME": "something nice",
+                       "DATA": "go go go",
+                       "DATE": "2015"},
         }
-        request.add_data.assert_called_with(urllib.urlencode(params))
+        request.add_data.assert_called_with(json.dumps(params))
         self.assertEqual("PUT", request.get_method())
         stdout.write.assert_called_with("Plan successfully updated\n")
 
@@ -220,8 +216,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
-        request.add_header.assert_any_call("Content-Type",
-                                           "application/x-www-form-urlencoded")
+        request.add_header.assert_any_call("Content-Type", "application/json")
         self.assertEqual("PUT", request.get_method())
         stderr.write.assert_called_with("ERROR: plan not found\n")
 

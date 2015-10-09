@@ -9,7 +9,6 @@ import json
 import os
 import re
 import sys
-import urllib
 import urllib2
 
 SERVICE_NAME = "%(RPAAS_SERVICE_NAME)s"
@@ -43,13 +42,9 @@ def list_plans(args):
 
 def create_plan(args):
     name, description, config = _change_plan_args(args, "create-plan")
-    params = {
-        "name": name,
-        "description": description,
-        "config": json.dumps(config),
-    }
-    result = proxy_request("/admin/plans", body=urllib.urlencode(params),
-                           headers={"Content-Type": "application/x-www-form-urlencoded"})
+    params = {"name": name, "description": description, "config": config}
+    result = proxy_request("/admin/plans", body=json.dumps(params),
+                           headers={"Content-Type": "application/json"})
     if result.getcode() != 201:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
         sys.exit(1)
@@ -58,12 +53,9 @@ def create_plan(args):
 
 def update_plan(args):
     name, description, config = _change_plan_args(args, "update-plan")
-    params = {
-        "description": description,
-        "config": json.dumps(config),
-    }
-    result = proxy_request("/admin/plans/"+name, body=urllib.urlencode(params),
-                           headers={"Content-Type": "application/x-www-form-urlencoded"},
+    params = {"description": description, "config": config}
+    result = proxy_request("/admin/plans/" + name, body=json.dumps(params),
+                           headers={"Content-Type": "application/json"},
                            method="PUT")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
@@ -84,7 +76,7 @@ def _change_plan_args(args, cmd_name):
     config = {}
     for i, part in enumerate(config_parts):
         if part.endswith("="):
-            value = config_parts[i+1].strip().strip('"').strip("'")
+            value = config_parts[i + 1].strip().strip('"').strip("'")
             if value != "":
                 key = part[:-1]
                 config[key] = value
@@ -93,7 +85,7 @@ def _change_plan_args(args, cmd_name):
 
 def delete_plan(args):
     name = _plan_arg(args, "delete-plan")
-    result = proxy_request("/admin/plans/"+name, method="DELETE")
+    result = proxy_request("/admin/plans/" + name, method="DELETE")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
         sys.exit(1)
@@ -102,7 +94,7 @@ def delete_plan(args):
 
 def retrieve_plan(args):
     name = _plan_arg(args, "show-plan")
-    result = proxy_request("/admin/plans/"+name, method="GET")
+    result = proxy_request("/admin/plans/" + name, method="GET")
     data = result.read().strip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + data + "\n")
