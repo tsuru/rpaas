@@ -13,7 +13,7 @@ class InvalidPlanError(Exception):
 
 
 class Plan(object):
-    def __init__(self, name, description, config):
+    def __init__(self, name=None, description=None, config=None):
         self.name = name
         self.description = description
         self.config = config

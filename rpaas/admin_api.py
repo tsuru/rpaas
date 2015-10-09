@@ -11,11 +11,8 @@ from rpaas import auth, get_manager, storage, plan
 
 @auth.required
 def create_plan():
-    name = request.form.get("name")
-    description = request.form.get("description")
-    config = json.loads(request.form.get("config", "null"))
     manager = get_manager()
-    p = plan.Plan(name=name, description=description, config=config)
+    p = plan.Plan(**request.json)
     try:
         manager.storage.store_plan(p)
     except storage.DuplicateError:
@@ -37,11 +34,9 @@ def retrieve_plan(name):
 
 @auth.required
 def update_plan(name):
-    description = request.form.get("description")
-    config = json.loads(request.form.get("config", "null"))
     manager = get_manager()
     try:
-        manager.storage.update_plan(name, description, config)
+        manager.storage.update_plan(name, **request.json)
     except storage.PlanNotFoundError:
         return "plan not found", 404
     return ""
