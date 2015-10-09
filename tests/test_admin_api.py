@@ -48,19 +48,18 @@ class AdminAPITestCase(unittest.TestCase):
         self.assertEqual(expected, json.loads(resp.data))
 
     def test_create_plan(self):
-        data = {
-            "name": "small",
-            "description": "small instance",
-            "config": {"serviceofferingid": "abcdef1234", "NAME": "super"},
-        }
-        raw_data = json.dumps(data)
-        resp = self.api.post("/admin/plans", data=raw_data,
-                             headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.post("/admin/plans", data={"name": "small",
+                                                   "description": "small instance",
+                                                   "config": config})
         self.assertEqual(201, resp.status_code)
         plan = self.storage.find_plan("small")
         self.assertEqual("small", plan.name)
         self.assertEqual("small instance", plan.description)
-        self.assertEqual(data["config"], plan.config)
+        self.assertEqual(json.loads(config), plan.config)
 
     def test_create_plan_duplicate(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -68,31 +67,30 @@ class AdminAPITestCase(unittest.TestCase):
              "description": "some cool plan",
              "config": {"serviceofferingid": "abcdef123456"}}
         )
-        data = json.dumps({"name": "small",
-                           "description": "small instance",
-                           "config": {
-                               "serviceofferingid": "abcdef1234",
-                               "NAME": "super",
-                           }})
-        resp = self.api.post("/admin/plans", data=data,
-                             headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.post("/admin/plans", data={"name": "small",
+                                                   "description": "small instance",
+                                                   "config": config})
         self.assertEqual(409, resp.status_code)
 
     def test_create_plan_invalid(self):
-        config = {"serviceofferingid": "abcdef1234", "NAME": "super"}
-        resp = self.api.post("/admin/plans",
-                             data=json.dumps({"description": "small instance", "config": config}),
-                             headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.post("/admin/plans", data={"description": "small instance",
+                                                   "config": config})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("invalid plan - name is required", resp.data)
-        resp = self.api.post("/admin/plans",
-                             data=json.dumps({"name": "small", "config": config}),
-                             headers={"Content-Type": "application/json"})
+        resp = self.api.post("/admin/plans", data={"name": "small",
+                                                   "config": config})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("invalid plan - description is required", resp.data)
-        resp = self.api.post("/admin/plans",
-                             data=json.dumps({"name": "small", "description": "something small"}),
-                             headers={"Content-Type": "application/json"})
+        resp = self.api.post("/admin/plans", data={"name": "small",
+                                                   "description": "something small"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("invalid plan - config is required", resp.data)
 
@@ -118,15 +116,17 @@ class AdminAPITestCase(unittest.TestCase):
              "description": "some cool plan",
              "config": {"serviceofferingid": "abcdef123456"}}
         )
-        config = {"serviceofferingid": "abcdef1234", "NAME": "super"}
-        resp = self.api.put("/admin/plans/small",
-                            data=json.dumps({"description": "small instance", "config": config}),
-                            headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.put("/admin/plans/small", data={"description": "small instance",
+                                                        "config": config})
         self.assertEqual(200, resp.status_code)
         plan = self.storage.find_plan("small")
         self.assertEqual("small", plan.name)
         self.assertEqual("small instance", plan.description)
-        self.assertEqual(config, plan.config)
+        self.assertEqual(json.loads(config), plan.config)
 
     def test_update_plan_partial(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -134,21 +134,24 @@ class AdminAPITestCase(unittest.TestCase):
              "description": "some cool plan",
              "config": {"serviceofferingid": "abcdef123456"}}
         )
-        config = {"serviceofferingid": "abcdef1234", "NAME": "super"}
-        resp = self.api.put("/admin/plans/small",
-                            data=json.dumps({"config": config}),
-                            headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.put("/admin/plans/small", data={"config": config})
         self.assertEqual(200, resp.status_code)
         plan = self.storage.find_plan("small")
         self.assertEqual("small", plan.name)
         self.assertEqual("some cool plan", plan.description)
-        self.assertEqual(config, plan.config)
+        self.assertEqual(json.loads(config), plan.config)
 
     def test_update_plan_not_found(self):
-        config = {"serviceofferingid": "abcdef1234", "NAME": "super"}
-        resp = self.api.put("/admin/plans/small",
-                            data=json.dumps({"config": config}),
-                            headers={"Content-Type": "application/json"})
+        config = json.dumps({
+            "serviceofferingid": "abcdef1234",
+            "NAME": "super",
+        })
+        resp = self.api.put("/admin/plans/small", data={"description": "small instance",
+                                                        "config": config})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("plan not found", resp.data)
 
