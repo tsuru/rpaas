@@ -12,7 +12,7 @@ class InvalidToken(Exception):
 
 class GloboDomains(BaseSSLPlugin):
 
-    def __init__(self, id=None):
+    def __init__(self, domain, id=None):
         self.base_url = os.getenv('RPAAS_PLUGIN_GLOBODOMAINS_URL', None)
         self.client_id = os.getenv('RPAAS_PLUGIN_GLOBODOMAINS_ID', None)
         self.client_secret = os.getenv('RPAAS_PLUGIN_GLOBODOMAINS_SECRET', None)

@@ -16,6 +16,7 @@ import time
 import rpaas.ssl_plugins
 from rpaas.ssl_plugins import *
 import inspect
+import json
 
 
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -164,7 +165,7 @@ class ScaleInstanceTask(BaseManagerTask):
 
 class DownloadCertTask(BaseManagerTask):
 
-    def run(self, config, name, plugin, csr, key):
+    def run(self, config, name, plugin, csr, key, domain):
         try:
             self.init_config(config)
             lb = LoadBalancer.find(name, self.config)
@@ -181,22 +182,26 @@ class DownloadCertTask(BaseManagerTask):
                 if obj_name != 'BaseSSLPlugin' and \
                 inspect.isclass(obj) and \
                 issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                    c_ssl = obj()
+                    hosts = [host.dns_name for host in lb.hosts]
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
 
             # Upload csr and get an Id
             plugin_id = c_ssl.upload_csr(csr)
-            while (crt == None) and (time.time() - start <= timeout):
-                hascert = c_ssl.download_crt(id=plugin_id)
-                if not hascert:
-                    time.sleep(60)
-                else:
-                    crt = hascert
+            crt = c_ssl.download_crt(id=str(plugin_id))
 
             # Download the certificate and update nginx with it
             if crt:
-                self.storage.update_binding_certificate(name, crt, key)
+                try:
+                    js_crt = json.loads(crt)
+                    cert = js_crt['crt']
+                    cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
+                    key = js_crt['key'] if 'key' in js_crt else key
+                except:
+                    cert = crt
+
                 for host in lb.hosts:
-                    self.nginx_manager.update_certificate(host.dns_name, crt, key)
+                    self.nginx_manager.update_certificate(host.dns_name, cert, key)
+
             else:
                 raise Exception('Could not download certificate')
         finally:

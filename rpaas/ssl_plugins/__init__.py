@@ -8,7 +8,7 @@ class BaseSSLPlugin(object):
 	__metaclass__ = ABCMeta
 
 	@abstractmethod
-	def __init__(self, *args, **kwargs):
+	def __init__(self, domain, *args, **kwargs):
 		pass
 
 	@abstractmethod

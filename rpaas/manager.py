@@ -286,6 +286,10 @@ class Manager(object):
         return True
 
     def activate_ssl(self, name, domain, plugin='default'):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+
         # Check if DNS is registered for rpaas ip
         if not self._check_dns(name, domain):
             raise SslError('rpaas IP is not registered for this DNS name')
@@ -294,7 +298,7 @@ class Manager(object):
         key = self._generate_key()
         csr = self._generate_csr(key, domain)
 
-        # load plugin if get as an arg
+        # load plugin if get it as an arg
         if plugin.isalpha() and \
             plugin in rpaas.ssl_plugins.__all__ and \
             plugin not in ['default', '__init__']:
@@ -309,7 +313,9 @@ class Manager(object):
                         c_ssl = obj
 
                 self.storage.store_task(name)
-                task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key)
+
+                task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
+
                 self.storage.update_task(name, task.task_id)
                 return str(task)
 

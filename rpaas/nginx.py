@@ -50,6 +50,14 @@ class NginxDAV(object):
                     raise
                 time.sleep(1)
 
+    def acme_conf(self, host, route, data):
+        raw = '''location /.well-known/acme-challenge/'''+route+''' {
+        add_header Content-Type application/jose+json;
+        echo '''+data+''';
+    }'''
+        self._dav_put(host, 'acme.conf', raw)
+        self._reload(host)
+
     def _location_file_name(self, path):
         return 'location_{}.conf'.format(path.replace('/', ':'))
 

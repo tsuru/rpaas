@@ -14,11 +14,8 @@ class Default(BaseSSLPlugin):
     ''' Generate self-signed certificate
     '''
 
-    def __init__(self):
+    def __init__(self, domain):
         pass
-
-    def auth(self, username, password):
-        return True
 
     def upload_csr(self, csr):
         pass
@@ -36,10 +33,10 @@ class Default(BaseSSLPlugin):
 
         builder = x509.CertificateBuilder()
         builder = builder.subject_name(x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, u'tsuru.io'),
+            x509.NameAttribute(NameOID.COMMON_NAME, domain),
         ]))
         builder = builder.issuer_name(x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, u'tsuru.io'),
+            x509.NameAttribute(NameOID.COMMON_NAME, domain),
         ]))
         builder = builder.not_valid_before(datetime.datetime.today() - one_day)
         builder = builder.not_valid_after(datetime.datetime(2018, 8, 2))

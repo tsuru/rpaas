@@ -7,17 +7,31 @@ import os
 
 class Certapi(BaseSSLPlugin):
 
-    def __init__(self, id=None):
+    def __init__(self, domain, id=None):
         self.base_url = os.getenv('RPAAS_PLUGIN_CERTAPI_URL', None)
         self.username = os.getenv('RPAAS_PLUGIN_CERTAPI_USERNAME', None)
         self.password = os.getenv('RPAAS_PLUGIN_CERTAPI_PASSWORD', None)
-        self.token = None
-        self.id = id
-        # self.auth()
+        self.certid = id
+        self._bearer = self._get_token()
+        self._domainid = None
 
-    def auth(self):
-        auth_token = requests.post(self.base_url+'/api/auth', data={'username': self.username, 'password': self.password})
-        self.token = auth_token.json()['token']
+    def _get_token(self):
+        try:
+            resp = requests.post(self.oauth_url, 
+                data={
+                    'grant_type':'client_credentials'
+                },
+                auth=(self.client_id, self.client_secret),
+                verify=False)
+            js = resp.json()
+            return js.get('access_token').encode()
+        except:
+            raise InvalidToken()
+
+    @property
+    def bearer(self):
+        return self._bearer
+
 
     def upload_csr(self, data):
         return 0
