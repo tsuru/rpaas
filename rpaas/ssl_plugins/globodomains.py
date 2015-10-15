@@ -44,13 +44,11 @@ class GloboDomains(BaseSSLPlugin):
 
 
     def _get_domain_id(self, name):
-        encoded_name = urllib.urlencode(name)
+        encoded_name = urllib.quote_plus(name)
         get_domain = requests.get(self.base_url+'/domains.json?name=%s'%encoded_name,
             headers={'Authorization': 'Bearer '+self.bearer}, 
             verify=False)
-        tree = html.fromstring(get_domain.text)
-        tree.xpath()
-        return
+        return get_domain.json(), get_domain.status_code
 
     def download_crt(self, id=None):
         return 'dsjjsdhfbiusehgf9s8yr9783h9'

@@ -73,10 +73,10 @@ class LE(BaseSSLPlugin):
         self.email = email
         self.hosts = hosts
 
-    def upload_csr(self, csr):
+    def upload_csr(self, csr=None):
         return None
 
-    def download_crt(self, id):
+    def download_crt(self, id=None):
         crt, chain, key = main(['auth', '--text', '--domains', str(self.domain), '-m', self.email, '--hosts']+self.hosts)
         return json.dumps({'crt': crt, 'chain': chain, 'key': key})
 
