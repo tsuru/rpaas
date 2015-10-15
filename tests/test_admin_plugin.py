@@ -6,6 +6,7 @@ import json
 import os
 import unittest
 import urllib
+import urllib2
 
 import mock
 
@@ -37,6 +38,26 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
 
     def tearDown(self):
         del os.environ["TSURU_TARGET"], os.environ["TSURU_TOKEN"]
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_proxy_request_http_error(self, stderr, Request, urlopen):
+        lines = []
+        stderr.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        fp = mock.Mock()
+        fp.read.return_value = "something went wrong"
+        urlopen.side_effect = urllib2.HTTPError("/", 400, "Bad request", {}, fp)
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.proxy_request("/", body="waat", method="GET")
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        expected_output = r"""ERROR: 400 - Bad request
+       something went wrong
+"""
+        self.assertEqual(expected_output, "".join(lines))
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")

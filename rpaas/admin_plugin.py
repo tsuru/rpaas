@@ -166,7 +166,12 @@ def proxy_request(path, body=None, headers=None, method='POST'):
     if headers:
         for key, value in headers.items():
             request.add_header(key, value)
-    return urllib2.urlopen(request)
+    try:
+        return urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        sys.stderr.write("ERROR: {} - {}\n".format(e.code, e.reason))
+        sys.stderr.write("       {}\n".format(e.read()))
+        sys.exit(1)
 
 
 def help_commands():
