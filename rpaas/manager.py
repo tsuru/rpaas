@@ -12,7 +12,6 @@ from hm.model.load_balancer import LoadBalancer
 
 from rpaas import storage, tasks, nginx
 
-
 PENDING = 'pending'
 FAILURE = 'failure'
 
@@ -36,11 +35,20 @@ class Manager(object):
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
+        self._add_tags(name, config)
         if plan:
             config.update(plan.config)
             self.storage.store_instance_plan(name, plan.to_dict())
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
+
+    def _add_tags(self, instance_name, config):
+        tags = ["rpaas_instance:"+instance_name]
+        extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
+        if extra_tags:
+            del config["INSTANCE_EXTRA_TAGS"]
+            tags.append(extra_tags)
+        config["INSTANCE_TAGS"] = ",".join(tags)
 
     def remove_instance(self, name):
         self.storage.decrement_quota(name)

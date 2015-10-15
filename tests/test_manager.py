@@ -46,11 +46,13 @@ class ManagerTestCase(unittest.TestCase):
         manager.new_instance('x')
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
-        self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
-        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', self.config)
+        config = copy.deepcopy(self.config)
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x'
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
         lb.add_host.assert_called_with(host)
         self.assertIsNone(self.storage.find_task('x'))
-        nginx.NginxDAV.assert_called_once_with(self.config)
+        nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
@@ -61,6 +63,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan['config'])
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x'
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
@@ -70,8 +73,25 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
         instance_plan = manager.storage.find_instance_plan("x")
-        self.assertEqual({"_id": "x",
-                          "plan": self.plan}, instance_plan)
+        self.assertEqual({"_id": "x", "plan": self.plan}, instance_plan)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance_with_extra_tags(self, nginx):
+        config = copy.deepcopy(self.config)
+        config['INSTANCE_EXTRA_TAGS'] = 'enable_monitoring:1'
+        manager = Manager(config)
+        manager.new_instance('x')
+        host = self.Host.create.return_value
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x,enable_monitoring:1'
+        del config['INSTANCE_EXTRA_TAGS']
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
+        lb.add_host.assert_called_with(host)
+        self.assertIsNone(manager.storage.find_task('x'))
+        nginx.NginxDAV.assert_called_once_with(config)
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
     def test_new_instance_plan_not_found(self):
         manager = Manager(self.config)
