@@ -139,6 +139,21 @@ def get_ssl_args(args):
 def ssl(args):
     args = get_ssl_args(args)
     rpaas_path = "/resources/{}/ssl".format(args.instance)
+    params = {}
+    params['domain'] = args.domain
+    params['plugin'] = args.plugin if 'plugin' in args else 'default'
+    body = urllib.urlencode(params)
+    method = "POST"
+    result = proxy_request(args.instance, rpaas_path,
+                           body=body,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if result.getcode() in [200,201]:
+        sys.stdout.write("Certificate successfully updated\n")
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
 
 
 def get_scale_args(args):
