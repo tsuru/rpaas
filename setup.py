@@ -25,7 +25,7 @@ setup(
         "Flask==0.9",
         "requests==2.4.3",
         "gunicorn==0.17.2",
-        "tsuru-hm==0.4.0",
+        "tsuru-hm==0.4.1",
         "celery[redis]",
         "flower==0.7.3",
         "GloboNetworkAPI==0.2.2",
