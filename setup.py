@@ -29,6 +29,7 @@ setup(
         "celery[redis]",
         "flower==0.7.3",
         "GloboNetworkAPI==0.2.2",
+        "python-consul==0.4.5",
     ],
     extras_require={
         'tests': [
