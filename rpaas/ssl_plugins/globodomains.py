@@ -4,7 +4,7 @@ import requests
 import base64
 import os
 import urllib
-# from lxml import html
+import re
 
 
 class InvalidToken(Exception):
@@ -19,7 +19,8 @@ class GloboDomains(BaseSSLPlugin):
         self.oauth_url = os.getenv('RPAAS_PLUGIN_GLOBODOMAINS_BSURL', None)
         self.id = id
         self._bearer = self._get_token()
-        self._domainid = None
+        self._cookie = self._get_cookie(self._bearer)
+        self._domainid = self._get_domain_id(domain)
 
     def _get_token(self):
         try:
@@ -34,21 +35,38 @@ class GloboDomains(BaseSSLPlugin):
         except:
             raise InvalidToken()
 
+    def _get_cookie(self, token):
+        get_cookie = requests.get(self.base_url, headers={'Authorization': 'Bearer '+token})
+        if len(get_cookie.history) > 0:
+            hds = get_cookie.history[0].headers
+            if 'Set-Cookie' in hds:
+                return hds['Set-Cookie']
+        return ''
+
+
     @property
     def bearer(self):
         return self._bearer
 
+    @property
+    def cookie(self):
+        return self._cookie
 
     def upload_csr(self, data):
         pass
 
-
     def _get_domain_id(self, name):
         encoded_name = urllib.quote_plus(name)
         get_domain = requests.get(self.base_url+'/domains.json?name=%s'%encoded_name,
-            headers={'Authorization': 'Bearer '+self.bearer}, 
-            verify=False)
-        return get_domain.json(), get_domain.status_code
+            headers={'Authorization': 'Bearer '+self.bearer, 'Cookie': self.cookie})
+        js = get_domain.json()
+        if u'aaData' in js:
+            retag = re.compile(r'<a.*href="(.*?)">(.*?)</a>')
+            reid = re.compile(r'.*?([0-9]+?)$')
+            for data in js['aaData']:
+                stag = retag.search(data[0])
+                if stag.group(2) == name:
+                    return reid.search(stag.group(1)).group(1)
 
     def download_crt(self, id=None):
         return 'dsjjsdhfbiusehgf9s8yr9783h9'
