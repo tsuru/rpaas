@@ -1,7 +1,11 @@
 language: python
 sudo: false
 python: "2.7"
-install: make deps
+install:
+  - make deps
+  - curl -LO https://dl.bintray.com/mitchellh/consul/0.5.2_linux_amd64.zip
+  - unzip 0.5.2_linux_amd64.zip
+  - PATH=":$PATH" make start-consul
 script: make test
 services: mongodb
 notifications:

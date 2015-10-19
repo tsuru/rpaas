@@ -13,6 +13,9 @@ worker: deps
 flower: deps
 	celery flower -A rpaas.tasks
 
+start-consul:
+	consul agent -server -bootstrap-expect 1 -data-dir /tmp/consul -config-file etc/consul.conf -node=rpaas-test &
+
 test: deps
 	@python -m unittest discover
 	@flake8 --max-line-length=110 .
