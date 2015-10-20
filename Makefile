@@ -18,6 +18,7 @@ flower: deps
 
 start-consul:
 	consul agent -server -bootstrap-expect 1 -data-dir /tmp/consul -config-file etc/consul.conf -node=rpaas-test &
+	while ! consul info; do sleep 1; done
 
 test: clean_pycs deps
 	@python -m unittest discover
