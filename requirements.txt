@@ -1,1 +1,4 @@
 -e /home/application/current
+vendor/letsencrypt/acme/
+vendor/letsencrypt/
+vendor/letsencrypt/letsencrypt-nginx/
