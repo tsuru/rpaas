@@ -1,4 +1,4 @@
 -e /home/application/current
-acme==0.1.0.dev0
-letsencrypt==0.1.0.dev0
-letsencrypt-nginx==0.1.0.dev0
+vendor/letsencrypt/acme==0.1.0.dev0
+vendor/letsencrypt==0.1.0.dev0
+vendor/letsencrypt/letsencrypt-nginx==0.1.0.dev0
