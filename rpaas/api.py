@@ -23,6 +23,8 @@ if api.debug:
 else:
     handler.setLevel(logging.WARN)
 api.logger.addHandler(handler)
+hand2 = logging.FileHandler('/home/application/current/temp.log')
+api.logger.addHandler(hand2)
 hm.log.set_handler(handler)
 
 
