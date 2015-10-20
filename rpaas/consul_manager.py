@@ -8,6 +8,15 @@ import consul
 
 from . import nginx
 
+ACL_TEMPLATE = """key "{service_name}/{instance_name}" {{
+    policy = "read"
+}}
+
+service "nginx" {{
+    policy = "write"
+}}
+"""
+
 
 class ConsulManager(object):
 
@@ -20,8 +29,8 @@ class ConsulManager(object):
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def generate_token(self, instance_name):
-        rules = """key "{}/{}" {{ policy = "read" }}""".format(self.service_name,
-                                                               instance_name)
+        rules = ACL_TEMPLATE.format(service_name=self.service_name,
+                                    instance_name=instance_name)
         acl_name = "{}/{}/token".format(self.service_name, instance_name)
         return self.client.acl.create(name=acl_name, rules=rules)
 

@@ -30,7 +30,8 @@ class ConsulManagerTestCase(unittest.TestCase):
     def test_generate_token(self):
         token = self.manager.generate_token("myrpaas")
         acl = self.consul.acl.info(token)
-        expected_rules = """key "test-suite-rpaas/myrpaas" { policy = "read" }"""
+        expected_rules = consul_manager.ACL_TEMPLATE.format(service_name="test-suite-rpaas",
+                                                            instance_name="myrpaas")
         self.assertEqual("test-suite-rpaas/myrpaas/token", acl["Name"])
         self.assertEqual(expected_rules, acl["Rules"])
         self.assertEqual("client", acl["Type"])
