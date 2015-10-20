@@ -25,6 +25,7 @@ setup(
     include_package_data=True,
     zip_safe = False,
     install_requires=[
+        "setuptools==18.4",
         "Flask==0.9",
         "requests==2.4.3",
         "gunicorn==0.17.2",
@@ -61,7 +62,7 @@ setup(
 "idna==2.0",
 "ipaddress==1.0.14",
 "kombu==3.0.26",
-# "lxml==3.4.4",
+
 "mock==1.3.0",
 "ndg-httpsclient==0.4.0",
 "parsedatetime==1.5",
@@ -91,14 +92,18 @@ setup(
 "mock==1.3.0",
 "funcsigs==0.4",
 "pbr==1.8.1",
-# "vendor/letsencrypt/acme/",
+
+"acme==0.0.0.dev20151017",
+
 "configobj==5.0.6",
 "parsedatetime==1.5",
 "psutil==3.2.2",
 "python2-pythondialog==3.3.0",
-# "vendor/letsencrypt/",
+
+"letsencrypt==0.0.0.dev20151017",
+
 "pyparsing==2.0.3",
-# "vendor/letsencrypt/letsencrypt-nginx/",
+
     ],
     extras_require={
         'tests': [
