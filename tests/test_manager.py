@@ -72,8 +72,8 @@ class ManagerTestCase(unittest.TestCase):
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
-        instance_plan = manager.storage.find_instance_plan("x")
-        self.assertEqual({"_id": "x", "plan": self.plan}, instance_plan)
+        metadata = manager.storage.find_instance_metadata("x")
+        self.assertEqual({"_id": "x", "plan": self.plan}, metadata)
 
     @mock.patch('rpaas.tasks.nginx')
     def test_new_instance_with_extra_tags(self, nginx):
@@ -124,7 +124,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task('x')
-        self.storage.store_instance_plan("x", {"serviceofferingid": "123"})
+        self.storage.store_instance_metadata("x", plan={"serviceofferingid": "123"})
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -134,7 +134,7 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task('x'))
-        self.assertIsNone(self.storage.find_instance_plan("x"))
+        self.assertIsNone(self.storage.find_instance_metadata("x"))
 
     @mock.patch('rpaas.tasks.nginx')
     def test_remove_instance_decrement_quota(self, nginx):
@@ -231,8 +231,8 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = 'x'
         lb.hosts = [mock.Mock(), mock.Mock()]
-        self.storage.store_instance_plan("x", self.plan)
-        self.addCleanup(self.storage.remove_instance_plan, "x")
+        self.storage.store_instance_metadata("x", plan=self.plan)
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan['config'])
         manager = Manager(self.config)

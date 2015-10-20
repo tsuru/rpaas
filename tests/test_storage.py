@@ -93,14 +93,14 @@ class MongoDBStorageTestCase(unittest.TestCase):
         with self.assertRaises(storage.PlanNotFoundError):
             self.storage.delete_plan("super_huge")
 
-    def test_instance_plan_storage(self):
-        self.storage.store_instance_plan("myinstance", "small")
-        inst_plan = self.storage.find_instance_plan("myinstance")
+    def test_instance_metadata_storage(self):
+        self.storage.store_instance_metadata("myinstance", plan="small")
+        inst_metadata = self.storage.find_instance_metadata("myinstance")
         self.assertEqual({"_id": "myinstance",
-                          "plan": "small"}, inst_plan)
-        self.storage.store_instance_plan("myinstance", "medium")
-        inst_plan = self.storage.find_instance_plan("myinstance")
-        self.assertEqual({"_id": "myinstance", "plan": "medium"}, inst_plan)
-        self.storage.remove_instance_plan("myinstance")
-        inst_plan = self.storage.find_instance_plan("myinstance")
-        self.assertIsNone(inst_plan)
+                          "plan": "small"}, inst_metadata)
+        self.storage.store_instance_metadata("myinstance", plan="medium")
+        inst_metadata = self.storage.find_instance_metadata("myinstance")
+        self.assertEqual({"_id": "myinstance", "plan": "medium"}, inst_metadata)
+        self.storage.remove_instance_metadata("myinstance")
+        inst_metadata = self.storage.find_instance_metadata("myinstance")
+        self.assertIsNone(inst_metadata)
