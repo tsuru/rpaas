@@ -34,6 +34,9 @@ class ConsulManager(object):
         acl_name = "{}/{}/token".format(self.service_name, instance_name)
         return self.client.acl.create(name=acl_name, rules=rules)
 
+    def destroy_token(self, acl_id):
+        self.client.acl.destroy(acl_id)
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if not content:
             content = self.config_manager.generate_host_config(path, destination)

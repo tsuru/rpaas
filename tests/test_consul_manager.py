@@ -36,6 +36,11 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual(expected_rules, acl["Rules"])
         self.assertEqual("client", acl["Type"])
 
+    def test_destroy_token(self):
+        token = self.manager.generate_token("myrpaas")
+        self.manager.destroy_token(token)
+        self.assertIsNone(self.consul.acl.info(token))
+
     def test_write_location_root(self):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
