@@ -13,11 +13,27 @@ from rpaas import consul_manager
 class ConsulManagerTestCase(unittest.TestCase):
 
     def setUp(self):
+        self.master_token = "rpaas-test"
         os.environ.setdefault("RPAAS_SERVICE_NAME", "test-suite-rpaas")
         os.environ.setdefault("CONSUL_HOST", "127.0.0.1")
-        self.consul = consul.Consul()
+        os.environ.setdefault("CONSUL_TOKEN", self.master_token)
+        self.consul = consul.Consul(token=self.master_token)
         self.consul.kv.delete("test-suite-rpaas", recurse=True)
+        self._remove_tokens()
         self.manager = consul_manager.ConsulManager()
+
+    def _remove_tokens(self):
+        for token in self.consul.acl.list():
+            if token["ID"] not in (self.master_token, "anonymous"):
+                self.consul.acl.destroy(token["ID"])
+
+    def test_generate_token(self):
+        token = self.manager.generate_token("myrpaas")
+        acl = self.consul.acl.info(token)
+        expected_rules = """key "test-suite-rpaas/myrpaas" { policy = "read" }"""
+        self.assertEqual("test-suite-rpaas/myrpaas/token", acl["Name"])
+        self.assertEqual(expected_rules, acl["Rules"])
+        self.assertEqual("client", acl["Type"])
 
     def test_write_location_root(self):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")

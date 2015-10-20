@@ -19,6 +19,12 @@ class ConsulManager(object):
         self.config_manager = nginx.ConfigManager(conf)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
+    def generate_token(self, instance_name):
+        rules = """key "{}/{}" {{ policy = "read" }}""".format(self.service_name,
+                                                               instance_name)
+        acl_name = "{}/{}/token".format(self.service_name, instance_name)
+        return self.client.acl.create(name=acl_name, rules=rules)
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if not content:
             content = self.config_manager.generate_host_config(path, destination)
