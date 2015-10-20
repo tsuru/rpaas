@@ -301,6 +301,7 @@ class Manager(object):
         # Check if DNS is registered for rpaas ip
         # if not self._check_dns(name, domain):
         #     raise SslError('rpaas IP is not registered for this DNS name')
+        
 
         # Key and CSR generated to request a certificate
         key = self._generate_key()
