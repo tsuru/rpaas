@@ -7,16 +7,13 @@ from rpaas.nginx import NginxDAV, NginxError
 
 class NginxDAVTestCase(unittest.TestCase):
 
-    def setUp(self):
-        self.intance = NginxDAV()
-
     def test_init_default(self):
         nginx = NginxDAV()
         self.assertEqual(nginx.nginx_reload_path, '/reload')
         self.assertEqual(nginx.nginx_dav_put_path, '/dav')
         self.assertEqual(nginx.nginx_manage_port, '8089')
         self.assertEqual(nginx.nginx_healthcheck_path, '/healthcheck')
-        self.assertEqual(nginx.nginx_location_template, """
+        self.assertEqual(nginx.config_manager.location_template, """
 location {path} {{
     proxy_set_header Host {host};
     proxy_set_header X-Real-IP $remote_addr;
@@ -39,7 +36,7 @@ location {path} {{
         self.assertEqual(nginx.nginx_reload_path, '/1')
         self.assertEqual(nginx.nginx_dav_put_path, '/2')
         self.assertEqual(nginx.nginx_manage_port, '4')
-        self.assertEqual(nginx.nginx_location_template, '5')
+        self.assertEqual(nginx.config_manager.location_template, '5')
         self.assertEqual(nginx.nginx_healthcheck_path, '6')
 
     @mock.patch('rpaas.nginx.requests')
@@ -50,7 +47,7 @@ location {path} {{
         nginx = NginxDAV({
             'NGINX_LOCATION_TEMPLATE_URL': 'http://my.com/x',
         })
-        self.assertEqual(nginx.nginx_location_template, 'my result')
+        self.assertEqual(nginx.config_manager.location_template, 'my result')
         requests.get.assert_called_once_with('http://my.com/x')
 
     @mock.patch('rpaas.nginx.requests')

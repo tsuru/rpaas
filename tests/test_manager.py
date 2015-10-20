@@ -46,11 +46,13 @@ class ManagerTestCase(unittest.TestCase):
         manager.new_instance('x')
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
-        self.Host.create.assert_called_with('my-host-manager', 'x', self.config)
-        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', self.config)
+        config = copy.deepcopy(self.config)
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x'
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
         lb.add_host.assert_called_with(host)
         self.assertIsNone(self.storage.find_task('x'))
-        nginx.NginxDAV.assert_called_once_with(self.config)
+        nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
@@ -61,6 +63,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan['config'])
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x'
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with('my-host-manager', 'x', config)
         self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
@@ -69,9 +72,26 @@ class ManagerTestCase(unittest.TestCase):
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
-        instance_plan = manager.storage.find_instance_plan("x")
-        self.assertEqual({"_id": "x",
-                          "plan": self.plan}, instance_plan)
+        metadata = manager.storage.find_instance_metadata("x")
+        self.assertEqual({"_id": "x", "plan": self.plan}, metadata)
+
+    @mock.patch('rpaas.tasks.nginx')
+    def test_new_instance_with_extra_tags(self, nginx):
+        config = copy.deepcopy(self.config)
+        config['INSTANCE_EXTRA_TAGS'] = 'enable_monitoring:1'
+        manager = Manager(config)
+        manager.new_instance('x')
+        host = self.Host.create.return_value
+        config['INSTANCE_TAGS'] = 'rpaas_instance:x,enable_monitoring:1'
+        del config['INSTANCE_EXTRA_TAGS']
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.assert_called_with('my-host-manager', 'x', config)
+        self.LoadBalancer.create.assert_called_with('my-lb-manager', 'x', config)
+        lb.add_host.assert_called_with(host)
+        self.assertIsNone(manager.storage.find_task('x'))
+        nginx.NginxDAV.assert_called_once_with(config)
+        nginx_manager = nginx.NginxDAV.return_value
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
     def test_new_instance_plan_not_found(self):
         manager = Manager(self.config)
@@ -104,7 +124,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task('x')
-        self.storage.store_instance_plan("x", {"serviceofferingid": "123"})
+        self.storage.store_instance_metadata("x", plan={"serviceofferingid": "123"})
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -114,7 +134,7 @@ class ManagerTestCase(unittest.TestCase):
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task('x'))
-        self.assertIsNone(self.storage.find_instance_plan("x"))
+        self.assertIsNone(self.storage.find_instance_metadata("x"))
 
     @mock.patch('rpaas.tasks.nginx')
     def test_remove_instance_decrement_quota(self, nginx):
@@ -211,8 +231,8 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = 'x'
         lb.hosts = [mock.Mock(), mock.Mock()]
-        self.storage.store_instance_plan("x", self.plan)
-        self.addCleanup(self.storage.remove_instance_plan, "x")
+        self.storage.store_instance_metadata("x", plan=self.plan)
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan['config'])
         manager = Manager(self.config)
