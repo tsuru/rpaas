@@ -239,7 +239,9 @@ def add_https(name):
         return "can't find domain", 404
     except manager.SslError, e:
         return str(e), 412
-    except:
+    except Exception, e:
+        if api.debug:
+            raise e
         return 'Unexpected error', 500
     return "", 200
 
