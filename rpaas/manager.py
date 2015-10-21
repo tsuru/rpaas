@@ -348,7 +348,7 @@ class Manager(object):
                         cert = crt
 
                     for host in lb.hosts:
-                        self.update_certificate(name, cert, key)
+                        self.update_certificate(host.dns_name, cert, key)
 
                 else:
                     raise Exception('Could not download certificate')
