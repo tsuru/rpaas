@@ -346,9 +346,7 @@ class Manager(object):
                         key = js_crt['key'] if 'key' in js_crt else key
                     except:
                         cert = crt
-
-                    for host in lb.hosts:
-                        self.update_certificate(host.dns_name, cert, key)
+                    self.update_certificate(name, cert, key)
 
                 else:
                     raise Exception('Could not download certificate')
@@ -359,7 +357,6 @@ class Manager(object):
                 return ''
 
             except Exception, e:
-                raise e
                 raise SslError('rpaas IP is not registered for this DNS name')
 
         else:

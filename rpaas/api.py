@@ -228,10 +228,9 @@ def add_https(name):
     if not domain:
         return "missing domain name", 400
     plugin = request.form.get('plugin', 'default')
-    ret = ''
     try:
-        ret = get_manager().activate_ssl(name, domain, plugin)
-        return ret, 200
+        get_manager().activate_ssl(name, domain, plugin)
+        return "", 200
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except manager.NotReadyError as e:
