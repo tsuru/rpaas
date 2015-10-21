@@ -44,6 +44,7 @@ from letsencrypt import error_handler
 from letsencrypt import interfaces
 from letsencrypt import le_util
 from letsencrypt import reverter
+from letsencrypt import client
 from letsencrypt import storage
 from letsencrypt import log
 from letsencrypt import reporter
