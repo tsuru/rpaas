@@ -27,6 +27,7 @@ from rpaas import storage, tasks, nginx
 import rpaas.ssl_plugins
 from rpaas.ssl_plugins import *
 import inspect
+import json
 
 PENDING = 'pending'
 FAILURE = 'failure'
@@ -321,12 +322,41 @@ class Manager(object):
                     issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
                         c_ssl = obj
 
+                        # TODO
+                        hosts = [host.dns_name for host in lb.hosts]
+                        c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+                        # ODOT
+
                 self.storage.store_task(name)
 
-                task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
+                # task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
+
+
+                # TODO
+                # Upload csr and get an Id
+                plugin_id = c_ssl.upload_csr(csr)
+                crt = c_ssl.download_crt(id=str(plugin_id))
+
+                # Download the certificate and update nginx with it
+                if crt:
+                    try:
+                        js_crt = json.loads(crt)
+                        cert = js_crt['crt']
+                        cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
+                        key = js_crt['key'] if 'key' in js_crt else key
+                    except:
+                        cert = crt
+
+                    for host in lb.hosts:
+                        self.update_certificate(name, cert, key)
+
+                else:
+                    raise Exception('Could not download certificate')
+                # ODOT
+
 
                 self.storage.update_task(name, task.task_id)
-                return str(task)
+                return ''
 
             except Exception, e:
                 raise e
