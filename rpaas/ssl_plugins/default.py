@@ -15,7 +15,7 @@ class Default(BaseSSLPlugin):
     '''
 
     def __init__(self, domain):
-        pass
+        self.domain = domain
 
     def upload_csr(self, csr):
         pass
@@ -33,10 +33,10 @@ class Default(BaseSSLPlugin):
 
         builder = x509.CertificateBuilder()
         builder = builder.subject_name(x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, domain),
+            x509.NameAttribute(NameOID.COMMON_NAME, self.domain),
         ]))
         builder = builder.issuer_name(x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, domain),
+            x509.NameAttribute(NameOID.COMMON_NAME, self.domain),
         ]))
         builder = builder.not_valid_before(datetime.datetime.today() - one_day)
         builder = builder.not_valid_after(datetime.datetime(2018, 8, 2))

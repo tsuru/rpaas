@@ -361,7 +361,7 @@ class Manager(object):
 
         else:
             # default
-            p_ssl = rpaas.ssl_plugins.default.Default()
+            p_ssl = rpaas.ssl_plugins.default.Default(domain)
             cert = p_ssl.download_crt(key=key)
             self.update_certificate(name, cert, key)
             return ''
