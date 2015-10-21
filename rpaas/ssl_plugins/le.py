@@ -71,7 +71,7 @@ class LE(BaseSSLPlugin):
     def __init__(self, domain, email, hosts=[]):
         self.domain = domain
         self.email = email
-        self.hosts = hosts
+        self.hosts = [str(x) for x in hosts]
 
     def upload_csr(self, csr=None):
         return None
