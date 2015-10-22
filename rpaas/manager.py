@@ -327,8 +327,7 @@ class Manager(object):
                         c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
                         # ODOT
 
-                self.storage.store_task(name)
-
+                # self.storage.store_task(name)
                 # task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
 
 
@@ -353,10 +352,11 @@ class Manager(object):
                 # ODOT
 
 
-                self.storage.update_task(name, task.task_id)
+                # self.storage.update_task(name, task.task_id)
                 return ''
 
             except Exception, e:
+                raise e
                 raise SslError('rpaas IP is not registered for this DNS name')
 
         else:
