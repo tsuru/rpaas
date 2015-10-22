@@ -92,8 +92,10 @@ class NginxDAV(object):
 
     def acme_conf(self, host, route, data):
         raw = '''location /.well-known/acme-challenge/'''+route+''' {
+    default_type application/jose+json;
     echo '''+data+''';
-}'''
+}
+'''
         self._dav_put(host, 'acme.conf', raw)
         self._reload(host)
 

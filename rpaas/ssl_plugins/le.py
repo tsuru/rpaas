@@ -78,8 +78,13 @@ class LE(BaseSSLPlugin):
         return None
 
     def download_crt(self, id=None):
-        crt, chain, key = main(['auth', '--text', '--domains', str(self.domain), '-m', self.email, '--hosts']+self.hosts)
-        return json.dumps({'crt': crt, 'chain': chain, 'key': key})
+        try:
+            crt, chain, key = main(['auth', '--text', '--domains', str(self.domain), '-m', self.email, '--hosts']+self.hosts)
+        finally:
+            nginx_manager = rpaas.get_manager().nginx_manager
+            for host in self.hosts:
+                nginx_manager.acme_conf(host, '', '')
+            return json.dumps({'crt': crt, 'chain': chain, 'key': key})
 
 
 
@@ -696,18 +701,15 @@ binary for temporary key/certificate generation.""".replace("\n", "")
             nginx_manager = rpaas.get_manager().nginx_manager
             for host in self.hosts:
                 nginx_manager.acme_conf(host, route, content)
-            time.sleep(20)
 
         # return response
         if response.simple_verify(
                 achall.chall, achall.domain,
                 achall.account_key.public_key(), self.config.simple_http_port):
-            # nginx_manager.acme_conf(host, route, '')
             return response
         else:
             logger.error(
                 "Self-verify of challenge failed, authorization abandoned.")
-            # nginx_manager.acme_conf(host, route, '')
             if self.conf("test-mode") and self._httpd.poll() is not None:
                 # simply verify cause command failure...
                 return False
