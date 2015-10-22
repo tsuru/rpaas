@@ -696,8 +696,9 @@ binary for temporary key/certificate generation.""".replace("\n", "")
             nginx_manager = rpaas.get_manager().nginx_manager
             for host in self.hosts:
                 nginx_manager.acme_conf(host, route, content)
-            time.sleep(120)
+            time.sleep(20)
 
+        # return response
         if response.simple_verify(
                 achall.chall, achall.domain,
                 achall.account_key.public_key(), self.config.simple_http_port):
