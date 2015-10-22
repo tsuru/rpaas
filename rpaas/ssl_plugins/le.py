@@ -83,7 +83,7 @@ class LE(BaseSSLPlugin):
         finally:
             nginx_manager = rpaas.get_manager().nginx_manager
             for host in self.hosts:
-                nginx_manager.acme_conf(host, '', '')
+                nginx_manager.delete_acme_conf(host)
             return json.dumps({'crt': crt, 'chain': chain, 'key': key})
 
 

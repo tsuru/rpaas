@@ -99,6 +99,10 @@ class NginxDAV(object):
         self._dav_put(host, 'acme.conf', raw)
         self._reload(host)
 
+    def delete_acme_conf(self, host):
+        self._dav_delete(host, 'acme.conf')
+        self._reload()
+
     def _location_file_name(self, path):
         return 'location_{}.conf'.format(path.replace('/', ':'))
 
