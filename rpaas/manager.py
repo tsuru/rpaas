@@ -144,8 +144,8 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        # if not self._verify_crt(cert, key):
-        #     raise SslError('Invalid certificate')
+        if not self._verify_crt(cert, key):
+            raise SslError('Invalid certificate')
         self.storage.update_binding_certificate(name, cert, key)
         for host in lb.hosts:
             self.nginx_manager.update_certificate(host.dns_name, cert, key)
@@ -300,8 +300,8 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
 
         # Check if DNS is registered for rpaas ip
-        # if not self._check_dns(name, domain):
-        #     raise SslError('rpaas IP is not registered for this DNS name')
+        if not self._check_dns(name, domain):
+            raise SslError('rpaas IP is not registered for this DNS name')
 
 
         # Key and CSR generated to request a certificate
