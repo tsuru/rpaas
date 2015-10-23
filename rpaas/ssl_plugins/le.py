@@ -80,11 +80,12 @@ class LE(BaseSSLPlugin):
     def download_crt(self, id=None):
         try:
             crt, chain, key = main(['auth', '--text', '--domains', str(self.domain), '-m', self.email, '--hosts']+self.hosts)
+        else:
+            return json.dumps({'crt': crt, 'chain': chain, 'key': key})
         finally:
             nginx_manager = rpaas.get_manager().nginx_manager
             for host in self.hosts:
                 nginx_manager.delete_acme_conf(host)
-            return json.dumps({'crt': crt, 'chain': chain, 'key': key})
 
 
 
