@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from rpaas.ssl_plugins import BaseSSLPlugin
 import rpaas
-from rpaas import api
 
 import json
 import logging
@@ -1568,19 +1567,13 @@ def _setup_logging(args):
     # is nonzero and backupCount is nonzero, so we set maxBytes as big
     # as possible not to overrun in single CLI invocation (1MB).
     file_handler.doRollover()  # TODO: creates empty letsencrypt.log.1 file
-    if api.debug:
-        file_handler.setLevel(logging.DEBUG)
-    else:
-        file_handler.setLevel(logging.WARNING)
+    file_handler.setLevel(logging.WARNING)
     file_handler_formatter = logging.Formatter(fmt=fmt)
     file_handler_formatter.converter = time.gmtime  # don't use localtime
     file_handler.setFormatter(file_handler_formatter)
 
     root_logger = logging.getLogger()
-    if api.debug:
-        root_logger.setLevel(logging.DEBUG)  # send all records to handlers
-    else:
-        root_logger.setLevel(logging.WARNING)
+    root_logger.setLevel(logging.WARNING)
     root_logger.addHandler(handler)
     root_logger.addHandler(file_handler)
 
