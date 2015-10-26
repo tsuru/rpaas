@@ -706,18 +706,19 @@ binary for temporary key/certificate generation.""".replace("\n", "")
                 nginx_manager.acme_conf(host, route, content)
             time.sleep(10)
 
-        # return response
-        if response.simple_verify(
-                achall.chall, achall.domain,
-                achall.account_key.public_key(), self.config.simple_http_port):
-            return response
-        else:
-            logger.error(
-                "Self-verify of challenge failed, authorization abandoned.")
-            if self.conf("test-mode") and self._httpd.poll() is not None:
-                # simply verify cause command failure...
-                return False
-            return None
+        # skip self verification
+        return response
+        # if response.simple_verify(
+        #         achall.chall, achall.domain,
+        #         achall.account_key.public_key(), self.config.simple_http_port):
+        #     return response
+        # else:
+        #     logger.error(
+        #         "Self-verify of challenge failed, authorization abandoned.")
+        #     if self.conf("test-mode") and self._httpd.poll() is not None:
+        #         # simply verify cause command failure...
+        #         return False
+        #     return None
 
     def _notify_and_wait(self, message):  # pylint: disable=no-self-use
         # TODO: IDisplay wraps messages, breaking the command
