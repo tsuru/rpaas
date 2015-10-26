@@ -100,7 +100,6 @@ class NginxDAV(object):
         self._reload(host)
 
     def delete_acme_conf(self, host):
-        # self._dav_delete(host, 'acme.conf')
         self._dav_put(host, 'acme.conf', '')
         self._reload(host)
 
