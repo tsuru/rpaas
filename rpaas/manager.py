@@ -314,45 +314,45 @@ class Manager(object):
             plugin not in ['default', '__init__']:
 
             try:
-                p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+                # p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
 
-                for obj_name, obj in inspect.getmembers(p_ssl):
-                    if obj_name != 'BaseSSLPlugin' and \
-                    inspect.isclass(obj) and \
-                    issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                        c_ssl = obj
+                # for obj_name, obj in inspect.getmembers(p_ssl):
+                #     if obj_name != 'BaseSSLPlugin' and \
+                #     inspect.isclass(obj) and \
+                #     issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                #         c_ssl = obj
 
-                        # TODO
-                        hosts = [host.dns_name for host in lb.hosts]
-                        c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
-                        # ODOT
+                #         # TODO
+                #         hosts = [host.dns_name for host in lb.hosts]
+                #         c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+                #         # ODOT
 
-                # self.storage.store_task(name)
-                # task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
-
-
-                # TODO
-                # Upload csr and get an Id
-                plugin_id = c_ssl.upload_csr(csr)
-                crt = c_ssl.download_crt(id=str(plugin_id))
-
-                # Download the certificate and update nginx with it
-                if crt:
-                    try:
-                        js_crt = json.loads(crt)
-                        cert = js_crt['crt']
-                        cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
-                        key = js_crt['key'] if 'key' in js_crt else key
-                    except:
-                        cert = crt
-                    self.update_certificate(name, cert, key)
-
-                else:
-                    raise Exception('Could not download certificate')
-                # ODOT
+                self.storage.store_task(name)
+                task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
 
 
-                # self.storage.update_task(name, task.task_id)
+                # # TODO
+                # # Upload csr and get an Id
+                # plugin_id = c_ssl.upload_csr(csr)
+                # crt = c_ssl.download_crt(id=str(plugin_id))
+
+                # # Download the certificate and update nginx with it
+                # if crt:
+                #     try:
+                #         js_crt = json.loads(crt)
+                #         cert = js_crt['crt']
+                #         cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
+                #         key = js_crt['key'] if 'key' in js_crt else key
+                #     except:
+                #         cert = crt
+                #     self.update_certificate(name, cert, key)
+
+                # else:
+                #     raise Exception('Could not download certificate')
+                # # ODOT
+
+
+                self.storage.update_task(name, task.task_id)
                 return ''
 
             except Exception, e:
