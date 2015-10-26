@@ -1,1 +1,2 @@
 -e /home/application/current
+setuptools==18.4
