@@ -204,6 +204,8 @@ class DownloadCertTask(BaseManagerTask):
 
                 for host in lb.hosts:
                     self.nginx_manager.update_certificate(host.dns_name, cert, key)
+            else:
+                raise Exception('Unknow error')
 
             else:
                 raise Exception('Could not download certificate')
