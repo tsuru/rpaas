@@ -64,12 +64,12 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         binding_data = self.storage.find_binding(name)
         if binding_data:
-            binded_host = binding_data.get('app_host')
-            if binded_host == app_host:
-                # Nothing to do, already binded
+            bound_host = binding_data.get('app_host')
+            if bound_host == app_host:
+                # Nothing to do, already bound
                 return
-            if binded_host is not None:
-                raise BindError('This service can only be binded to one application.')
+            if bound_host is not None:
+                raise BindError('This service can only be bound to one application.')
         for host in lb.hosts:
             self.nginx_manager.update_binding(host.dns_name, '/', app_host)
         self.storage.store_binding(name, app_host)
