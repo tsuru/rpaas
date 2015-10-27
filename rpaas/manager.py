@@ -10,7 +10,7 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import storage, tasks, nginx
+from rpaas import consul_manager, storage, tasks, nginx
 
 PENDING = 'pending'
 FAILURE = 'failure'
@@ -21,6 +21,7 @@ class Manager(object):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
+        self.consul_manager = consul_manager.ConsulManager(config)
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -36,22 +37,29 @@ class Manager(object):
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
+        metadata = {}
         if plan:
             config.update(plan.config)
-            self.storage.store_instance_metadata(name, plan_name=plan_name)
-        self._add_tags(name, config)
+            metadata["plan_name"] = plan_name
+        metadata["consul_token"] = self._add_tags(name, config)
+        self.storage.store_instance_metadata(name, **metadata)
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
     def _add_tags(self, instance_name, config):
-        tags = ["rpaas_instance:"+instance_name]
+        token = self.consul_manager.generate_token(instance_name)
+        tags = ["rpaas_instance:"+instance_name, "consul_token:"+token]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
             tags.append(extra_tags)
         config["INSTANCE_TAGS"] = ",".join(tags)
+        return token
 
     def remove_instance(self, name):
+        metadata = self.storage.find_instance_metadata(name)
+        if metadata and metadata.get("consul_token"):
+            self.consul_manager.destroy_token(metadata["consul_token"])
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)

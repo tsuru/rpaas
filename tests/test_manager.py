@@ -43,11 +43,13 @@ class ManagerTestCase(unittest.TestCase):
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance(self, nginx):
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x")
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
         config = copy.deepcopy(self.config)
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        config["INSTANCE_TAGS"] = "rpaas_instance:x,consul_token:abc-123"
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
@@ -59,11 +61,13 @@ class ManagerTestCase(unittest.TestCase):
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_plan(self, nginx):
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x", plan_name="small")
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        config["INSTANCE_TAGS"] = "rpaas_instance:x,consul_token:abc-123"
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
@@ -73,16 +77,18 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
         metadata = manager.storage.find_instance_metadata("x")
-        self.assertEqual({"_id": "x", "plan_name": "small"}, metadata)
+        self.assertEqual({"_id": "x", "plan_name": "small", "consul_token": "abc-123"}, metadata)
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_extra_tags(self, nginx):
         config = copy.deepcopy(self.config)
         config["INSTANCE_EXTRA_TAGS"] = "enable_monitoring:1"
         manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x")
         host = self.Host.create.return_value
-        config["INSTANCE_TAGS"] = "rpaas_instance:x,enable_monitoring:1"
+        config["INSTANCE_TAGS"] = "rpaas_instance:x,consul_token:abc-123,enable_monitoring:1"
         del config["INSTANCE_EXTRA_TAGS"]
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
@@ -124,10 +130,11 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task("x")
-        self.storage.store_instance_metadata("x", plan={"serviceofferingid": "123"})
+        self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
         self.LoadBalancer.find.assert_called_with("x", self.config)
         for h in lb.hosts:
@@ -135,6 +142,23 @@ class ManagerTestCase(unittest.TestCase):
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task("x"))
         self.assertIsNone(self.storage.find_instance_metadata("x"))
+        manager.consul_manager.destroy_token.assert_called_with("abc-123")
+
+    def test_remove_instance_no_token(self):
+        self.storage.store_task("x")
+        self.storage.store_instance_metadata("x", plan_name="small")
+        lb = self.LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock()]
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.remove_instance("x")
+        self.LoadBalancer.find.assert_called_with("x", self.config)
+        for h in lb.hosts:
+            h.destroy.assert_called_once()
+        lb.destroy.assert_called_once()
+        self.assertIsNone(self.storage.find_task("x"))
+        self.assertIsNone(self.storage.find_instance_metadata("x"))
+        manager.consul_manager.destroy_token.assert_not_called()
 
     @mock.patch("rpaas.tasks.nginx")
     def test_remove_instance_decrement_quota(self, nginx):
@@ -235,8 +259,11 @@ content = location /x {
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        consul_token = "abc-123"
+        config["INSTANCE_TAGS"] = "rpaas_instance:x,consul_token:"+consul_token
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = consul_token
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
