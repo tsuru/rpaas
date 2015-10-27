@@ -209,6 +209,7 @@ class DownloadCertTask(BaseManagerTask):
                 raise Exception('Could not download certificate')
         except Exception, e:
             logging.error("Error in ssl plugin task: {}".format(e))
+            raise e
         finally:
             self.storage.remove_task(name)
         
