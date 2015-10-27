@@ -144,10 +144,14 @@ def ssl(args):
     params['plugin'] = args.plugin if 'plugin' in args else 'default'
     body = urllib.urlencode(params)
     method = "POST"
-    result = proxy_request(args.instance, rpaas_path,
+    try:
+        result = proxy_request(args.instance, rpaas_path,
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    except Exception, e:
+        sys.stderr.write("ERROR: "+str(e)+"\n")
+        sys.exit(1)
     if result.getcode() in [200,201]:
         sys.stdout.write("Certificate successfully updated\n")
     else:

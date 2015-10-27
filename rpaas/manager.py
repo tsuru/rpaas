@@ -329,7 +329,7 @@ class Manager(object):
 
                 self.storage.store_task(name)
                 task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
-
+                self.storage.update_task(name, task.task_id)
 
                 # # TODO
                 # # Upload csr and get an Id
@@ -351,8 +351,6 @@ class Manager(object):
                 #     raise Exception('Could not download certificate')
                 # # ODOT
 
-
-                self.storage.update_task(name, task.task_id)
                 return ''
 
             except Exception, e:
