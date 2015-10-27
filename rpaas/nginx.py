@@ -49,7 +49,7 @@ location {path} {{
 """
 
 
-class NginxDAV(object):
+class Nginx(object):
 
     def __init__(self, conf=None):
         self.nginx_reload_path = config.get_config('NGINX_RELOAD_PATH', '/reload', conf)
@@ -61,21 +61,6 @@ class NginxDAV(object):
                                                         '/healthcheck',
                                                         conf)
         self.config_manager = ConfigManager(conf)
-
-    def update_binding(self, host, path, destination=None, content=None):
-        if not content:
-            content = self.config_manager.generate_host_config(path, destination)
-        self._dav_put(host, self._location_file_name(path), content)
-        self._reload(host)
-
-    def update_certificate(self, host, cert_data, key_data):
-        self._dav_put(host, 'ssl/nginx.crt', cert_data)
-        self._dav_put(host, 'ssl/nginx.key', key_data)
-        self._reload(host)
-
-    def delete_binding(self, host, path):
-        self._dav_delete(host, self._location_file_name(path))
-        self._reload(host)
 
     def wait_healthcheck(self, host, timeout=30):
         t0 = datetime.datetime.now()
@@ -89,32 +74,6 @@ class NginxDAV(object):
                 if now > t0 + timeout:
                     raise
                 time.sleep(1)
-
-    def _location_file_name(self, path):
-        return 'location_{}.conf'.format(path.replace('/', ':'))
-
-    def _dav_request(self, method, host, name, content):
-        path = "/{}/{}".format(self.nginx_dav_put_path.strip('/'), name)
-        url = "http://{}:{}{}".format(host, self.nginx_manage_port, path)
-        rsp = requests.request(method, url, data=content)
-        if rsp.status_code > 299:
-            raise NginxError(
-                "Error trying to update file in nginx: {} {}: {}".format(method, url, rsp.text))
-        return rsp
-
-    def _dav_put(self, host, name, content):
-        return self._dav_request('PUT', host, name, content)
-
-    def _dav_delete(self, host, name):
-        return self._dav_request('DELETE', host, name, None)
-
-    def _reload(self, host):
-        url = "http://{}:{}/{}".format(host, self.nginx_manage_port,
-                                       self.nginx_reload_path.lstrip('/'))
-        rsp = requests.get(url)
-        if rsp.status_code > 299:
-            raise NginxError(
-                "Error trying to reload config in nginx: {}: {}".format(url, rsp.text))
 
     def _get_healthcheck(self, host):
         url = "http://{}:{}/{}".format(host, self.nginx_manage_port,

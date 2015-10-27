@@ -33,7 +33,7 @@ class BaseManagerTask(Task):
 
     def init_config(self, config=None):
         self.config = config
-        self.nginx_manager = nginx.NginxDAV(config)
+        self.nginx_manager = nginx.Nginx(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.hc = hc.Dumb()
