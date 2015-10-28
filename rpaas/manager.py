@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import os
 
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -17,10 +18,12 @@ FAILURE = "failure"
 
 
 class Manager(object):
+
     def __init__(self, config=None):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
         self.consul_manager = consul_manager.ConsulManager(config)
+        self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -47,7 +50,9 @@ class Manager(object):
 
     def _add_tags(self, instance_name, config):
         token = self.consul_manager.generate_token(instance_name)
-        tags = ["rpaas_instance:"+instance_name, "consul_token:"+token]
+        tags = ["rpaas_service:" + self.service_name,
+                "rpaas_instance:" + instance_name,
+                "consul_token:" + token]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
@@ -209,5 +214,6 @@ class RouteError(Exception):
 
 
 class QuotaExceededError(Exception):
+
     def __init__(self, used, quota):
         super(QuotaExceededError, self).__init__("quota execeeded {}/{} used".format(used, quota))
