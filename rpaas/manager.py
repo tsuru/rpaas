@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import os
 
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -21,6 +22,7 @@ class Manager(object):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
+        self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -44,7 +46,7 @@ class Manager(object):
         self.storage.update_task(name, task.task_id)
 
     def _add_tags(self, instance_name, config):
-        tags = ["rpaas_instance:"+instance_name]
+        tags = ["rpaas_service:"+self.service_name, "rpaas_instance:"+instance_name]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]

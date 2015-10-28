@@ -15,6 +15,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def setUp(self):
         os.environ["MONGO_DATABASE"] = "host_manager_test"
+        os.environ.setdefault("RPAAS_SERVICE_NAME", "test-suite-rpaas")
         self.storage = storage.MongoDBStorage()
         colls = self.storage.db.collection_names(False)
         for coll in colls:
@@ -47,7 +48,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
         config = copy.deepcopy(self.config)
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
@@ -63,7 +64,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
@@ -82,7 +83,7 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(config)
         manager.new_instance("x")
         host = self.Host.create.return_value
-        config["INSTANCE_TAGS"] = "rpaas_instance:x,enable_monitoring:1"
+        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,enable_monitoring:1"
         del config["INSTANCE_EXTRA_TAGS"]
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
@@ -235,7 +236,7 @@ content = location /x {
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["INSTANCE_TAGS"] = "rpaas_instance:x"
+        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
