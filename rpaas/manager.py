@@ -22,9 +22,10 @@ class Manager(object):
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
 
-    def new_instance(self, name, team=None, plan=None):
-        if plan:
-            plan = self.storage.find_plan(plan)
+    def new_instance(self, name, team=None, plan_name=None):
+        plan = None
+        if plan_name:
+            plan = self.storage.find_plan(plan_name)
         used, quota = self.storage.find_team_quota(team)
         if len(used) >= quota:
             raise QuotaExceededError(len(used), quota)
@@ -35,10 +36,10 @@ class Manager(object):
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
-        self._add_tags(name, config)
         if plan:
             config.update(plan.config)
-            self.storage.store_instance_metadata(name, plan=plan.to_dict())
+            self.storage.store_instance_metadata(name, plan_name=plan_name)
+        self._add_tags(name, config)
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
@@ -150,9 +151,10 @@ class Manager(object):
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
-        if metadata and metadata.get("plan"):
-            plan = metadata.get("plan")
-            config.update(plan.get("config") or {})
+        if metadata and metadata.get("plan_name"):
+            plan = self.storage.find_plan(metadata["plan_name"])
+            config.update(plan.config or {})
+            self._add_tags(name, config)
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
