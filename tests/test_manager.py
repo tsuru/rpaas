@@ -50,7 +50,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
         config = copy.deepcopy(self.config)
-        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
@@ -68,7 +68,7 @@ class ManagerTestCase(unittest.TestCase):
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
@@ -89,8 +89,8 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x")
         host = self.Host.create.return_value
-        config["INSTANCE_TAGS"] = ("rpaas_service:test-suite-rpaas,rpaas_instance:x,"
-                                   "consul_token:abc-123,enable_monitoring:1")
+        config["HOST_TAGS"] = ("rpaas_service:test-suite-rpaas,rpaas_instance:x,"
+                               "consul_token:abc-123,enable_monitoring:1")
         del config["INSTANCE_EXTRA_TAGS"]
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
@@ -262,7 +262,7 @@ content = location /x {
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
         consul_token = "abc-123"
-        config["INSTANCE_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:"+consul_token
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:"+consul_token
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.consul_manager.generate_token.return_value = consul_token

@@ -57,7 +57,7 @@ class Manager(object):
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
             tags.append(extra_tags)
-        config["INSTANCE_TAGS"] = ",".join(tags)
+        config["HOST_TAGS"] = ",".join(tags)
         return token
 
     def remove_instance(self, name):
