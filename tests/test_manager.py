@@ -221,9 +221,11 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
+        config = copy.deepcopy(self.config)
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
-        self.Host.create.assert_called_with("my-host-manager", "x", self.config)
+        self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
@@ -258,13 +260,15 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
+        config = copy.deepcopy(self.config)
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
-        self.Host.create.assert_called_with("my-host-manager", "x", self.config)
+        self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
-        nginx.NginxDAV.assert_called_once_with(self.config)
+        nginx.NginxDAV.assert_called_once_with(config)
         created_host = self.Host.create.return_value
         nginx_manager = nginx.NginxDAV.return_value
         nginx_manager.wait_healthcheck.assert_any_call(created_host.dns_name, timeout=300)
