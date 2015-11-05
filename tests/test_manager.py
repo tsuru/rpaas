@@ -246,8 +246,10 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
@@ -259,15 +261,13 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
-        self.storage.store_instance_metadata("x", plan_name=self.plan["name"])
+        self.storage.store_instance_metadata("x", plan_name=self.plan["name"],
+                                             consul_token="abc-123")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        consul_token = "abc-123"
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:"+consul_token
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
-        manager.consul_manager.generate_token.return_value = consul_token
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
@@ -285,11 +285,13 @@ content = location /x {
         self.storage.store_binding("x", "myhost.com")
         self.storage.update_binding_certificate("x", "my cert", "my key")
         self.storage.replace_binding_path("x", "/trantor", "olivaw.com")
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
         config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
@@ -307,6 +309,8 @@ content = location /x {
     def test_scale_instance_down(self):
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         manager = Manager(self.config)
         manager.scale_instance("x", 1)
         lb.hosts[0].destroy.assert_called_once

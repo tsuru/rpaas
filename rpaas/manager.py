@@ -43,22 +43,21 @@ class Manager(object):
         if plan:
             config.update(plan.config)
             metadata["plan_name"] = plan_name
-        metadata["consul_token"] = self._add_tags(name, config)
+        metadata["consul_token"] = consul_token = self.consul_manager.generate_token(name)
         self.storage.store_instance_metadata(name, **metadata)
+        self._add_tags(name, config, consul_token)
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
-    def _add_tags(self, instance_name, config):
-        token = self.consul_manager.generate_token(instance_name)
+    def _add_tags(self, instance_name, config, consul_token):
         tags = ["rpaas_service:" + self.service_name,
                 "rpaas_instance:" + instance_name,
-                "consul_token:" + token]
+                "consul_token:" + consul_token]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
             tags.append(extra_tags)
         config["HOST_TAGS"] = ",".join(tags)
-        return token
 
     def remove_instance(self, name):
         metadata = self.storage.find_instance_metadata(name)
@@ -160,10 +159,10 @@ class Manager(object):
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
-        if metadata and metadata.get("plan_name"):
+        if "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
-        self._add_tags(name, config)
+        self._add_tags(name, config, metadata["consul_token"])
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
