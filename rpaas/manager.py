@@ -163,7 +163,7 @@ class Manager(object):
         if metadata and metadata.get("plan_name"):
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
-            self._add_tags(name, config)
+        self._add_tags(name, config)
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
