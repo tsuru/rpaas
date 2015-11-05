@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -58,6 +59,8 @@ def create_plan(args):
 
 def update_plan(args):
     name, description, config = _change_plan_args(args, "update-plan")
+    plan = _retrieve_plan(name)
+    config = _merge_config(plan["config"], config)
     params = {
         "description": description,
         "config": json.dumps(config),
@@ -69,6 +72,12 @@ def update_plan(args):
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
         sys.exit(1)
     sys.stdout.write("Plan successfully updated\n")
+
+
+def _merge_config(current, changes):
+    current_copy = copy.deepcopy(current)
+    current_copy.update(changes)
+    return {k: v for k, v in current_copy.iteritems() if v}
 
 
 def _change_plan_args(args, cmd_name):
@@ -85,9 +94,8 @@ def _change_plan_args(args, cmd_name):
     for i, part in enumerate(config_parts):
         if part.endswith("="):
             value = config_parts[i+1].strip().strip('"').strip("'")
-            if value != "":
-                key = part[:-1]
-                config[key] = value
+            key = part[:-1]
+            config[key] = value
     return parsed_args.name, parsed_args.description, config
 
 
@@ -102,13 +110,17 @@ def delete_plan(args):
 
 def retrieve_plan(args):
     name = _plan_arg(args, "show-plan")
+    plan = _retrieve_plan(name)
+    _render_plan(plan)
+
+
+def _retrieve_plan(name):
     result = proxy_request("/admin/plans/"+name, method="GET")
     data = result.read().strip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + data + "\n")
         sys.exit(1)
-    plan = json.loads(data)
-    _render_plan(plan)
+    return json.loads(data)
 
 
 def _render_plan(plan):
