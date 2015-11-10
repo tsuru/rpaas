@@ -91,14 +91,14 @@ setup(
 "funcsigs==0.4",
 "pbr==1.8.1",
 
-"acme==0.0.0.dev20151021",
+"acme==0.0.0.dev20151108",
 
 "configobj==5.0.6",
 "parsedatetime==1.5",
 "psutil==3.2.2",
 "python2-pythondialog==3.3.0",
 
-"letsencrypt==0.0.0.dev20151021",
+"letsencrypt==0.0.0.dev20151108",
 
 "pyparsing==2.0.3",
 
