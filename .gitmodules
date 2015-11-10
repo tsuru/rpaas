@@ -1,3 +1,0 @@
-[submodule "vendor/letsencrypt"]
-	path = vendor/letsencrypt
-	url = https://github.com/letsencrypt/letsencrypt
