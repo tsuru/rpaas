@@ -46,7 +46,8 @@ def add_instance():
     if require_plan() and not plan:
         return "plan is required", 400
     try:
-        get_manager().new_instance(name, team=team, plan=plan)
+        get_manager().new_instance(name, team=team,
+                                   plan_name=plan)
     except storage.PlanNotFoundError:
         return "invalid plan", 400
     except storage.DuplicateError:

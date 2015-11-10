@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import os
 
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -36,10 +37,12 @@ class Manager(object):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
         self.nginx_manager = nginx.NginxDAV(config)
+        self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
-    def new_instance(self, name, team=None, plan=None):
-        if plan:
-            plan = self.storage.find_plan(plan)
+    def new_instance(self, name, team=None, plan_name=None):
+        plan = None
+        if plan_name:
+            plan = self.storage.find_plan(plan_name)
         used, quota = self.storage.find_team_quota(team)
         if len(used) >= quota:
             raise QuotaExceededError(len(used), quota)
@@ -50,20 +53,20 @@ class Manager(object):
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
-        self._add_tags(name, config)
         if plan:
             config.update(plan.config)
-            self.storage.store_instance_metadata(name, plan=plan.to_dict())
+            self.storage.store_instance_metadata(name, plan_name=plan_name)
+        self._add_tags(name, config)
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
     def _add_tags(self, instance_name, config):
-        tags = ["rpaas_instance:"+instance_name]
+        tags = ["rpaas_service:"+self.service_name, "rpaas_instance:"+instance_name]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
             tags.append(extra_tags)
-        config["INSTANCE_TAGS"] = ",".join(tags)
+        config["HOST_TAGS"] = ",".join(tags)
 
     def remove_instance(self, name):
         self.storage.decrement_quota(name)
@@ -79,12 +82,12 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         binding_data = self.storage.find_binding(name)
         if binding_data:
-            binded_host = binding_data.get('app_host')
-            if binded_host == app_host:
-                # Nothing to do, already binded
+            bound_host = binding_data.get('app_host')
+            if bound_host == app_host:
+                # Nothing to do, already bound
                 return
-            if binded_host is not None:
-                raise BindError('This service can only be binded to one application.')
+            if bound_host is not None:
+                raise BindError('This service can only be bound to one application.')
         for host in lb.hosts:
             self.nginx_manager.update_binding(host.dns_name, '/', app_host)
         self.storage.store_binding(name, app_host)
@@ -167,9 +170,10 @@ class Manager(object):
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
-        if metadata and metadata.get("plan"):
-            plan = metadata.get("plan")
-            config.update(plan.get("config") or {})
+        if metadata and metadata.get("plan_name"):
+            plan = self.storage.find_plan(metadata["plan_name"])
+            config.update(plan.config or {})
+        self._add_tags(name, config)
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 

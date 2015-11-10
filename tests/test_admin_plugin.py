@@ -7,6 +7,7 @@ import os
 import unittest
 import urllib
 import urllib2
+import urlparse
 
 import mock
 
@@ -182,22 +183,39 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 200
         urlopen.return_value = result
+
+        plan = {"name": "small", "description": "smalll vms",
+                "config": {"SERVICE": "abcd", "GREETINGS": "hello"}}
+        old_retrieve = admin_plugin._retrieve_plan
+        admin_plugin._retrieve_plan = lambda name: plan
+
+        def recover_retrieve():
+            admin_plugin._retrieve_plan = old_retrieve
+        self.addCleanup(recover_retrieve)
+
         admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
-                                  'SERVICE=abcdef-123 NAME="something nice" DATA=go go go DATE=\'2015\''])
+                                  'SERVICE=abcdef-123 NAME="some thing" DATA=go go go DATE=\'2015\' wat=""'])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type",
                                            "application/x-www-form-urlencoded")
-        params = {
-            "description": "smalll vms",
-            "config": json.dumps({"SERVICE": "abcdef-123",
-                                  "NAME": "something nice",
-                                  "DATA": "go go go",
-                                  "DATE": "2015"}),
+
+        raw_params = request.add_data.call_args[0][0]
+        parsed_params = urlparse.parse_qs(raw_params)
+        parsed_params["description"] = unicode(parsed_params["description"][0])
+        parsed_params["config"] = json.loads(parsed_params["config"][0])
+
+        expected_params = {
+            "description": u"smalll vms",
+            "config": {"SERVICE": "abcdef-123",
+                       "NAME": "some thing",
+                       "DATA": "go go go",
+                       "DATE": "2015",
+                       "GREETINGS": "hello"},
         }
-        request.add_data.assert_called_with(urllib.urlencode(params))
+        self.assertEqual(expected_params, parsed_params)
         self.assertEqual("PUT", request.get_method())
         stdout.write.assert_called_with("Plan successfully updated\n")
 
@@ -207,6 +225,15 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     def test_update_plan_failure(self, stderr, Request, urlopen):
         request = mock.Mock()
         Request.return_value = request
+
+        plan = {"name": "small", "description": "smalll vms", "config": {}}
+        old_retrieve = admin_plugin._retrieve_plan
+        admin_plugin._retrieve_plan = lambda name: plan
+
+        def recover_retrieve():
+            admin_plugin._retrieve_plan = old_retrieve
+        self.addCleanup(recover_retrieve)
+
         result = mock.Mock()
         result.getcode.return_value = 404
         result.read.return_value = "plan not found\n"
