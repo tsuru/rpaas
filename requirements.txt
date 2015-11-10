@@ -1,2 +1,2 @@
-setuptools==18.4
 -eU /home/application/current
+setuptools==18.4
