@@ -69,7 +69,7 @@ def main(domains=[], email=None, hosts=[]):
     ams = AccountMemoryStorage()
     acc, acme = register(config, ams)
     
-    authenticator = RpaasLeAuthenticator(config, '')
+    authenticator = RpaasLeAuthenticator(hosts=hosts, config=config, name='')
     installer = None
     lec = Client(config, acc, authenticator, installer, acme)
     certr, chain, key, _ = lec.obtain_certificate(domains)
