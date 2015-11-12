@@ -320,7 +320,6 @@ class Manager(object):
                 self.storage.update_task(name, task.task_id)
                 return ''
             except Exception, e:
-                raise e
                 raise SslError('rpaas IP is not registered for this DNS name')
 
         else:
