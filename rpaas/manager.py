@@ -286,13 +286,21 @@ class Manager(object):
         @param domain Domain name
         @param vip rpaas ip
         '''
-        address = self._get_address(name)
-        if address == FAILURE or address == PENDING:
+        try:
+            address = self._get_address(name)
+        except:
             return False
+        else:
+            if address == FAILURE or address == PENDING:
+                return False
 
-        answer = socket.getaddrinfo(domain, 0,0,0,0)
-        if address not in [ip[4][0] for ip in answer]:
+        try:
+            answer = socket.getaddrinfo(domain, 0,0,0,0)
+        except:
             return False
+        else:
+            if address not in [ip[4][0] for ip in answer]:
+                return False
 
         return True
 

@@ -18,7 +18,6 @@ class LETest(unittest.TestCase):
     def tearDown(self):
         self.patcher.stop()
 
-
     def test_upload_csr(self):
         self.assertEqual(self.instance.upload_csr('asdasdasdasdadasd'), None)
 
