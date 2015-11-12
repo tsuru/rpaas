@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import logging
 import json
 import OpenSSL
@@ -21,8 +19,8 @@ logger = logging.getLogger(__name__)
 class LE(BaseSSLPlugin):
 
     def __init__(self, domain, email, hosts=[]):
-        self.domain = domain
-        self.email = email
+        self.domain = str(domain)
+        self.email = str(email)
         self.hosts = [str(x) for x in hosts]
 
     def upload_csr(self, csr=None):
