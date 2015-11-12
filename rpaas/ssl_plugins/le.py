@@ -1,6 +1,7 @@
 import logging
 import json
 import OpenSSL
+import os
 
 from letsencrypt.client import Client, register
 from letsencrypt.configuration import NamespaceConfig
@@ -40,13 +41,13 @@ class LE(BaseSSLPlugin):
 
 
 class ConfigNamespace(object):
-    def __init__(self):
-        self.server = 'https://acme-staging.api.letsencrypt.org/directory'
+    def __init__(self, email):
+        self.server = os.environ.get("RPAAS_PLUGIN_LE_URL", "https://acme-staging.api.letsencrypt.org/directory")
         self.config_dir = './le/conf'
         self.work_dir = './le/work'
         self.http01_port = None
         self.tls_sni_01_port = 5001
-        self.email = 'vicente.fiebig@corp.globo.com'
+        self.email = email
         self.rsa_key_size = 2048
         self.no_verify_ssl = False
         self.key_dir = './le/key'
@@ -60,7 +61,7 @@ class ConfigNamespace(object):
 
 
 def main(domains=[], email=None, hosts=[]):
-    ns = ConfigNamespace()
+    ns = ConfigNamespace(email)
     config = NamespaceConfig(ns)
     zope.component.provideUtility(config)
 

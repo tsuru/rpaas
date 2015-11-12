@@ -1,4 +1,4 @@
-"""Manual plugin."""
+"""RPAAS plugin."""
 import logging
 import pipes
 import time
