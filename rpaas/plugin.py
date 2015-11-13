@@ -131,8 +131,8 @@ def get_certificate_args(args):
 def get_ssl_args(args):
     parser = argparse.ArgumentParser("ssl")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
-    parser.add_argument("-a", "--domain", required=True, help="Registered domain name")
-    parser.add_argument("-l", "--plugin", required=False, help="Plugin to require for CRT")
+    parser.add_argument("-d", "--domain", required=True, help="Registered domain name")
+    parser.add_argument("-a", "--auth", required=False, help="Authorization plugin")
     parsed = parser.parse_args(args)
     return parsed
 
