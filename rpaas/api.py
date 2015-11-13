@@ -8,6 +8,7 @@ import os
 import logging
 
 from flask import Flask, Response, request
+from raven.contrib.flask import Sentry
 import hm.log
 
 from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
@@ -23,6 +24,11 @@ else:
     handler.setLevel(logging.WARN)
 api.logger.addHandler(handler)
 hm.log.set_handler(handler)
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN")
+if SENTRY_DSN:
+    api.config['SENTRY_DSN'] = SENTRY_DSN
+    sentry = Sentry(api)
 
 
 @api.route("/resources/plans", methods=["GET"])
