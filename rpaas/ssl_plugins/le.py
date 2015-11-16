@@ -40,6 +40,7 @@ class LE(BaseSSLPlugin):
                 nginx_manager.delete_acme_conf(host)
 
 
+
 class ConfigNamespace(object):
     def __init__(self, email):
         self.server = os.environ.get("RPAAS_PLUGIN_LE_URL", "https://acme-staging.api.letsencrypt.org/directory")
@@ -77,3 +78,11 @@ def main(domains=[], email=None, hosts=[]):
             crypto_util.dump_pyopenssl_chain(chain),
             key.pem
         )
+
+def revoke(rawkey, rawcert):
+    ns = ConfigNamespace(None)
+    acme = acme_client.Client(ns.server, key=JWKRSA(
+        key=serialization.load_pem_private_key(
+            rawkey, password=None, backend=default_backend())))
+    acme.revoke(jose.ComparableX509(OpenSSL.crypto.load_certificate(
+                OpenSSL.crypto.FILETYPE_PEM, rawcert)))

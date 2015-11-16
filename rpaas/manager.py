@@ -338,6 +338,30 @@ class Manager(object):
             return ''
 
 
+    def revoke_ssl(self, name, plugin='default'):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+
+        # load plugin if get it as an arg
+        if plugin.isalpha() and \
+            plugin in rpaas.ssl_plugins.__all__ and \
+            plugin not in ['default', '__init__']:
+
+            try:
+                self.storage.store_task(name)
+                task = tasks.RevokeCertTask().dealy(self.config, name, plugin)
+                self.storage.update_task(name, task.task_id)
+                return ''
+            except Exception, e:
+                raise SslError('rpaas IP is not registered for this DNS name')
+
+        else:
+            raise SslError('SSL plugin not defined')
+
+        return ''
+
+
 
 
 class BindError(Exception):
