@@ -125,7 +125,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task("x")
-        self.storage.store_instance_metadata("x", plan={"serviceofferingid": "123"})
+        self.storage.store_instance_metadata("x", plan_name="small")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
