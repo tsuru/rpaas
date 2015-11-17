@@ -259,7 +259,8 @@ content = location /x {
         async_init.assert_called_with("something-id")
         self.assertEqual(manager.status("x"), "failure")
 
-    def test_scale_instance_up(self):
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -273,8 +274,15 @@ content = location /x {
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
-    def test_scale_instance_up_no_token(self):
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up_no_token(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -288,8 +296,15 @@ content = location /x {
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
-    def test_scale_instance_up_with_plan(self):
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up_with_plan(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -305,38 +320,18 @@ content = location /x {
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
     def test_scale_instance_error_task_running(self):
         self.storage.store_task("x")
         manager = Manager(self.config)
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.scale_instance("x", 5)
-
-    @mock.patch("rpaas.tasks.nginx")
-    def test_scale_instance_up_apply_binding_new_instances(self, nginx):
-        self.storage.store_binding("x", "myhost.com")
-        self.storage.update_binding_certificate("x", "my cert", "my key")
-        self.storage.replace_binding_path("x", "/trantor", "olivaw.com")
-        self.storage.store_instance_metadata("x", consul_token="abc-123")
-        self.addCleanup(self.storage.remove_instance_metadata, "x")
-        lb = self.LoadBalancer.find.return_value
-        lb.name = "x"
-        lb.hosts = [mock.Mock(), mock.Mock()]
-        config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
-        manager = Manager(self.config)
-        manager.scale_instance("x", 5)
-        self.Host.create.assert_called_with("my-host-manager", "x", config)
-        self.assertEqual(self.Host.create.call_count, 3)
-        lb.add_host.assert_called_with(self.Host.create.return_value)
-        self.assertEqual(lb.add_host.call_count, 3)
-        nginx.Nginx.assert_called_once_with(config)
-        created_host = self.Host.create.return_value
-        nginx_manager = nginx.Nginx.return_value
-        nginx_manager.wait_healthcheck.assert_any_call(created_host.dns_name, timeout=300)
-        nginx_manager.update_binding.assert_any_call(created_host.dns_name, "/", "myhost.com", None)
-        nginx_manager.update_binding.assert_any_call(created_host.dns_name, "/trantor", "olivaw.com", None)
-        nginx_manager.update_certificate.assert_any_call(created_host.dns_name, "my cert", "my key")
 
     def test_scale_instance_down(self):
         lb = self.LoadBalancer.find.return_value
