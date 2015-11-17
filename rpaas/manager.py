@@ -107,7 +107,7 @@ class Manager(object):
         host_count = 0
         if lb:
             host_count = len(lb.hosts)
-        return [
+        data = [
             {
                 "label": "Address",
                 "value": addr,
@@ -121,6 +121,10 @@ class Manager(object):
                 "value": "\n".join(routes_data),
             },
         ]
+        metadata = self.storage.find_instance_metadata(name)
+        if metadata and "plan_name" in metadata:
+            data.append({"label": "Plan", "value": metadata["plan_name"]})
+        return data
 
     def status(self, name):
         return self._get_address(name)
