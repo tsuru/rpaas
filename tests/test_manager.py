@@ -274,6 +274,21 @@ content = location /x {
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
 
+    def test_scale_instance_up_no_token(self):
+        lb = self.LoadBalancer.find.return_value
+        lb.name = "x"
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        config = copy.deepcopy(self.config)
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        manager.scale_instance("x", 5)
+        self.Host.create.assert_called_with("my-host-manager", "x", config)
+        self.assertEqual(self.Host.create.call_count, 3)
+        lb.add_host.assert_called_with(self.Host.create.return_value)
+        self.assertEqual(lb.add_host.call_count, 3)
+
     def test_scale_instance_up_with_plan(self):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"

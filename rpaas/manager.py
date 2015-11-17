@@ -163,6 +163,10 @@ class Manager(object):
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
+        if not metadata or "consul_token" not in metadata:
+            metadata = metadata or {}
+            metadata["consul_token"] = self.consul_manager.generate_token(name)
+            self.storage.store_instance_metadata(name, **metadata)
         if "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
