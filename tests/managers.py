@@ -28,10 +28,10 @@ class FakeManager(object):
         self.instances = []
         self.storage = storage
 
-    def new_instance(self, name, state="running", team=None, plan=None):
-        if plan:
-            self.storage.find_plan(plan)
-        instance = FakeInstance(name, state, plan)
+    def new_instance(self, name, state="running", team=None, plan_name=None):
+        if plan_name:
+            self.storage.find_plan(plan_name)
+        instance = FakeInstance(name, state, plan_name)
         self.instances.append(instance)
         return instance
 

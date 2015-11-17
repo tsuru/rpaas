@@ -190,6 +190,23 @@ class ManagerTestCase(unittest.TestCase):
         self.assertEqual(manager.status("x"), "192.168.1.1")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_info_with_plan(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.address = "192.168.1.1"
+        self.storage.store_instance_metadata("x", plan_name="small")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
+        manager = Manager(self.config)
+        info = manager.info("x")
+        LoadBalancer.find.assert_called_with("x")
+        self.assertItemsEqual(info, [
+            {"label": "Address", "value": "192.168.1.1"},
+            {"label": "Instances", "value": "0"},
+            {"label": "Routes", "value": ""},
+            {"label": "Plan", "value": "small"},
+        ])
+        self.assertEqual(manager.status("x"), "192.168.1.1")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_info_with_binding(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/arrakis", None, "location /x {\n}")

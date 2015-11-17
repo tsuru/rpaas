@@ -30,6 +30,8 @@ setup(
         "flower==0.7.3",
         "GloboNetworkAPI==0.2.2",
         "python-consul==0.4.5",
+        "raven==4.2.3",
+        "blinker==1.4",
     ],
     extras_require={
         'tests': [
