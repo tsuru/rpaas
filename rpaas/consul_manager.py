@@ -41,6 +41,9 @@ class ConsulManager(object):
     def destroy_token(self, acl_id):
         self.client.acl.destroy(acl_id)
 
+    def write_healthcheck(self, instance_name):
+        self.client.kv.put(self._key(instance_name, "healthcheck"), "true")
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if not content:
             content = self.config_manager.generate_host_config(path, destination)
