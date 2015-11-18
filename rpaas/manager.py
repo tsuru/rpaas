@@ -64,6 +64,7 @@ class Manager(object):
         metadata = self.storage.find_instance_metadata(name)
         if metadata and metadata.get("consul_token"):
             self.consul_manager.destroy_token(metadata["consul_token"])
+        self.consul_manager.destroy_instance(name)
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)

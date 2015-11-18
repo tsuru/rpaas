@@ -146,6 +146,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(self.storage.find_task("x"))
         self.assertIsNone(self.storage.find_instance_metadata("x"))
         manager.consul_manager.destroy_token.assert_called_with("abc-123")
+        manager.consul_manager.destroy_instance.assert_called_with("x")
 
     def test_remove_instance_no_token(self):
         self.storage.store_task("x")
