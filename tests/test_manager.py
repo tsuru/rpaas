@@ -58,6 +58,7 @@ class ManagerTestCase(unittest.TestCase):
         nginx.Nginx.assert_called_once_with(config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        manager.consul_manager.write_healthcheck.assert_called_once_with("x")
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_plan(self, nginx):

@@ -44,6 +44,7 @@ class Manager(object):
             config.update(plan.config)
             metadata["plan_name"] = plan_name
         metadata["consul_token"] = consul_token = self.consul_manager.generate_token(name)
+        self.consul_manager.write_healthcheck(name)
         self.storage.store_instance_metadata(name, **metadata)
         self._add_tags(name, config, consul_token)
         task = tasks.NewInstanceTask().delay(config, name)
