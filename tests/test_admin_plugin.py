@@ -35,7 +35,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     def setUp(self):
         os.environ["TSURU_TARGET"] = self.target = "https://cloud.tsuru.io/"
         os.environ["TSURU_TOKEN"] = self.token = "abc123"
-        admin_plugin.SERVICE_NAME = self.service_name = "rpaas"
+        self.service_name = "rpaas"
 
     def tearDown(self):
         del os.environ["TSURU_TARGET"], os.environ["TSURU_TOKEN"]
@@ -52,7 +52,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         fp.read.return_value = "something went wrong"
         urlopen.side_effect = urllib2.HTTPError("/", 400, "Bad request", {}, fp)
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.proxy_request("/", body="waat", method="GET")
+            admin_plugin.proxy_request(self.service_name, "/", body="waat",
+                                       method="GET")
         exc = cm.exception
         self.assertEqual(1, exc.code)
         expected_output = r"""ERROR: 400 - Bad request
@@ -73,7 +74,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
             {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
         ]"""
         urlopen.return_value = result
-        admin_plugin.list_plans([])
+        admin_plugin.list_plans(["-s", self.service_name])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
@@ -99,7 +100,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "Something went wrong"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.list_plans([])
+            admin_plugin.list_plans(["-s", self.service_name])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -120,7 +121,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 201
         urlopen.return_value = result
-        admin_plugin.create_plan(["-n", "small", "-d", "smalll vms", "-c",
+        admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                   'SERVICE=abcdef-123 NAME="something nice" DATA=go go go DATE=\'2015\''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
@@ -151,7 +152,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "Plan already exists\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.create_plan(["-n", "small", "-d", "smalll vms", "-c",
+            admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                       "SERVICE=abcdef-123"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
@@ -167,7 +168,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_create_plan_invalid_config(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.create_plan(["-n", "small", "-d", "smalll vms", "-c",
+            admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                       "SERVICE"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
@@ -187,13 +188,13 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         plan = {"name": "small", "description": "smalll vms",
                 "config": {"SERVICE": "abcd", "GREETINGS": "hello"}}
         old_retrieve = admin_plugin._retrieve_plan
-        admin_plugin._retrieve_plan = lambda name: plan
+        admin_plugin._retrieve_plan = lambda service_name, name: plan
 
         def recover_retrieve():
             admin_plugin._retrieve_plan = old_retrieve
         self.addCleanup(recover_retrieve)
 
-        admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+        admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                   'SERVICE=abcdef-123 NAME="some thing" DATA=go go go DATE=\'2015\' wat=""'])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
@@ -228,7 +229,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
 
         plan = {"name": "small", "description": "smalll vms", "config": {}}
         old_retrieve = admin_plugin._retrieve_plan
-        admin_plugin._retrieve_plan = lambda name: plan
+        admin_plugin._retrieve_plan = lambda service_name, name: plan
 
         def recover_retrieve():
             admin_plugin._retrieve_plan = old_retrieve
@@ -239,7 +240,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "plan not found\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+            admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                       "SERVICE=abcdef-123"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
@@ -255,7 +256,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_update_plan_invalid_config(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.update_plan(["-n", "small", "-d", "smalll vms", "-c",
+            admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                       "SERVICE"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
@@ -280,7 +281,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.getcode.return_value = 200
         result.read.return_value = plan_data
         urlopen.return_value = result
-        admin_plugin.retrieve_plan(["small"])
+        admin_plugin.retrieve_plan(["-s", self.service_name, "small"])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
@@ -308,7 +309,7 @@ Config:
         result.read.return_value = "something went wrong"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.retrieve_plan(["medium"])
+            admin_plugin.retrieve_plan(["-s", self.service_name, "medium"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -321,7 +322,7 @@ Config:
     @mock.patch("sys.stderr")
     def test_retrieve_plan_invalid_args(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.retrieve_plan([])
+            admin_plugin.retrieve_plan(["-s", self.service_name])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("show-plan: error: too few arguments\n")
@@ -335,7 +336,7 @@ Config:
         result = mock.Mock()
         result.getcode.return_value = 200
         urlopen.return_value = result
-        admin_plugin.delete_plan(["medium"])
+        admin_plugin.delete_plan(["-s", self.service_name, "medium"])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/medium")
@@ -354,7 +355,7 @@ Config:
         result.read.return_value = "plan not found\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.delete_plan(["medium"])
+            admin_plugin.delete_plan(["-s", self.service_name, "medium"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -367,7 +368,7 @@ Config:
     @mock.patch("sys.stderr")
     def test_delete_plan_invalid_args(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.delete_plan([])
+            admin_plugin.delete_plan(["-s", self.service_name])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("delete-plan: error: too few arguments\n")
