@@ -12,7 +12,7 @@ ACL_TEMPLATE = """key "{service_name}/{instance_name}" {{
     policy = "read"
 }}
 
-key "{service_name}/{instance_name}/error" {{
+key "{service_name}/{instance_name}/status" {{
     policy = "write"
 }}
 
