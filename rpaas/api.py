@@ -232,11 +232,7 @@ def get_plugin():
 
 @api.route("/admin/plugin", methods=["GET"])
 def get_admin_plugin():
-    service_name = os.environ.get("RPAAS_SERVICE_NAME")
-    if not service_name:
-        return "not found", 404
-    raw = inspect.getsource(admin_plugin)
-    return raw % {"RPAAS_SERVICE_NAME": service_name}
+    return inspect.getsource(admin_plugin)
 
 
 def require_plan():
