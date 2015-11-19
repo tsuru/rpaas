@@ -114,18 +114,6 @@ def _render_plan(plan):
         sys.stdout.write("  {}\n".format(var))
 
 
-def _base_args(cmd_name):
-    parser = argparse.ArgumentParser(cmd_name)
-    parser.add_argument("-s", "--service", required=True)
-    return parser
-
-
-def _service_arg(args, cmd_name):
-    parser = _base_args(cmd_name)
-    parsed_args = parser.parse_args(args)
-    return parsed_args.service
-
-
 def _change_plan_args(args, cmd_name):
     parser = _base_args(cmd_name)
     parser.add_argument("-n", "--name", required=True)
@@ -152,6 +140,39 @@ def _plan_arg(args, cmd_name):
     return parsed_args.service, parsed_args.plan_name
 
 
+def show_quota(args):
+    parser = _base_args("show-quota")
+    parser.add_argument("-t", "--team", required=True)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/quota/"+parsed_args.team,
+                           method="GET")
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    quota = json.loads(body)
+    sys.stdout.write("Quota usage: {usage}/{total_available}.\n".format(
+        usage=len(quota["used"]),
+        total_available=quota["quota"],
+    ))
+
+
+def set_quota(args):
+    pass
+
+
+def _base_args(cmd_name):
+    parser = argparse.ArgumentParser(cmd_name)
+    parser.add_argument("-s", "--service", required=True)
+    return parser
+
+
+def _service_arg(args, cmd_name):
+    parser = _base_args(cmd_name)
+    parsed_args = parser.parse_args(args)
+    return parsed_args.service
+
+
 def available_commands():
     return {
         "create-plan": create_plan,
@@ -159,6 +180,8 @@ def available_commands():
         "delete-plan": delete_plan,
         "show-plan": retrieve_plan,
         "list-plans": list_plans,
+        "show-quota": show_quota,
+        "set-quota": set_quota,
     }
 
 

@@ -372,3 +372,33 @@ Config:
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("delete-plan: error: too few arguments\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_show_quota(self, stdout, Request, urlopen):
+        lines = []
+        stdout.write.side_effect = lambda data, **kw: lines.append(data)
+        quota_data = u"""{"used":["inst1", "inst2", "inst3"], "quota": 10}"""
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        result.read.return_value = quota_data
+        urlopen.return_value = result
+        admin_plugin.show_quota(["-s", self.service_name, "-t", "myteam"])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/quota/myteam")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
+        expected_output = u"""Quota usage: 3/10.\n"""
+        self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("sys.stderr")
+    def test_show_quota_invalid_args(self, stderr):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.show_quota(["-s", self.service_name])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("show-quota: error: argument -t/--team is required\n")
