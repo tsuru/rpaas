@@ -22,6 +22,7 @@ class AdminAPITestCase(unittest.TestCase):
     def setUp(self):
         self.manager.reset()
         self.storage.db[self.storage.plans_collection].remove()
+        self.storage.db[self.storage.quota_collection].remove()
 
     def test_list_plans(self):
         resp = self.api.get("/admin/plans")
@@ -170,3 +171,48 @@ class AdminAPITestCase(unittest.TestCase):
         resp = self.api.delete("/admin/plans/small")
         self.assertEqual(404, resp.status_code)
         self.assertEqual("plan not found", resp.data)
+
+    def test_view_team_quota(self):
+        self.storage.db[self.storage.quota_collection].insert(
+            {"_id": "myteam",
+             "used": ["inst1", "inst2"],
+             "quota": 10}
+        )
+        resp = self.api.get("/admin/quota/myteam")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({"used": ["inst1", "inst2"], "quota": 10},
+                         json.loads(resp.data))
+        resp = self.api.get("/admin/quota/yourteam")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({"used": [], "quota": 5}, json.loads(resp.data))
+
+    def test_set_team_quota(self):
+        self.storage.db[self.storage.quota_collection].insert(
+            {"_id": "myteam",
+             "used": ["inst1", "inst2"],
+             "quota": 10}
+        )
+        resp = self.api.post("/admin/quota/myteam", data={"quota": 12})
+        self.assertEqual(200, resp.status_code)
+        used, quota = self.storage.find_team_quota("myteam")
+        self.assertEqual(["inst1", "inst2"], used)
+        self.assertEqual(12, quota)
+        resp = self.api.post("/admin/quota/yourteam", data={"quota": 3})
+        self.assertEqual(200, resp.status_code)
+        used, quota = self.storage.find_team_quota("yourteam")
+        self.assertEqual([], used)
+        self.assertEqual(3, quota)
+
+    def test_set_team_quota_invalid_value(self):
+        resp = self.api.post("/admin/quota/myteam", data={})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("quota must be an integer value greather than 0", resp.data)
+        resp = self.api.post("/admin/quota/myteam", data={"quota": "abc"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("quota must be an integer value greather than 0", resp.data)
+        resp = self.api.post("/admin/quota/myteam", data={"quota": "0"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("quota must be an integer value greather than 0", resp.data)
+        resp = self.api.post("/admin/quota/myteam", data={"quota": "-3"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("quota must be an integer value greather than 0", resp.data)
