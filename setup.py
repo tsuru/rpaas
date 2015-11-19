@@ -24,6 +24,7 @@ setup(
     install_requires=[
         "Flask==0.9",
         "requests==2.4.3",
+        "gevent==1.0.2",
         "gunicorn==0.17.2",
         "tsuru-hm==0.4.1",
         "celery[redis]",
