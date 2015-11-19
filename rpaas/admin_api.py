@@ -57,6 +57,27 @@ def delete_plan(name):
     return ""
 
 
+@auth.required
+def view_team_quota(team_name):
+    manager = get_manager()
+    used, quota = manager.storage.find_team_quota(team_name)
+    return json.dumps({"used": used, "quota": quota})
+
+
+@auth.required
+def set_team_quota(team_name):
+    quota = request.form.get("quota", "")
+    try:
+        quota = int(quota)
+        if quota < 1:
+            raise ValueError()
+    except ValueError:
+        return "quota must be an integer value greather than 0", 400
+    manager = get_manager()
+    manager.storage.set_team_quota(team_name, quota)
+    return ""
+
+
 def register_views(app, list_plans):
     app.add_url_rule("/admin/plans", methods=["GET"],
                      view_func=list_plans)
@@ -68,3 +89,7 @@ def register_views(app, list_plans):
                      view_func=update_plan)
     app.add_url_rule("/admin/plans/<name>", methods=["DELETE"],
                      view_func=delete_plan)
+    app.add_url_rule("/admin/quota/<team_name>", methods=["GET"],
+                     view_func=view_team_quota)
+    app.add_url_rule("/admin/quota/<team_name>", methods=["POST"],
+                     view_func=set_team_quota)

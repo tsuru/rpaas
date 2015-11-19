@@ -13,6 +13,7 @@ class MongoDBStorageTestCase(unittest.TestCase):
 
     def setUp(self):
         self.storage = storage.MongoDBStorage()
+        self.storage.db[self.storage.quota_collection].remove()
         self.storage.db[self.storage.plans_collection].remove()
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "small",
@@ -24,6 +25,14 @@ class MongoDBStorageTestCase(unittest.TestCase):
              "description": "some cool huge plan",
              "config": {"serviceofferingid": "abcdef123459"}}
         )
+
+    def test_set_team_quota(self):
+        q = self.storage.set_team_quota("myteam", 8)
+        used, quota = self.storage.find_team_quota("myteam")
+        self.assertEqual([], used)
+        self.assertEqual(8, quota)
+        self.assertEqual(used, q["used"])
+        self.assertEqual(quota, q["quota"])
 
     def test_list_plans(self):
         plans = self.storage.list_plans()

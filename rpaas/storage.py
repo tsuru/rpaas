@@ -164,12 +164,22 @@ class MongoDBStorage(storage.MongoDBStorage):
         if result['n'] == 0:
             raise InstanceNotFoundError()
 
+    def set_team_quota(self, teamname, quota):
+        q = self._find_team_quota(teamname)
+        q['quota'] = quota
+        self.db[self.quota_collection].update({'_id': teamname}, {'$set': {'quota': quota}})
+        return q
+
     def find_team_quota(self, teamname):
+        quota = self._find_team_quota(teamname)
+        return quota['used'], quota['quota']
+
+    def _find_team_quota(self, teamname):
         quota = self.db[self.quota_collection].find_one({'_id': teamname})
         if quota is None:
             quota = {'_id': teamname, 'used': [], 'quota': 5}
             self.db[self.quota_collection].insert(quota)
-        return quota['used'], quota['quota']
+        return quota
 
     def increment_quota(self, teamname, prev_used, servicename):
         result = self.db[self.quota_collection].update(
