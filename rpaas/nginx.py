@@ -98,6 +98,10 @@ class NginxDAV(object):
         self._dav_put(host, 'acme.conf', '')
         self._reload(host)
 
+    def get_key_crt(self, host):
+        return self._dav_request('GET', host, 'ssl/nginx.key', None), \
+            self._dav_request('GET', host, 'ssl/nginx.crt', None)
+
     def _location_file_name(self, path):
         return 'location_{}.conf'.format(path.replace('/', ':'))
 

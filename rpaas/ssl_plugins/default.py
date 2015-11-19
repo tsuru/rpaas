@@ -51,3 +51,7 @@ class Default(BaseSSLPlugin):
         )
 
         return certificate.public_bytes(serialization.Encoding.PEM)
+
+    def revoke(self):
+        pass
+

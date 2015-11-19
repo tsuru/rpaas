@@ -19,6 +19,10 @@ class BaseSSLPlugin(object):
 	def download_crt(self, *args, **kwargs):
 		raise NotImplementedError()
 
+	@abstractmethod
+	def revoke(self):
+		raise NotImplementedError()
+
 
 modules = glob.glob(dirname(__file__)+"/*.py")
 __all__ = [ basename(f)[:-3] for f in modules if isfile(f)]

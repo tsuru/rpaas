@@ -11,7 +11,7 @@ def patch_main(args):
 class LETest(unittest.TestCase):
 
     def setUp(self):
-        self.patcher = mock.patch('rpaas.ssl_plugins.le.main', patch_main)
+        self.patcher = mock.patch('rpaas.ssl_plugins.le._main', patch_main)
         self.patcher.start()
         self.instance = le.LE(['domain'], 'email@corp', ['host1'])
 

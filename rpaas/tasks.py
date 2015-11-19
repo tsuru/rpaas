@@ -2,7 +2,7 @@ import os
 import logging
 import sys
 
-from celery import Celery, Task
+from celery import Celery, Task, current_app
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -213,3 +213,28 @@ class DownloadCertTask(BaseManagerTask):
         finally:
             self.storage.remove_task(name)
         
+
+class RevokeCertTask(BaseManagerTask):
+
+    def run(self, config, name, plugin):
+        try:
+            self.init_config(config)
+            lb = LoadBalancer.find(name, self.config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+
+            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+            for obj_name, obj in inspect.getmembers(p_ssl):
+                if obj_name != 'BaseSSLPlugin' and \
+                inspect.isclass(obj) and \
+                issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                    hosts = [host.dns_name for host in lb.hosts]
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+
+            c_ssl.revoke()
+
+        except Exception, e:
+            logging.error("Error in ssl plugin task: {}".format(e))
+            raise e
+        finally:
+            self.storage.remove_task(name)

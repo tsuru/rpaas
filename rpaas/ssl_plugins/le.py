@@ -7,6 +7,11 @@ from letsencrypt.client import Client, register
 from letsencrypt.configuration import NamespaceConfig
 from letsencrypt.account import AccountMemoryStorage
 from letsencrypt import crypto_util
+import acme.client as acme_client
+from acme import jose
+from acme.jose.jwk import JWKRSA
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 import zope.component
 
@@ -28,17 +33,22 @@ class LE(BaseSSLPlugin):
         return None
 
     def download_crt(self, id=None):
+        ret = None
         try:
-            crt, chain, key = main([self.domain], self.email, self.hosts)
+            crt, chain, key = _main([self.domain], self.email, self.hosts)
         except Exception, e:
             raise e
         else:
-            return json.dumps({'crt': crt, 'chain': chain, 'key': key})
+            ret = json.dumps({'crt': crt, 'chain': chain, 'key': key})
         finally:
             nginx_manager = rpaas.get_manager().nginx_manager
             for host in self.hosts:
                 nginx_manager.delete_acme_conf(host)
+        return ret
 
+    def revoke(self):
+        nginx_manager = rpaas.get_manager().nginx_manager
+        return _revoke(nginx_manager.get_key_crt(host[0]))
 
 
 class ConfigNamespace(object):
@@ -61,7 +71,7 @@ class ConfigNamespace(object):
         self.strict_permissions = False
 
 
-def main(domains=[], email=None, hosts=[]):
+def _main(domains=[], email=None, hosts=[]):
     ns = ConfigNamespace(email)
     config = NamespaceConfig(ns)
     zope.component.provideUtility(config)
@@ -79,10 +89,11 @@ def main(domains=[], email=None, hosts=[]):
             key.pem
         )
 
-def revoke(rawkey, rawcert):
+def _revoke(rawkey, rawcert):
     ns = ConfigNamespace(None)
     acme = acme_client.Client(ns.server, key=JWKRSA(
         key=serialization.load_pem_private_key(
             rawkey, password=None, backend=default_backend())))
     acme.revoke(jose.ComparableX509(OpenSSL.crypto.load_certificate(
                 OpenSSL.crypto.FILETYPE_PEM, rawcert)))
+
