@@ -395,6 +395,24 @@ Config:
         expected_output = u"""Quota usage: 3/10.\n"""
         self.assertEqual(expected_output, "".join(lines))
 
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_show_quota_request_failure(self, stderr, Request, urlopen):
+        lines = []
+        stderr.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 400
+        result.read.return_value = "something went wrong"
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.show_quota(["-s", self.service_name, "-t", "myteam"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        self.assertEqual("ERROR: something went wrong\n", "".join(lines))
+
     @mock.patch("sys.stderr")
     def test_show_quota_invalid_args(self, stderr):
         with self.assertRaises(SystemExit) as cm:
@@ -402,3 +420,58 @@ Config:
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("show-quota: error: argument -t/--team is required\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_set_quota(self, stdout, Request, urlopen):
+        lines = []
+        stdout.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        admin_plugin.set_quota(["-s", self.service_name, "-t", "myteam", "-q", "10"])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/quota/myteam")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_data.assert_called_with("quota=10")
+        self.assertEqual("POST", request.get_method())
+        expected_output = u"Quota successfully updated.\n"
+        self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_set_quota_request_failure(self, stderr, Request, urlopen):
+        lines = []
+        stderr.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 400
+        result.read.return_value = "something went wrong"
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.set_quota(["-s", self.service_name, "-t", "myteam", "-q", "10"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        self.assertEqual("ERROR: something went wrong\n", "".join(lines))
+
+    @mock.patch("sys.stderr")
+    def test_set_quota_invalid_args(self, stderr):
+        arg_sets = [
+            (["-s", self.service_name], "argument -t/--team is required"),
+            (["-s", self.service_name, "-t", "myteam"], "argument -q/--quota is required"),
+            (["-s", self.service_name, "-t", "myteam", "-q", "a"],
+             "argument -q/--quota: invalid int value: 'a'"),
+        ]
+        for set in arg_sets:
+            args, err_message = set
+            with self.assertRaises(SystemExit) as cm:
+                admin_plugin.set_quota(args)
+            exc = cm.exception
+            self.assertEqual(2, exc.code)
+            stderr.write.assert_any_call("set-quota: error: " + err_message + "\n")

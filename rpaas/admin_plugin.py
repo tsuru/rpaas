@@ -158,7 +158,17 @@ def show_quota(args):
 
 
 def set_quota(args):
-    pass
+    parser = _base_args("set-quota")
+    parser.add_argument("-t", "--team", required=True)
+    parser.add_argument("-q", "--quota", required=True, type=int)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/quota/"+parsed_args.team,
+                           method="POST", body=urllib.urlencode({"quota": parsed_args.quota}))
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    sys.stdout.write("Quota successfully updated.\n")
 
 
 def _base_args(cmd_name):
