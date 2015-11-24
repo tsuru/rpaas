@@ -9,6 +9,7 @@ import logging
 from socket import gaierror
 
 from flask import Flask, Response, request
+from raven.contrib.flask import Sentry
 import hm.log
 
 from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
@@ -24,6 +25,11 @@ else:
     handler.setLevel(logging.WARN)
 api.logger.addHandler(handler)
 hm.log.set_handler(handler)
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN")
+if SENTRY_DSN:
+    api.config['SENTRY_DSN'] = SENTRY_DSN
+    sentry = Sentry(api)
 
 
 @api.route("/resources/plans", methods=["GET"])
@@ -254,11 +260,7 @@ def get_plugin():
 
 @api.route("/admin/plugin", methods=["GET"])
 def get_admin_plugin():
-    service_name = os.environ.get("RPAAS_SERVICE_NAME")
-    if not service_name:
-        return "not found", 404
-    raw = inspect.getsource(admin_plugin)
-    return raw % {"RPAAS_SERVICE_NAME": service_name}
+    return inspect.getsource(admin_plugin)
 
 
 def require_plan():

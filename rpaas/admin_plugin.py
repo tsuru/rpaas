@@ -13,7 +13,6 @@ import sys
 import urllib
 import urllib2
 
-SERVICE_NAME = "%(RPAAS_SERVICE_NAME)s"
 CONFIG_REGEXP = re.compile(r"(\w+=)")
 
 
@@ -31,7 +30,8 @@ class CommandNotFoundError(Exception):
 
 
 def list_plans(args):
-    result = proxy_request("/admin/plans", method="GET")
+    service_name = _service_arg(args, "list-plans")
+    result = proxy_request(service_name, "/admin/plans", method="GET")
     body = result.read().rstrip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + body + "\n")
@@ -43,13 +43,13 @@ def list_plans(args):
 
 
 def create_plan(args):
-    name, description, config = _change_plan_args(args, "create-plan")
+    service_name, name, description, config = _change_plan_args(args, "create-plan")
     params = {
         "name": name,
         "description": description,
         "config": json.dumps(config),
     }
-    result = proxy_request("/admin/plans", body=urllib.urlencode(params),
+    result = proxy_request(service_name, "/admin/plans", body=urllib.urlencode(params),
                            headers={"Content-Type": "application/x-www-form-urlencoded"})
     if result.getcode() != 201:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
@@ -58,14 +58,14 @@ def create_plan(args):
 
 
 def update_plan(args):
-    name, description, config = _change_plan_args(args, "update-plan")
-    plan = _retrieve_plan(name)
+    service_name, name, description, config = _change_plan_args(args, "update-plan")
+    plan = _retrieve_plan(service_name, name)
     config = _merge_config(plan["config"], config)
     params = {
         "description": description,
         "config": json.dumps(config),
     }
-    result = proxy_request("/admin/plans/"+name, body=urllib.urlencode(params),
+    result = proxy_request(service_name, "/admin/plans/"+name, body=urllib.urlencode(params),
                            headers={"Content-Type": "application/x-www-form-urlencoded"},
                            method="PUT")
     if result.getcode() != 200:
@@ -80,28 +80,9 @@ def _merge_config(current, changes):
     return {k: v for k, v in current_copy.iteritems() if v}
 
 
-def _change_plan_args(args, cmd_name):
-    parser = argparse.ArgumentParser(cmd_name)
-    parser.add_argument("-n", "--name", required=True)
-    parser.add_argument("-d", "--description", required=True)
-    parser.add_argument("-c", "--config", required=True)
-    parsed_args = parser.parse_args(args)
-    config_parts = CONFIG_REGEXP.split(parsed_args.config)[1:]
-    if len(config_parts) < 2:
-        sys.stderr.write("ERROR: Invalid config format, supported format is KEY=VALUE\n")
-        sys.exit(2)
-    config = {}
-    for i, part in enumerate(config_parts):
-        if part.endswith("="):
-            value = config_parts[i+1].strip().strip('"').strip("'")
-            key = part[:-1]
-            config[key] = value
-    return parsed_args.name, parsed_args.description, config
-
-
 def delete_plan(args):
-    name = _plan_arg(args, "delete-plan")
-    result = proxy_request("/admin/plans/"+name, method="DELETE")
+    service_name, name = _plan_arg(args, "delete-plan")
+    result = proxy_request(service_name, "/admin/plans/"+name, method="DELETE")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
         sys.exit(1)
@@ -109,13 +90,13 @@ def delete_plan(args):
 
 
 def retrieve_plan(args):
-    name = _plan_arg(args, "show-plan")
-    plan = _retrieve_plan(name)
+    service_name, name = _plan_arg(args, "show-plan")
+    plan = _retrieve_plan(service_name, name)
     _render_plan(plan)
 
 
-def _retrieve_plan(name):
-    result = proxy_request("/admin/plans/"+name, method="GET")
+def _retrieve_plan(service_name, name):
+    result = proxy_request(service_name, "/admin/plans/"+name, method="GET")
     data = result.read().strip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + data + "\n")
@@ -133,11 +114,73 @@ def _render_plan(plan):
         sys.stdout.write("  {}\n".format(var))
 
 
+def _change_plan_args(args, cmd_name):
+    parser = _base_args(cmd_name)
+    parser.add_argument("-n", "--name", required=True)
+    parser.add_argument("-d", "--description", required=True)
+    parser.add_argument("-c", "--config", required=True)
+    parsed_args = parser.parse_args(args)
+    config_parts = CONFIG_REGEXP.split(parsed_args.config)[1:]
+    if len(config_parts) < 2:
+        sys.stderr.write("ERROR: Invalid config format, supported format is KEY=VALUE\n")
+        sys.exit(2)
+    config = {}
+    for i, part in enumerate(config_parts):
+        if part.endswith("="):
+            value = config_parts[i+1].strip().strip('"').strip("'")
+            key = part[:-1]
+            config[key] = value
+    return parsed_args.service, parsed_args.name, parsed_args.description, config
+
+
 def _plan_arg(args, cmd_name):
-    parser = argparse.ArgumentParser(cmd_name)
+    parser = _base_args(cmd_name)
     parser.add_argument("plan_name")
     parsed_args = parser.parse_args(args)
-    return parsed_args.plan_name
+    return parsed_args.service, parsed_args.plan_name
+
+
+def show_quota(args):
+    parser = _base_args("show-quota")
+    parser.add_argument("-t", "--team", required=True)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/quota/"+parsed_args.team,
+                           method="GET")
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    quota = json.loads(body)
+    sys.stdout.write("Quota usage: {usage}/{total_available}.\n".format(
+        usage=len(quota["used"]),
+        total_available=quota["quota"],
+    ))
+
+
+def set_quota(args):
+    parser = _base_args("set-quota")
+    parser.add_argument("-t", "--team", required=True)
+    parser.add_argument("-q", "--quota", required=True, type=int)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/quota/"+parsed_args.team,
+                           method="POST", body=urllib.urlencode({"quota": parsed_args.quota}))
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    sys.stdout.write("Quota successfully updated.\n")
+
+
+def _base_args(cmd_name):
+    parser = argparse.ArgumentParser(cmd_name)
+    parser.add_argument("-s", "--service", required=True)
+    return parser
+
+
+def _service_arg(args, cmd_name):
+    parser = _base_args(cmd_name)
+    parsed_args = parser.parse_args(args)
+    return parsed_args.service
 
 
 def available_commands():
@@ -147,6 +190,8 @@ def available_commands():
         "delete-plan": delete_plan,
         "show-plan": retrieve_plan,
         "list-plans": list_plans,
+        "show-quota": show_quota,
+        "set-quota": set_quota,
     }
 
 
@@ -165,10 +210,10 @@ def get_env(name):
     return env
 
 
-def proxy_request(path, body=None, headers=None, method='POST'):
+def proxy_request(service_name, path, body=None, headers=None, method='POST'):
     target = get_env("TSURU_TARGET").rstrip("/")
     token = get_env("TSURU_TOKEN")
-    url = "{}/services/proxy/service/{}?callback={}".format(target, SERVICE_NAME,
+    url = "{}/services/proxy/service/{}?callback={}".format(target, service_name,
                                                             path)
     request = urllib2.Request(url)
     request.add_header("Authorization", "bearer " + token)

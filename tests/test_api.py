@@ -303,21 +303,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(expected, resp.data)
 
     def test_admin_plugin(self):
-        os.environ["RPAAS_SERVICE_NAME"] = "rpaas"
-
-        def remove():
-            del os.environ["RPAAS_SERVICE_NAME"]
-        self.addCleanup(remove)
-        expected = inspect.getsource(admin_plugin) % {"RPAAS_SERVICE_NAME":
-                                                      "rpaas"}
+        expected = inspect.getsource(admin_plugin)
         resp = self.api.get("/admin/plugin")
         self.assertEqual(200, resp.status_code)
         self.assertEqual(expected, resp.data)
-
-    def test_admin_plugin_no_env_var(self):
-        resp = self.api.get("/admin/plugin")
-        self.assertEqual(404, resp.status_code)
-        self.assertEqual("not found", resp.data)
 
     def test_update_certificate_as_file(self):
         self.manager.new_instance("someapp")

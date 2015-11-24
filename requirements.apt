@@ -1,3 +1,5 @@
+python-dev
+libevent-dev
 libffi-dev
 libssl-dev
 dialog
