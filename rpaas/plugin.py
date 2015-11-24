@@ -136,6 +136,7 @@ def get_ssl_args(args):
     parsed = parser.parse_args(args)
     return parsed
 
+
 def ssl(args):
     args = get_ssl_args(args)
     rpaas_path = "/resources/{}/ssl".format(args.instance)
@@ -145,14 +146,12 @@ def ssl(args):
     body = urllib.urlencode(params)
     method = "POST"
     try:
-        result = proxy_request(args.instance, rpaas_path,
-                           body=body,
-                           method=method,
-                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        result = proxy_request(args.instance, rpaas_path, body=body, method=method,
+                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
     except Exception, e:
         sys.stderr.write("ERROR: "+str(e)+"\n")
         sys.exit(1)
-    if result.getcode() in [200,201]:
+    if result.getcode() in [200, 201]:
         sys.stdout.write("Certificate successfully updated\n")
     else:
         msg = result.read().rstrip("\n")

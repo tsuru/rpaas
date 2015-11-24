@@ -26,4 +26,3 @@ class LETest(unittest.TestCase):
             instance = self.instance
             instance.download_crt(None)
         mock_method.assert_called_once_with(None)
-

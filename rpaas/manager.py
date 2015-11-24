@@ -18,10 +18,7 @@ from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.exceptions import InvalidSignature
 
-import os
-from base64 import b64encode
 import socket
 
 from rpaas import storage, tasks, nginx
@@ -279,7 +276,7 @@ class Manager(object):
                 x509.DNSName(domainname),
             ]),
             critical=False,
-        # Sign the CSR with our private key.
+            # Sign the CSR with our private key.
         ).sign(private_key, hashes.SHA256(), default_backend())
 
         # Return serialized CSR
@@ -299,7 +296,7 @@ class Manager(object):
                 return False
 
         try:
-            answer = socket.getaddrinfo(domain, 0,0,0,0)
+            answer = socket.getaddrinfo(domain, 0, 0, 0, 0)
         except:
             return False
         else:
@@ -322,16 +319,15 @@ class Manager(object):
         csr = self._generate_csr(key, domain)
 
         # load plugin if get it as an arg
-        if plugin.isalpha() and \
-            plugin in rpaas.ssl_plugins.__all__ and \
-            plugin not in ['default', '__init__']:
+        if plugin.isalpha() and plugin in rpaas.ssl_plugins.__all__ and \
+           plugin not in ['default', '__init__']:
 
             try:
                 self.storage.store_task(name)
                 task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
                 self.storage.update_task(name, task.task_id)
                 return ''
-            except Exception, e:
+            except Exception:
                 raise SslError('rpaas IP is not registered for this DNS name')
 
         else:
@@ -341,31 +337,27 @@ class Manager(object):
             self.update_certificate(name, cert, key)
             return ''
 
-
     def revoke_ssl(self, name, plugin='default'):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
 
         # load plugin if get it as an arg
-        if plugin.isalpha() and \
-            plugin in rpaas.ssl_plugins.__all__ and \
-            plugin not in ['default', '__init__']:
+        if plugin.isalpha() and plugin in rpaas.ssl_plugins.__all__ and \
+           plugin not in ['default', '__init__']:
 
             try:
                 self.storage.store_task(name)
                 task = tasks.RevokeCertTask().dealy(self.config, name, plugin)
                 self.storage.update_task(name, task.task_id)
                 return ''
-            except Exception, e:
+            except Exception:
                 raise SslError('rpaas IP is not registered for this DNS name')
 
         else:
             raise SslError('SSL plugin not defined')
 
         return ''
-
-
 
 
 class BindError(Exception):
@@ -383,8 +375,10 @@ class ScaleError(Exception):
 class RouteError(Exception):
     pass
 
+
 class SslError(Exception):
     pass
+
 
 class QuotaExceededError(Exception):
     def __init__(self, used, quota):

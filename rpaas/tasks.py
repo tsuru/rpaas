@@ -2,7 +2,7 @@ import os
 import logging
 import sys
 
-from celery import Celery, Task, current_app
+from celery import Celery, Task
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -11,10 +11,8 @@ from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
 from rpaas import hc, nginx, storage
-import requests
-import time
 import rpaas.ssl_plugins
-from rpaas.ssl_plugins import *
+# from rpaas.ssl_plugins import default, le
 import inspect
 import json
 
@@ -175,24 +173,22 @@ class DownloadCertTask(BaseManagerTask):
             if lb is None:
                 raise storage.InstanceNotFoundError()
 
-            start = time.time()
-            timeout = 600 # 10 min
             crt = None
 
-            # Get plugin class
+            #  Get plugin class
             p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
             for obj_name, obj in inspect.getmembers(p_ssl):
                 if obj_name != 'BaseSSLPlugin' and \
-                inspect.isclass(obj) and \
-                issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                   inspect.isclass(obj) and \
+                   issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
                     hosts = [host.dns_name for host in lb.hosts]
                     c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
 
-            # Upload csr and get an Id
+            #  Upload csr and get an Id
             plugin_id = c_ssl.upload_csr(csr)
             crt = c_ssl.download_crt(id=str(plugin_id))
 
-            # Download the certificate and update nginx with it
+            #  Download the certificate and update nginx with it
             if crt:
                 try:
                     js_crt = json.loads(crt)
@@ -212,11 +208,11 @@ class DownloadCertTask(BaseManagerTask):
             raise e
         finally:
             self.storage.remove_task(name)
-        
+
 
 class RevokeCertTask(BaseManagerTask):
 
-    def run(self, config, name, plugin):
+    def run(self, config, name, plugin, domain):
         try:
             self.init_config(config)
             lb = LoadBalancer.find(name, self.config)
@@ -226,8 +222,8 @@ class RevokeCertTask(BaseManagerTask):
             p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
             for obj_name, obj in inspect.getmembers(p_ssl):
                 if obj_name != 'BaseSSLPlugin' and \
-                inspect.isclass(obj) and \
-                issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                  inspect.isclass(obj) and \
+                  issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
                     hosts = [host.dns_name for host in lb.hosts]
                     c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
 

@@ -55,7 +55,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(self.storage.find_task("x"))
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=300)
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_plan(self, nginx):
@@ -72,7 +72,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(manager.storage.find_task("x"))
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=300)
         metadata = manager.storage.find_instance_metadata("x")
         self.assertEqual({"_id": "x", "plan_name": "small"}, metadata)
 
@@ -92,7 +92,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(manager.storage.find_task("x"))
         nginx.NginxDAV.assert_called_once_with(config)
         nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=300)
 
     def test_new_instance_plan_not_found(self):
         manager = Manager(self.config)

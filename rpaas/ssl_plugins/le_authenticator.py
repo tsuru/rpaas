@@ -53,9 +53,6 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
     def _perform_single(self, achall):
         response, validation = achall.response_and_validation()
 
-        port = (response.port if self.config.http01_port is None
-                else int(self.config.http01_port))
-
         self._notify_and_wait(self.CMD_TEMPLATE.format(
             achall=achall, validation=pipes.quote(validation),
             encoded_token=achall.chall.encode("token")))
