@@ -100,5 +100,9 @@ class FakeManager(object):
         _, instance = self.find_instance(name)
         return instance.routes
 
+    def purge_location(self, name, path):
+        _, instance = self.find_instance(name)
+        return 4
+
     def reset(self):
         self.instances = []

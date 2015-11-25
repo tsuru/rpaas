@@ -52,22 +52,31 @@ location {path} {{
 class Nginx(object):
 
     def __init__(self, conf=None):
-        self.nginx_reload_path = config.get_config('NGINX_RELOAD_PATH', '/reload', conf)
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
-        self.nginx_dav_put_path = config.get_config('NGINX_DAV_PUT_PATH',
-                                                    '/dav',
-                                                    conf)
+        self.nginx_purge_path = config.get_config('NGINX_PURGE_PATH', '/purge', conf)
         self.nginx_healthcheck_path = config.get_config('NGINX_HEALTHCHECK_PATH',
                                                         '/healthcheck',
                                                         conf)
         self.config_manager = ConfigManager(conf)
 
+    def purge_location(self, host, path):
+        purge_path = self.nginx_purge_path.lstrip('/')
+        purged = False
+        for scheme in ['http', 'https']:
+            try:
+                self._admin_request(host, "{}/{}{}".format(purge_path, scheme, path))
+                purged = True
+            except:
+                pass
+        return purged
+
     def wait_healthcheck(self, host, timeout=30):
         t0 = datetime.datetime.now()
+        healthcheck_path = self.nginx_healthcheck_path.lstrip('/')
         timeout = datetime.timedelta(seconds=timeout)
         while True:
             try:
-                self._get_healthcheck(host)
+                self._admin_request(host, healthcheck_path)
                 break
             except:
                 now = datetime.datetime.now()
@@ -75,10 +84,9 @@ class Nginx(object):
                     raise
                 time.sleep(1)
 
-    def _get_healthcheck(self, host):
-        url = "http://{}:{}/{}".format(host, self.nginx_manage_port,
-                                       self.nginx_healthcheck_path.lstrip('/'))
+    def _admin_request(self, host, path):
+        url = "http://{}:{}/{}".format(host, self.nginx_manage_port, path)
         rsp = requests.get(url, timeout=2)
         if rsp.status_code != 200:
             raise NginxError(
-                "Error trying to check healthcheck in nginx: {}: {}".format(url, rsp.text))
+                "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))

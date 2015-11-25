@@ -225,6 +225,21 @@ def list_routes(name):
         return "Instance not found", 404
 
 
+@api.route("/resources/<name>/purge", methods=["POST"])
+@auth.required
+def purge_location(name):
+    path = request.form.get('path')
+    if not path:
+        return 'missing required path', 400
+    try:
+        instances_purged = get_manager().purge_location(name, path)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "Path found and purged on {} servers".format(instances_purged), 200
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

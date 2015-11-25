@@ -643,3 +643,19 @@ content = location /x {
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.delete_route("inst", "/zahadum")
         LoadBalancer.find.assert_called_with("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_purge_location(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.nginx_manager = mock.Mock()
+        manager.nginx_manager.purge_location.side_effect = [True, True]
+        purged_hosts = manager.purge_location("inst", "/foo/bar")
+
+        LoadBalancer.find.assert_called_with("inst")
+
+        self.assertEqual(purged_hosts, 2)
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[0].dns_name, "/foo/bar")
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[1].dns_name, "/foo/bar")

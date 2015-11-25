@@ -9,9 +9,8 @@ class NginxTestCase(unittest.TestCase):
 
     def test_init_default(self):
         nginx = Nginx()
-        self.assertEqual(nginx.nginx_reload_path, '/reload')
-        self.assertEqual(nginx.nginx_dav_put_path, '/dav')
         self.assertEqual(nginx.nginx_manage_port, '8089')
+        self.assertEqual(nginx.nginx_purge_path, '/purge')
         self.assertEqual(nginx.nginx_healthcheck_path, '/healthcheck')
         self.assertEqual(nginx.config_manager.location_template, """
 location {path} {{
@@ -27,14 +26,12 @@ location {path} {{
 
     def test_init_config(self):
         nginx = Nginx({
-            'NGINX_RELOAD_PATH': '/1',
-            'NGINX_DAV_PUT_PATH': '/2',
+            'NGINX_PURGE_PATH': '/2',
             'NGINX_MANAGE_PORT': '4',
             'NGINX_LOCATION_TEMPLATE_TXT': '5',
             'NGINX_HEALTHCHECK_PATH': '6',
         })
-        self.assertEqual(nginx.nginx_reload_path, '/1')
-        self.assertEqual(nginx.nginx_dav_put_path, '/2')
+        self.assertEqual(nginx.nginx_purge_path, '/2')
         self.assertEqual(nginx.nginx_manage_port, '4')
         self.assertEqual(nginx.config_manager.location_template, '5')
         self.assertEqual(nginx.nginx_healthcheck_path, '6')
@@ -49,6 +46,40 @@ location {path} {{
         })
         self.assertEqual(nginx.config_manager.location_template, 'my result')
         requests.get.assert_called_once_with('http://my.com/x')
+
+    @mock.patch('rpaas.nginx.requests')
+    def test_purge_location_successfully(self, requests):
+        nginx = Nginx()
+
+        response = mock.Mock()
+        response.status_code = 200
+        response.text = 'purged'
+
+        side_effect = mock.Mock()
+        side_effect.status_code = 404
+        side_effect.text = "Not Found"
+
+        requests.get.side_effect = [response, side_effect]
+        purged = nginx.purge_location('myhost.com', '/foo/bar')
+        self.assertTrue(purged)
+        self.assertEqual(requests.get.call_count, 2)
+        requests.get.assert_has_calls([mock.call('http://myhost.com:8089/purge/http/foo/bar', timeout=2),
+                                       mock.call('http://myhost.com:8089/purge/https/foo/bar', timeout=2)])
+
+    @mock.patch('rpaas.nginx.requests')
+    def test_purge_location_not_found(self, requests):
+        nginx = Nginx()
+
+        response = mock.Mock()
+        response.status_code = 404
+        response.text = 'Not Found'
+
+        requests.get.side_effect = [response, response]
+        purged = nginx.purge_location('myhost.com', '/foo/bar')
+        self.assertFalse(purged)
+        self.assertEqual(requests.get.call_count, 2)
+        requests.get.assert_has_calls([mock.call('http://myhost.com:8089/purge/http/foo/bar', timeout=2),
+                                       mock.call('http://myhost.com:8089/purge/https/foo/bar', timeout=2)])
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck(self, requests):

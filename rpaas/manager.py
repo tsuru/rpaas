@@ -11,7 +11,7 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, storage, tasks
+from rpaas import consul_manager, storage, tasks, nginx
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -23,6 +23,7 @@ class Manager(object):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
         self.consul_manager = consul_manager.ConsulManager(config)
+        self.nginx_manager = nginx.Nginx(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def new_instance(self, name, team=None, plan_name=None):
@@ -199,6 +200,18 @@ class Manager(object):
 
     def list_routes(self, name):
         return self.storage.find_binding(name)
+
+    def purge_location(self, name, path):
+        self._ensure_ready(name)
+        path = path.strip()
+        lb = LoadBalancer.find(name)
+        purged_hosts = 0
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        for host in lb.hosts:
+            if self.nginx_manager.purge_location(host.dns_name, path):
+                purged_hosts += 1
+        return purged_hosts
 
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
