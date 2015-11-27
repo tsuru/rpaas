@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2014 rpaas authors. All rights reserved.
+# Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -87,6 +87,11 @@ def route(args):
     req_path = "/resources/{}/route".format(args.instance)
     params = {}
     method = "GET"
+
+    if args.content and args.content.startswith('@'):
+        with open(args.content[1:]) as f:
+            args.content = f.read()
+
     if args.action == 'add':
         params['path'] = args.path
         if args.destination:

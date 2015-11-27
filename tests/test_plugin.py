@@ -1,4 +1,4 @@
-# Copyright 2014 rpaas authors. All rights reserved.
+# Copyright 2015 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
@@ -253,6 +253,26 @@ class TsuruPluginTestCase(unittest.TestCase):
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
         request.add_data.assert_called_with("path=%2Fpath%2Fout&destination=destination.host")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("route successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_route_file_content(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        path = os.path.join(os.path.dirname(__file__), "testdata", "location")
+        plugin.route(['add', '-i', 'myinst', '-p', '/path/out', '-c', '@'+path])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/route")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("content=content%0A&path=%2Fpath%2Fout")
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
