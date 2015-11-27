@@ -12,6 +12,7 @@ import sys
 import uuid
 import io
 import json
+import urlparse
 
 
 def encode_multipart_formdata(files):
@@ -119,6 +120,25 @@ def route(args):
         sys.exit(1)
 
 
+def purge(args):
+    instance, path = get_purge_args(args)
+    req_path = "/resources/{}/purge".format(instance)
+    params = {}
+    method = "POST"
+    params['path'] = path
+    body = urllib.urlencode(params)
+    result = proxy_request(instance, req_path,
+                           body=body,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if result.getcode() == 200:
+        sys.stdout.write(result.read() + '\n')
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
 def get_certificate_args(args):
     parser = argparse.ArgumentParser("certificate")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
@@ -162,6 +182,22 @@ def get_route_args(args):
     return parsed
 
 
+def get_purge_args(args):
+    parser = argparse.ArgumentParser("purge")
+    parser.add_argument("-i", "--instance", required=True)
+    parser.add_argument("-l", "--location", required=True, help="Location to be purged")
+    parsed_args = parser.parse_args(args)
+    parsed_url = urlparse.urlparse(parsed_args.location)
+    if parsed_url.path == '':
+        sys.stderr.write("purge: path is required for purge location\n")
+        sys.exit(2)
+    if parsed_url.query == '':
+        location = parsed_url.path
+    else:
+        location = "{}?{}".format(parsed_url.path, parsed_url.query)
+    return parsed_args.instance, location
+
+
 def get_env(name):
     env = os.environ.get(name)
     if not env:
@@ -191,6 +227,7 @@ def available_commands():
         "scale": scale,
         "certificate": certificate,
         "route": route,
+        "purge": purge
     }
 
 

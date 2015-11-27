@@ -11,17 +11,19 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import storage, tasks, nginx
+from rpaas import consul_manager, storage, tasks, nginx
 
-PENDING = 'pending'
-FAILURE = 'failure'
+PENDING = "pending"
+FAILURE = "failure"
 
 
 class Manager(object):
+
     def __init__(self, config=None):
         self.config = config
         self.storage = storage.MongoDBStorage(config)
-        self.nginx_manager = nginx.NginxDAV(config)
+        self.consul_manager = consul_manager.ConsulManager(config)
+        self.nginx_manager = nginx.Nginx(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def new_instance(self, name, team=None, plan_name=None):
@@ -38,15 +40,21 @@ class Manager(object):
             raise storage.DuplicateError(name)
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
+        metadata = {}
         if plan:
             config.update(plan.config)
-            self.storage.store_instance_metadata(name, plan_name=plan_name)
-        self._add_tags(name, config)
+            metadata["plan_name"] = plan_name
+        metadata["consul_token"] = consul_token = self.consul_manager.generate_token(name)
+        self.consul_manager.write_healthcheck(name)
+        self.storage.store_instance_metadata(name, **metadata)
+        self._add_tags(name, config, consul_token)
         task = tasks.NewInstanceTask().delay(config, name)
         self.storage.update_task(name, task.task_id)
 
-    def _add_tags(self, instance_name, config):
-        tags = ["rpaas_service:"+self.service_name, "rpaas_instance:"+instance_name]
+    def _add_tags(self, instance_name, config, consul_token):
+        tags = ["rpaas_service:" + self.service_name,
+                "rpaas_instance:" + instance_name,
+                "consul_token:" + consul_token]
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
         if extra_tags:
             del config["INSTANCE_EXTRA_TAGS"]
@@ -54,6 +62,10 @@ class Manager(object):
         config["HOST_TAGS"] = ",".join(tags)
 
     def remove_instance(self, name):
+        metadata = self.storage.find_instance_metadata(name)
+        if metadata and metadata.get("consul_token"):
+            self.consul_manager.destroy_token(metadata["consul_token"])
+        self.consul_manager.destroy_instance(name)
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
@@ -67,14 +79,13 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         binding_data = self.storage.find_binding(name)
         if binding_data:
-            bound_host = binding_data.get('app_host')
+            bound_host = binding_data.get("app_host")
             if bound_host == app_host:
                 # Nothing to do, already bound
                 return
             if bound_host is not None:
-                raise BindError('This service can only be bound to one application.')
-        for host in lb.hosts:
-            self.nginx_manager.update_binding(host.dns_name, '/', app_host)
+                raise BindError("This service can only be bound to one application.")
+        self.consul_manager.write_location(name, "/", destination=app_host)
         self.storage.store_binding(name, app_host)
 
     def unbind(self, name, app_host):
@@ -86,19 +97,18 @@ class Manager(object):
         if not binding_data:
             return
         self.storage.remove_root_binding(name)
-        for host in lb.hosts:
-            self.nginx_manager.delete_binding(host.dns_name, '/')
+        self.consul_manager.remove_location(name, "/")
 
     def info(self, name):
         addr = self._get_address(name)
         routes_data = []
         binding_data = self.storage.find_binding(name)
         if binding_data:
-            paths = binding_data.get('paths') or []
+            paths = binding_data.get("paths") or []
             for path_data in paths:
-                routes_data.append("path = {}".format(path_data['path']))
-                dst = path_data.get('destination')
-                content = path_data.get('content')
+                routes_data.append("path = {}".format(path_data["path"]))
+                dst = path_data.get("destination")
+                content = path_data.get("content")
                 if dst:
                     routes_data.append("destination = {}".format(dst))
                 if content:
@@ -135,14 +145,13 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         self.storage.update_binding_certificate(name, cert, key)
-        for host in lb.hosts:
-            self.nginx_manager.update_certificate(host.dns_name, cert, key)
+        self.consul_manager.set_certificate(name, cert, key)
 
     def _get_address(self, name):
         task = self.storage.find_task(name)
         if task:
-            result = tasks.NewInstanceTask().AsyncResult(task['task_id'])
-            if result.status in ['FAILURE', 'REVOKED']:
+            result = tasks.NewInstanceTask().AsyncResult(task["task_id"])
+            if result.status in ["FAILURE", "REVOKED"]:
                 return FAILURE
             return PENDING
         lb = LoadBalancer.find(name)
@@ -157,10 +166,14 @@ class Manager(object):
         self.storage.store_task(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
-        if metadata and metadata.get("plan_name"):
+        if not metadata or "consul_token" not in metadata:
+            metadata = metadata or {}
+            metadata["consul_token"] = self.consul_manager.generate_token(name)
+            self.storage.store_instance_metadata(name, **metadata)
+        if "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
-        self._add_tags(name, config)
+        self._add_tags(name, config, metadata["consul_token"])
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.storage.update_task(name, task.task_id)
 
@@ -171,23 +184,34 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         self.storage.replace_binding_path(name, path, destination, content)
-        for host in lb.hosts:
-            self.nginx_manager.update_binding(host.dns_name, path, destination, content)
+        self.consul_manager.write_location(name, path, destination=destination,
+                                           content=content)
 
     def delete_route(self, name, path):
         self._ensure_ready(name)
         path = path.strip()
-        if path == '/':
+        if path == "/":
             raise RouteError("You cannot remove a route for / location, unbind the app.")
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         self.storage.delete_binding_path(name, path)
-        for host in lb.hosts:
-            self.nginx_manager.delete_binding(host.dns_name, path)
+        self.consul_manager.remove_location(name, path)
 
     def list_routes(self, name):
         return self.storage.find_binding(name)
+
+    def purge_location(self, name, path):
+        self._ensure_ready(name)
+        path = path.strip()
+        lb = LoadBalancer.find(name)
+        purged_hosts = 0
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        for host in lb.hosts:
+            if self.nginx_manager.purge_location(host.dns_name, path):
+                purged_hosts += 1
+        return purged_hosts
 
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
@@ -212,5 +236,6 @@ class RouteError(Exception):
 
 
 class QuotaExceededError(Exception):
+
     def __init__(self, used, quota):
         super(QuotaExceededError, self).__init__("quota execeeded {}/{} used".format(used, quota))

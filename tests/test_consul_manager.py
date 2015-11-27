@@ -41,6 +41,26 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.destroy_token(token)
         self.assertIsNone(self.consul.acl.info(token))
 
+    def test_destroy_instance(self):
+        self.manager.write_healthcheck("myrpaas")
+        self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")
+        self.manager.destroy_instance("myrpaas")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/healthcheck")
+        self.assertIsNone(item[1])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
+        self.assertIsNone(item[1])
+
+    def test_write_healthcheck(self):
+        self.manager.write_healthcheck("myrpaas")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/healthcheck")
+        self.assertEqual("true", item[1]["Value"])
+
+    def test_remove_healthcheck(self):
+        self.manager.write_healthcheck("myrpaas")
+        self.manager.remove_healthcheck("myrpaas")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/healthcheck")
+        self.assertIsNone(item[1])
+
     def test_write_location_root(self):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")

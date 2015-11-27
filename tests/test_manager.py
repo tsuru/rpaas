@@ -44,54 +44,62 @@ class ManagerTestCase(unittest.TestCase):
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance(self, nginx):
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x")
         host = self.Host.create.return_value
         lb = self.LoadBalancer.create.return_value
         config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
         self.assertIsNone(self.storage.find_task("x"))
-        nginx.NginxDAV.assert_called_once_with(config)
-        nginx_manager = nginx.NginxDAV.return_value
+        nginx.Nginx.assert_called_once_with(config)
+        nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
+        manager.consul_manager.write_healthcheck.assert_called_once_with("x")
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_plan(self, nginx):
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x", plan_name="small")
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
         self.assertIsNone(manager.storage.find_task("x"))
-        nginx.NginxDAV.assert_called_once_with(config)
-        nginx_manager = nginx.NginxDAV.return_value
+        nginx.Nginx.assert_called_once_with(config)
+        nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
         metadata = manager.storage.find_instance_metadata("x")
-        self.assertEqual({"_id": "x", "plan_name": "small"}, metadata)
+        self.assertEqual({"_id": "x", "plan_name": "small", "consul_token": "abc-123"}, metadata)
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_extra_tags(self, nginx):
         config = copy.deepcopy(self.config)
         config["INSTANCE_EXTRA_TAGS"] = "enable_monitoring:1"
         manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
         manager.new_instance("x")
         host = self.Host.create.return_value
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,enable_monitoring:1"
+        config["HOST_TAGS"] = ("rpaas_service:test-suite-rpaas,rpaas_instance:x,"
+                               "consul_token:abc-123,enable_monitoring:1")
         del config["INSTANCE_EXTRA_TAGS"]
         lb = self.LoadBalancer.create.return_value
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
         self.assertIsNone(manager.storage.find_task("x"))
-        nginx.NginxDAV.assert_called_once_with(config)
-        nginx_manager = nginx.NginxDAV.return_value
+        nginx.Nginx.assert_called_once_with(config)
+        nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
 
     def test_new_instance_plan_not_found(self):
@@ -125,10 +133,11 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_task("x")
-        self.storage.store_instance_metadata("x", plan_name="small")
+        self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
         self.LoadBalancer.find.assert_called_with("x", self.config)
         for h in lb.hosts:
@@ -136,6 +145,24 @@ class ManagerTestCase(unittest.TestCase):
         lb.destroy.assert_called_once()
         self.assertIsNone(self.storage.find_task("x"))
         self.assertIsNone(self.storage.find_instance_metadata("x"))
+        manager.consul_manager.destroy_token.assert_called_with("abc-123")
+        manager.consul_manager.destroy_instance.assert_called_with("x")
+
+    def test_remove_instance_no_token(self):
+        self.storage.store_task("x")
+        self.storage.store_instance_metadata("x", plan_name="small")
+        lb = self.LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock()]
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.remove_instance("x")
+        self.LoadBalancer.find.assert_called_with("x", self.config)
+        for h in lb.hosts:
+            h.destroy.assert_called_once()
+        lb.destroy.assert_called_once()
+        self.assertIsNone(self.storage.find_task("x"))
+        self.assertIsNone(self.storage.find_instance_metadata("x"))
+        manager.consul_manager.destroy_token.assert_not_called()
 
     @mock.patch("rpaas.tasks.nginx")
     def test_remove_instance_decrement_quota(self, nginx):
@@ -234,34 +261,73 @@ content = location /x {
         async_init.assert_called_with("something-id")
         self.assertEqual(manager.status("x"), "failure")
 
-    def test_scale_instance_up(self):
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
-    def test_scale_instance_up_with_plan(self):
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up_no_token(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
-        self.storage.store_instance_metadata("x", plan_name=self.plan["name"])
+        config = copy.deepcopy(self.config)
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        manager.scale_instance("x", 5)
+        self.Host.create.assert_called_with("my-host-manager", "x", config)
+        self.assertEqual(self.Host.create.call_count, 3)
+        lb.add_host.assert_called_with(self.Host.create.return_value)
+        self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
+
+    @mock.patch("rpaas.tasks.nginx")
+    def test_scale_instance_up_with_plan(self, nginx):
+        lb = self.LoadBalancer.find.return_value
+        lb.name = "x"
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_metadata("x", plan_name=self.plan["name"],
+                                             consul_token="abc-123")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
+        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
         lb.add_host.assert_called_with(self.Host.create.return_value)
         self.assertEqual(lb.add_host.call_count, 3)
+        nginx_manager = nginx.Nginx.return_value
+        created_host = self.Host.create.return_value
+        expected_calls = [mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600),
+                          mock.call(created_host.dns_name, timeout=600)]
+        self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
     def test_scale_instance_error_task_running(self):
         self.storage.store_task("x")
@@ -269,33 +335,11 @@ content = location /x {
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.scale_instance("x", 5)
 
-    @mock.patch("rpaas.tasks.nginx")
-    def test_scale_instance_up_apply_binding_new_instances(self, nginx):
-        self.storage.store_binding("x", "myhost.com")
-        self.storage.update_binding_certificate("x", "my cert", "my key")
-        self.storage.replace_binding_path("x", "/trantor", "olivaw.com")
-        lb = self.LoadBalancer.find.return_value
-        lb.name = "x"
-        lb.hosts = [mock.Mock(), mock.Mock()]
-        config = copy.deepcopy(self.config)
-        config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x"
-        manager = Manager(self.config)
-        manager.scale_instance("x", 5)
-        self.Host.create.assert_called_with("my-host-manager", "x", config)
-        self.assertEqual(self.Host.create.call_count, 3)
-        lb.add_host.assert_called_with(self.Host.create.return_value)
-        self.assertEqual(lb.add_host.call_count, 3)
-        nginx.NginxDAV.assert_called_once_with(config)
-        created_host = self.Host.create.return_value
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.wait_healthcheck.assert_any_call(created_host.dns_name, timeout=300)
-        nginx_manager.update_binding.assert_any_call(created_host.dns_name, "/", "myhost.com", None)
-        nginx_manager.update_binding.assert_any_call(created_host.dns_name, "/trantor", "olivaw.com", None)
-        nginx_manager.update_certificate.assert_any_call(created_host.dns_name, "my cert", "my key")
-
     def test_scale_instance_down(self):
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
         manager = Manager(self.config)
         manager.scale_instance("x", 1)
         lb.hosts[0].destroy.assert_called_once
@@ -308,15 +352,14 @@ content = location /x {
         with self.assertRaises(ScaleError):
             manager.scale_instance("x", 0)
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_bind_instance(self, LoadBalancer, nginx):
+    def test_bind_instance(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         lb.hosts[0].dns_name = "h1"
         lb.hosts[1].dns_name = "h2"
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
         self.assertDictEqual(binding_data, {
@@ -325,8 +368,7 @@ content = location /x {
             "paths": [{"path": "/", "destination": "apphost.com"}]
         })
         LoadBalancer.find.assert_called_with("x")
-        nginx_manager.update_binding.assert_any_call("h1", "/", "apphost.com")
-        nginx_manager.update_binding.assert_any_call("h2", "/", "apphost.com")
+        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com")
 
     def test_bind_instance_error_task_running(self):
         self.storage.store_task("x")
@@ -334,12 +376,12 @@ content = location /x {
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.bind("x", "apphost.com")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_bind_instance_multiple_bind_hosts(self, LoadBalancer, nginx):
+    def test_bind_instance_multiple_bind_hosts(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
         self.assertDictEqual(binding_data, {
@@ -348,25 +390,22 @@ content = location /x {
             "paths": [{"path": "/", "destination": "apphost.com"}]
         })
         LoadBalancer.find.assert_called_with("x")
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.update_binding.assert_any_call(lb.hosts[0].dns_name, "/", "apphost.com")
-        nginx_manager.update_binding.assert_any_call(lb.hosts[1].dns_name, "/", "apphost.com")
-        nginx_manager.reset_mock()
+        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com")
+        manager.consul_manager.reset_mock()
         manager.bind("x", "apphost.com")
-        self.assertEqual(len(nginx_manager.mock_calls), 0)
+        self.assertEqual(0, len(manager.consul_manager.mock_calls))
         with self.assertRaises(rpaas.manager.BindError):
             manager.bind("x", "another.host.com")
-        self.assertEqual(len(nginx_manager.mock_calls), 0)
+        self.assertEqual(0, len(manager.consul_manager.mock_calls))
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_bind_instance_with_route(self, LoadBalancer, nginx):
+    def test_bind_instance_with_route(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         lb.hosts[0].dns_name = "h1"
         lb.hosts[1].dns_name = "h2"
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.add_route("x", "/somewhere", "my.other.host", None)
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
@@ -379,21 +418,17 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("x")
-        nginx_manager.update_binding.assert_any_call("h1", "/", "apphost.com")
-        nginx_manager.update_binding.assert_any_call("h2", "/", "apphost.com")
-        nginx_manager.update_binding.assert_any_call(
-            "h1", "/somewhere", "my.other.host", None)
-        nginx_manager.update_binding.assert_any_call(
-            "h2", "/somewhere", "my.other.host", None)
+        manager.consul_manager.write_location.assert_any_call("x", "/somewhere", destination="my.other.host",
+                                                              content=None)
+        manager.consul_manager.write_location.assert_any_call("x", "/", destination="apphost.com")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_unbind_instance(self, LoadBalancer, nginx):
+    def test_unbind_instance(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.unbind("inst", "app.host.com")
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
@@ -401,19 +436,16 @@ content = location /x {
             "paths": []
         })
         LoadBalancer.find.assert_called_with("inst")
-        self.assertEqual(nginx_manager.delete_binding.call_count, 2)
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, "/")
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, "/")
+        manager.consul_manager.remove_location.assert_called_with("inst", "/")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_unbind_instance_with_extra_path(self, LoadBalancer, nginx):
+    def test_unbind_instance_with_extra_path(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/me", "somewhere.com")
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.unbind("inst", "app.host.com")
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
@@ -423,19 +455,16 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        self.assertEqual(nginx_manager.delete_binding.call_count, 2)
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, "/")
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, "/")
+        manager.consul_manager.remove_location.assert_called_with("inst", "/")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_unbind_and_bind_instance_with_extra_path(self, LoadBalancer, nginx):
+    def test_unbind_and_bind_instance_with_extra_path(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/me", "somewhere.com")
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.unbind("inst", "app.host.com")
         manager.bind("inst", "app2.host.com")
         binding_data = self.storage.find_binding("inst")
@@ -448,27 +477,21 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        self.assertEqual(nginx_manager.delete_binding.call_count, 2)
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, "/")
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, "/")
-        self.assertEqual(nginx_manager.update_binding.call_count, 2)
-        nginx_manager.update_binding.assert_any_call(lb.hosts[0].dns_name, "/", "app2.host.com")
-        nginx_manager.update_binding.assert_any_call(lb.hosts[1].dns_name, "/", "app2.host.com")
+        manager.consul_manager.remove_location.assert_called_with("inst", "/")
+        manager.consul_manager.write_location.assert_called_with("inst", "/", destination="app2.host.com")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_update_certificate(self, LoadBalancer, nginx):
+    def test_update_certificate(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
-        nginx_manager = nginx.NginxDAV.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.update_certificate("inst", "cert", "key")
 
         LoadBalancer.find.assert_called_with("inst")
-        nginx_manager.update_certificate.assert_any_call(lb.hosts[0].dns_name, "cert", "key")
-        nginx_manager.update_certificate.assert_any_call(lb.hosts[1].dns_name, "cert", "key")
+        manager.consul_manager.set_certificate.assert_called_with("inst", "cert", "key")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_certificate_no_binding(self, LoadBalancer):
@@ -483,14 +506,14 @@ content = location /x {
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.update_certificate("inst", "cert", "key")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_add_route(self, LoadBalancer, nginx):
+    def test_add_route(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.add_route("inst", "/somewhere", "my.other.host", None)
 
         LoadBalancer.find.assert_called_with("inst")
@@ -510,20 +533,18 @@ content = location /x {
                 }
             ]
         })
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[0].dns_name, "/somewhere", "my.other.host", None)
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[1].dns_name, "/somewhere", "my.other.host", None)
+        manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
+                                                                 destination="my.other.host",
+                                                                 content=None)
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_add_route_with_content(self, LoadBalancer, nginx):
+    def test_add_route_with_content(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.add_route("inst", "/somewhere", None, "location /x { something; }")
 
         LoadBalancer.find.assert_called_with("inst")
@@ -543,11 +564,8 @@ content = location /x {
                 }
             ]
         })
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[0].dns_name, "/somewhere", None, "location /x { something; }")
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[1].dns_name, "/somewhere", None, "location /x { something; }")
+        manager.consul_manager.write_location.assert_called_with("inst", "/somewhere", destination=None,
+                                                                 content="location /x { something; }")
 
     def test_add_route_error_task_running(self):
         self.storage.store_task("inst")
@@ -555,13 +573,13 @@ content = location /x {
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.add_route("inst", "/somewhere", "my.other.host", None)
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_add_route_no_binding_creates_one(self, LoadBalancer, nginx):
+    def test_add_route_no_binding_creates_one(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.add_route("inst", "/somewhere", "my.other.host", None)
 
         LoadBalancer.find.assert_called_with("inst")
@@ -576,21 +594,19 @@ content = location /x {
                 }
             ]
         })
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[0].dns_name, "/somewhere", "my.other.host", None)
-        nginx_manager.update_binding.assert_any_call(
-            lb.hosts[1].dns_name, "/somewhere", "my.other.host", None)
+        manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
+                                                                 destination="my.other.host",
+                                                                 content=None)
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_delete_route(self, LoadBalancer, nginx):
+    def test_delete_route(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/arrakis", "dune.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
         manager.delete_route("inst", "/arrakis")
 
         LoadBalancer.find.assert_called_with("inst")
@@ -600,9 +616,7 @@ content = location /x {
             "app_host": "app.host.com",
             "paths": [{"path": "/", "destination": "app.host.com"}]
         })
-        nginx_manager = nginx.NginxDAV.return_value
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[0].dns_name, "/arrakis")
-        nginx_manager.delete_binding.assert_any_call(lb.hosts[1].dns_name, "/arrakis")
+        manager.consul_manager.remove_location.assert_called_with("inst", "/arrakis")
 
     def test_delete_route_error_task_running(self):
         self.storage.store_task("inst")
@@ -610,9 +624,8 @@ content = location /x {
         with self.assertRaises(rpaas.manager.NotReadyError):
             manager.delete_route("inst", "/arrakis")
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_delete_route_error_no_route(self, LoadBalancer, nginx):
+    def test_delete_route_error_no_route(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -621,15 +634,28 @@ content = location /x {
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.delete_route("inst", "/somewhere")
         LoadBalancer.find.assert_called_with("inst")
-        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)
 
-    @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_delete_route_no_binding(self, LoadBalancer, nginx):
+    def test_delete_route_no_binding(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.delete_route("inst", "/zahadum")
         LoadBalancer.find.assert_called_with("inst")
-        self.assertEqual(len(nginx.NginxDAV.return_value.mock_calls), 0)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_purge_location(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.nginx_manager = mock.Mock()
+        manager.nginx_manager.purge_location.side_effect = [True, True]
+        purged_hosts = manager.purge_location("inst", "/foo/bar")
+
+        LoadBalancer.find.assert_called_with("inst")
+
+        self.assertEqual(purged_hosts, 2)
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[0].dns_name, "/foo/bar")
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[1].dns_name, "/foo/bar")

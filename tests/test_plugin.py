@@ -257,6 +257,40 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
 
+    @mock.patch("sys.stderr")
+    def test_purge_args(self, stderr):
+        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', '/foo/bar'])
+        self.assertEqual(path, '/foo/bar')
+        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
+        self.assertEqual(path, '/foo/bar?a=b&c=d')
+        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'http://www.example.com/'])
+        self.assertEqual(path, '/')
+        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'www.example.com/'])
+        self.assertEqual(path, 'www.example.com/')
+        with self.assertRaises(SystemExit) as cm:
+            _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'http://www.example.com'])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('purge: path is required for purge location\n')
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_purge(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.purge(['-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/myinst?" +
+                                   "callback=/resources/myinst/purge")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("path=%2Ffoo%2Fbar%3Fa%3Db%26c%3Dd")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")

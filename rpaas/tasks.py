@@ -33,7 +33,7 @@ class BaseManagerTask(Task):
 
     def init_config(self, config=None):
         self.config = config
-        self.nginx_manager = nginx.NginxDAV(config)
+        self.nginx_manager = nginx.Nginx(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.hc = hc.Dumb()
@@ -49,16 +49,13 @@ class BaseManagerTask(Task):
     def _get_conf(self, key, default=config.undefined):
         return config.get_config(key, default, self.config)
 
-
-class NewInstanceTask(BaseManagerTask):
-
-    def run(self, config, name):
-        self.init_config(config)
+    def _add_host(self, name, lb=None):
         healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         host = Host.create(self.host_manager_name, name, self.config)
-        lb = None
+        created_lb = None
         try:
-            lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
+            if not lb:
+                lb = created_lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
             self.hc.create(name)
@@ -70,8 +67,8 @@ class NewInstanceTask(BaseManagerTask):
             if not rollback:
                 raise
             try:
-                if lb is not None:
-                    lb.destroy()
+                if created_lb is not None:
+                    created_lb.destroy()
             except Exception as e:
                 logging.error("Error in rollback trying to destroy load balancer: {}".format(e))
             try:
@@ -83,6 +80,13 @@ class NewInstanceTask(BaseManagerTask):
             except Exception as e:
                 logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
             raise exc_info[0], exc_info[1], exc_info[2]
+
+
+class NewInstanceTask(BaseManagerTask):
+
+    def run(self, config, name):
+        self.init_config(config)
+        self._add_host(name)
 
 
 class RemoveInstanceTask(BaseManagerTask):
@@ -100,43 +104,6 @@ class RemoveInstanceTask(BaseManagerTask):
 
 class ScaleInstanceTask(BaseManagerTask):
 
-    def _add_host(self, lb):
-        host = Host.create(self.host_manager_name, lb.name, self.config)
-        try:
-            lb.add_host(host)
-            self.hc.add_url(lb.name, host.dns_name)
-            binding_data = self.storage.find_binding(lb.name)
-            if not binding_data:
-                return
-            self.nginx_manager.wait_healthcheck(host.dns_name, timeout=300)
-            cert, key = binding_data.get('cert'), binding_data.get('key')
-            if cert and key:
-                self.nginx_manager.update_certificate(host.dns_name, cert, key)
-            paths = binding_data.get('paths') or []
-            for path_data in paths:
-                self.nginx_manager.update_binding(host.dns_name,
-                                                  path_data.get('path'),
-                                                  path_data.get('destination'),
-                                                  path_data.get('content'))
-        except:
-            exc_info = sys.exc_info()
-            rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
-            if not rollback:
-                raise
-            try:
-                host.destroy()
-            except Exception as e:
-                logging.error("Error in rollback trying to destroy host: {}".format(e))
-            try:
-                lb.remove_host(host)
-            except Exception as e:
-                logging.error("Error in rollback trying to remove from load balancer: {}".format(e))
-            try:
-                self.hc.remove_url(lb.name, host.dns_name)
-            except Exception as e:
-                logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
-            raise exc_info[0], exc_info[1], exc_info[2]
-
     def _delete_host(self, lb, host):
         host.destroy()
         lb.remove_host(host)
@@ -153,7 +120,7 @@ class ScaleInstanceTask(BaseManagerTask):
                 return
             for i in xrange(abs(diff)):
                 if diff > 0:
-                    self._add_host(lb)
+                    self._add_host(name, lb=lb)
                 else:
                     self._delete_host(lb, lb.hosts[i])
         finally:

@@ -12,7 +12,7 @@ ACL_TEMPLATE = """key "{service_name}/{instance_name}" {{
     policy = "read"
 }}
 
-key "{service_name}/{instance_name}/error" {{
+key "{service_name}/{instance_name}/status" {{
     policy = "write"
 }}
 
@@ -41,6 +41,15 @@ class ConsulManager(object):
     def destroy_token(self, acl_id):
         self.client.acl.destroy(acl_id)
 
+    def destroy_instance(self, instance_name):
+        self.client.kv.delete(self._key(instance_name), recurse=True)
+
+    def write_healthcheck(self, instance_name):
+        self.client.kv.put(self._key(instance_name, "healthcheck"), "true")
+
+    def remove_healthcheck(self, instance_name):
+        self.client.kv.delete(self._key(instance_name, "healthcheck"))
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if not content:
             content = self.config_manager.generate_host_config(path, destination)
@@ -65,5 +74,8 @@ class ConsulManager(object):
             location_key = path.replace("/", "___")
         return self._key(instance_name, "locations/" + location_key)
 
-    def _key(self, instance_name, suffix):
-        return "{}/{}/{}".format(self.service_name, instance_name, suffix)
+    def _key(self, instance_name, suffix=None):
+        key = "{}/{}".format(self.service_name, instance_name)
+        if suffix:
+            key += "/" + suffix
+        return key

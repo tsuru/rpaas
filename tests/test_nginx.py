@@ -2,16 +2,15 @@ import unittest
 
 import mock
 
-from rpaas.nginx import NginxDAV, NginxError
+from rpaas.nginx import Nginx
 
 
-class NginxDAVTestCase(unittest.TestCase):
+class NginxTestCase(unittest.TestCase):
 
     def test_init_default(self):
-        nginx = NginxDAV()
-        self.assertEqual(nginx.nginx_reload_path, '/reload')
-        self.assertEqual(nginx.nginx_dav_put_path, '/dav')
+        nginx = Nginx()
         self.assertEqual(nginx.nginx_manage_port, '8089')
+        self.assertEqual(nginx.nginx_purge_path, '/purge')
         self.assertEqual(nginx.nginx_healthcheck_path, '/healthcheck')
         self.assertEqual(nginx.config_manager.location_template, """
 location {path} {{
@@ -26,15 +25,13 @@ location {path} {{
 """)
 
     def test_init_config(self):
-        nginx = NginxDAV({
-            'NGINX_RELOAD_PATH': '/1',
-            'NGINX_DAV_PUT_PATH': '/2',
+        nginx = Nginx({
+            'NGINX_PURGE_PATH': '/2',
             'NGINX_MANAGE_PORT': '4',
             'NGINX_LOCATION_TEMPLATE_TXT': '5',
             'NGINX_HEALTHCHECK_PATH': '6',
         })
-        self.assertEqual(nginx.nginx_reload_path, '/1')
-        self.assertEqual(nginx.nginx_dav_put_path, '/2')
+        self.assertEqual(nginx.nginx_purge_path, '/2')
         self.assertEqual(nginx.nginx_manage_port, '4')
         self.assertEqual(nginx.config_manager.location_template, '5')
         self.assertEqual(nginx.nginx_healthcheck_path, '6')
@@ -44,128 +41,49 @@ location {path} {{
         rsp_get = requests.get.return_value
         rsp_get.status_code = 200
         rsp_get.text = 'my result'
-        nginx = NginxDAV({
+        nginx = Nginx({
             'NGINX_LOCATION_TEMPLATE_URL': 'http://my.com/x',
         })
         self.assertEqual(nginx.config_manager.location_template, 'my result')
         requests.get.assert_called_once_with('http://my.com/x')
 
     @mock.patch('rpaas.nginx.requests')
-    def test_update_binding(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 200
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 200
+    def test_purge_location_successfully(self, requests):
+        nginx = Nginx()
 
-        nginx = NginxDAV()
+        response = mock.Mock()
+        response.status_code = 200
+        response.text = 'purged'
 
-        nginx.update_binding('myhost', '/', 'mydestination')
-        requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
-location / {
-    proxy_set_header Host mydestination;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_pass http://mydestination:80/;
-    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
-}
-""")
-        requests.get.assert_called_once_with('http://myhost:8089/reload')
+        side_effect = mock.Mock()
+        side_effect.status_code = 404
+        side_effect.text = "Not Found"
+
+        requests.get.side_effect = [response, side_effect]
+        purged = nginx.purge_location('myhost.com', '/foo/bar')
+        self.assertTrue(purged)
+        self.assertEqual(requests.get.call_count, 2)
+        requests.get.assert_has_calls([mock.call('http://myhost.com:8089/purge/http/foo/bar', timeout=2),
+                                       mock.call('http://myhost.com:8089/purge/https/foo/bar', timeout=2)])
 
     @mock.patch('rpaas.nginx.requests')
-    def test_update_binding_other_path(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 200
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 200
+    def test_purge_location_not_found(self, requests):
+        nginx = Nginx()
 
-        nginx = NginxDAV()
+        response = mock.Mock()
+        response.status_code = 404
+        response.text = 'Not Found'
 
-        nginx.update_binding('myhost', '/app/route', 'mydestination')
-        requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:app:route.conf', data="""
-location /app/route/ {
-    proxy_set_header Host mydestination;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_pass http://mydestination:80/;
-    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /app/route/$2;
-}
-""")
-        requests.get.assert_called_once_with('http://myhost:8089/reload')
-
-    @mock.patch('rpaas.nginx.requests')
-    def test_update_binding_error_put(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 500
-        rsp.text = "my error"
-
-        nginx = NginxDAV()
-        with self.assertRaises(NginxError) as context:
-            nginx.update_binding('myhost', '/', 'mydestination')
-        self.assertEqual(
-            str(context.exception),
-            "Error trying to update file in nginx: PUT http://myhost:8089/dav/location_:.conf: my error")
-
-    @mock.patch('rpaas.nginx.requests')
-    def test_update_binding_error_reload(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 200
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 500
-        rsp_get.text = "my error"
-
-        nginx = NginxDAV()
-        with self.assertRaises(NginxError) as context:
-            nginx.update_binding('myhost', '/', 'mydestination')
-        self.assertEqual(
-            str(context.exception),
-            "Error trying to reload config in nginx: http://myhost:8089/reload: my error")
-        requests.request.assert_called_once_with('PUT', 'http://myhost:8089/dav/location_:.conf', data="""
-location / {
-    proxy_set_header Host mydestination;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_pass http://mydestination:80/;
-    proxy_redirect ~^http://mydestination(:\d+)?/(.*)$ /$2;
-}
-""")
-
-    @mock.patch('rpaas.nginx.requests')
-    def test_update_binding_custom_content(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 200
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 200
-
-        nginx = NginxDAV()
-
-        nginx.update_binding('myhost', '/', content='location @rad {}')
-        requests.request.assert_called_once_with(
-            'PUT', 'http://myhost:8089/dav/location_:.conf', data="location @rad {}")
-        requests.get.assert_called_once_with('http://myhost:8089/reload')
-
-    @mock.patch('rpaas.nginx.requests')
-    def test_update_certificate(self, requests):
-        rsp = requests.request.return_value
-        rsp.status_code = 200
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 200
-
-        nginx = NginxDAV()
-        nginx.update_certificate('myhost', 'cert', 'key')
-
-        requests.request.assert_has_call('PUT', 'http://myhost:8089/dav/ssl/nginx.crt', data='cert')
-        requests.request.assert_has_call('PUT', 'http://myhost:8089/dav/ssl/nginx.key', data='key')
-        requests.get.assert_called_once_with('http://myhost:8089/reload')
+        requests.get.side_effect = [response, response]
+        purged = nginx.purge_location('myhost.com', '/foo/bar')
+        self.assertFalse(purged)
+        self.assertEqual(requests.get.call_count, 2)
+        requests.get.assert_has_calls([mock.call('http://myhost.com:8089/purge/http/foo/bar', timeout=2),
+                                       mock.call('http://myhost.com:8089/purge/https/foo/bar', timeout=2)])
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck(self, requests):
-        nginx = NginxDAV()
+        nginx = Nginx()
         count = [0]
         response = mock.Mock()
         response.status_code = 200
@@ -184,7 +102,7 @@ location / {
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck_timeout(self, requests):
-        nginx = NginxDAV()
+        nginx = Nginx()
 
         def side_effect(url, timeout):
             raise Exception('some error')
