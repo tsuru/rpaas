@@ -83,6 +83,13 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         self.assertEqual("something nice", item[1]["Value"])
 
+    def test_write_location_content_strip(self):
+        self.manager.write_location("myrpaas", "/admin/app_sites/",
+                                    destination="http://myapp.tsuru.io",
+                                    content=" something nice              \n")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
+        self.assertEqual("something nice", item[1]["Value"])
+
     def test_set_certificate(self):
         self.manager.set_certificate("myrpaas", "certificate", "key")
         cert_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/cert")

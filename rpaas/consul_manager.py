@@ -51,7 +51,9 @@ class ConsulManager(object):
         self.client.kv.delete(self._key(instance_name, "healthcheck"))
 
     def write_location(self, instance_name, path, destination=None, content=None):
-        if not content:
+        if content:
+            content = content.strip()
+        else:
             content = self.config_manager.generate_host_config(path, destination)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
