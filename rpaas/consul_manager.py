@@ -58,8 +58,8 @@ class ConsulManager(object):
         self.client.kv.put(self._location_key(instance_name, path), content)
 
     def set_certificate(self, instance_name, cert_data, key_data):
-        self.client.kv.put(self._ssl_cert_key(instance_name), cert_data.strip())
-        self.client.kv.put(self._ssl_key_key(instance_name), key_data.strip())
+        self.client.kv.put(self._ssl_cert_key(instance_name), cert_data)
+        self.client.kv.put(self._ssl_key_key(instance_name), key_data)
 
     def remove_location(self, instance_name, path):
         self.client.kv.delete(self._location_key(instance_name, path))
