@@ -97,6 +97,13 @@ class ConsulManagerTestCase(unittest.TestCase):
         key_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/key")
         self.assertEqual("key", key_item[1]["Value"])
 
+    def test_set_certificate_crlf(self):
+        self.manager.set_certificate("myrpaas", "certificate\r\nvalid\r\n", "key\r\nvalid\r\n\r\n")
+        cert_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/cert")
+        self.assertEqual("certificate\nvalid\n", cert_item[1]["Value"])
+        key_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/key")
+        self.assertEqual("key\nvalid\n\n", key_item[1]["Value"])
+
     def test_remove_location_root(self):
         self.manager.write_location("myrpaas", "/",
                                     destination="http://myapp.tsuru.io",
