@@ -45,8 +45,8 @@ class CommandNotFoundError(Exception):
 
 
 def scale(args):
-    instance, quantity = get_scale_args(args)
-    result = proxy_request(instance, "/resources/{}/scale".format(instance),
+    service, instance, quantity = get_scale_args(args)
+    result = proxy_request(service, instance, "/resources/{}/scale".format(instance),
                            body="quantity={}".format(quantity))
     if result.getcode() == 201:
         msg = "Instance successfully scaled to {} unit".format(quantity)
@@ -71,7 +71,7 @@ def certificate(args):
         ('cert', args.certificate, cert),
         ('key', args.key, key),
     ))
-    result = proxy_request(args.instance, rpaas_path,
+    result = proxy_request(args.service, args.instance, rpaas_path,
                            body=body,
                            headers={'Content-Type': content_type})
     if result.getcode() == 200:
@@ -105,7 +105,7 @@ def route(args):
         method = "DELETE"
         message = "removed"
     body = urllib.urlencode(params)
-    result = proxy_request(args.instance, req_path,
+    result = proxy_request(args.service, args.instance, req_path,
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -126,13 +126,13 @@ def route(args):
 
 
 def purge(args):
-    instance, path = get_purge_args(args)
+    service, instance, path = get_purge_args(args)
     req_path = "/resources/{}/purge".format(instance)
     params = {}
     method = "POST"
     params['path'] = path
     body = urllib.urlencode(params)
-    result = proxy_request(instance, req_path,
+    result = proxy_request(service, instance, req_path,
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
@@ -146,7 +146,8 @@ def purge(args):
 
 def get_certificate_args(args):
     parser = argparse.ArgumentParser("certificate")
-    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-c", "--certificate", required=True, help="Certificate file name")
     parser.add_argument("-k", "--key", required=True, help="Key file name")
     parsed = parser.parse_args(args)
@@ -155,20 +156,22 @@ def get_certificate_args(args):
 
 def get_scale_args(args):
     parser = argparse.ArgumentParser("scale")
+    parser.add_argument("-s", "--service", required=True)
     parser.add_argument("-i", "--instance", required=True)
     parser.add_argument("-n", "--quantity", type=int, required=True)
     parsed_args = parser.parse_args(args)
     if parsed_args.quantity < 1:
         sys.stderr.write("quantity must be a positive integer\n")
         sys.exit(2)
-    return parsed_args.instance, parsed_args.quantity
+    return parsed_args.service, parsed_args.instance, parsed_args.quantity
 
 
 def get_route_args(args):
     parser = argparse.ArgumentParser("route")
     parser.add_argument("action", choices=["add", "list", "remove"],
                         help="Action, add or remove url")
-    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-p", "--path", required=False, help="Path to route")
     parser.add_argument("-d", "--destination", required=False, help="Destination host")
     parser.add_argument("-c", "--content", required=False,
@@ -189,7 +192,8 @@ def get_route_args(args):
 
 def get_purge_args(args):
     parser = argparse.ArgumentParser("purge")
-    parser.add_argument("-i", "--instance", required=True)
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-l", "--location", required=True, help="Location to be purged")
     parsed_args = parser.parse_args(args)
     parsed_url = urlparse.urlparse(parsed_args.location)
@@ -200,7 +204,7 @@ def get_purge_args(args):
         location = parsed_url.path
     else:
         location = "{}?{}".format(parsed_url.path, parsed_url.query)
-    return parsed_args.instance, location
+    return parsed_args.service, parsed_args.instance, location
 
 
 def get_env(name):
@@ -211,11 +215,11 @@ def get_env(name):
     return env
 
 
-def proxy_request(instance_name, path, body=None, headers=None, method='POST'):
+def proxy_request(service_name, instance_name, path, body=None, headers=None, method='POST'):
     target = get_env("TSURU_TARGET").rstrip("/")
     token = get_env("TSURU_TOKEN")
-    url = "{}/services/proxy/{}?callback={}".format(target, instance_name,
-                                                    path)
+    url = "{}/services/{}/proxy/{}?callback={}".format(target, service_name, instance_name,
+                                                       path)
     request = urllib2.Request(url)
     request.add_header("Authorization", "bearer " + token)
     request.get_method = lambda: method

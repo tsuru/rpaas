@@ -47,9 +47,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 201
         urlopen.return_value = result
-        plugin.scale(["-i", "myinstance", "-n", "10"])
+        plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "10"])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinstance?" +
+                                   "services/myservice/proxy/myinstance?" +
                                    "callback=/resources/myinstance/scale")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
@@ -68,9 +68,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 201
         urlopen.return_value = result
-        plugin.scale(["-i", "myinstance", "-n", "1"])
+        plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "1"])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinstance?" +
+                                   "services/myservice/proxy/myinstance?" +
                                    "callback=/resources/myinstance/scale")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
@@ -91,11 +91,11 @@ class TsuruPluginTestCase(unittest.TestCase):
         result.read.return_value = "Invalid quantity"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-i", "myinstance", "-n", "10"])
+            plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "10"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinstance?" +
+                                   "services/myservice/proxy/myinstance?" +
                                    "callback=/resources/myinstance/scale")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
@@ -106,7 +106,7 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_scale_no_target(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-i", "myinstance", "-n", "10"])
+            plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "10"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("ERROR: missing TSURU_TARGET\n")
@@ -118,15 +118,24 @@ class TsuruPluginTestCase(unittest.TestCase):
         del os.environ["TSURU_TOKEN"]
         self.addCleanup(self.set_envs)
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-i", "myinstance", "-n", "10"])
+            plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "10"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("ERROR: missing TSURU_TOKEN\n")
 
     @mock.patch("sys.stderr")
-    def test_scale_missing_instance(self, stderr):
+    def test_scale_missing_service(self, stderr):
         with self.assertRaises(SystemExit) as cm:
             plugin.scale(["-n", "1"])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        expected_msg = "scale: error: argument -s/--service is required\n"
+        stderr.write.assert_called_with(expected_msg)
+
+    @mock.patch("sys.stderr")
+    def test_scale_missing_instance(self, stderr):
+        with self.assertRaises(SystemExit) as cm:
+            plugin.scale(["-s", "myservice", "-n", "1"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         expected_msg = "scale: error: argument -i/--instance is required\n"
@@ -135,7 +144,7 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_scale_missing_quantity(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-i", "abc"])
+            plugin.scale(["-s", "myservice", "-i", "abc"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         expected_msg = "scale: error: argument -n/--quantity is required\n"
@@ -144,7 +153,7 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_scale_invalid_quantity(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-i", "abc", "-n", "0"])
+            plugin.scale(["-s", "myservice", "-i", "abc", "-n", "0"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         expected_msg = "quantity must be a positive integer\n"
@@ -190,11 +199,11 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.addCleanup(self.delete_envs)
         with mock.patch("io.open", mock.mock_open()) as open:
             open.return_value.read.return_value = 'my content'
-            plugin.certificate(['-i', 'inst1', '-c', 'cert.crt', '-k', 'key.key'])
+            plugin.certificate(['-s', 'service1', '-i', 'inst1', '-c', 'cert.crt', '-k', 'key.key'])
             open.assert_any_call('cert.crt', 'rb')
             open.assert_any_call('key.key', 'rb')
         Request.assert_called_with(self.target +
-                                   "services/proxy/inst1?" +
+                                   "services/service1/proxy/inst1?" +
                                    "callback=/resources/inst1/certificate")
         request.add_header.assert_has_call("Authorization", "bearer " + self.token)
         data = request.add_data.call_args[0][0]
@@ -207,33 +216,33 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_route_args(self, stderr):
         parsed = plugin.get_route_args(
-            ['add', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
+            ['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
         self.assertEqual(parsed.action, 'add')
         self.assertEqual(parsed.path, '/path/out')
         self.assertEqual(parsed.destination, 'destination.host')
         parsed = plugin.get_route_args(
-            ['add', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
+            ['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
         self.assertEqual(parsed.action, 'add')
         self.assertEqual(parsed.path, '/path/out')
         self.assertEqual(parsed.content, 'my content')
-        parsed = plugin.get_route_args(['remove', '-i', 'myinst', '-p', '/path/out'])
+        parsed = plugin.get_route_args(['remove', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out'])
         self.assertEqual(parsed.action, 'remove')
         self.assertEqual(parsed.path, '/path/out')
         with self.assertRaises(SystemExit) as cm:
-            plugin.get_route_args(['add', '-i', 'myinst', '-p', '/path/out'])
+            plugin.get_route_args(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out'])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('destination xor content are required to add action\n')
         with self.assertRaises(SystemExit) as cm:
             plugin.get_route_args([
-                'add', '-i', 'myinst', '-p', '/path/out',
+                'add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out',
                 '-d', 'destination.host', '-c', 'my content',
             ])
         exc = cm.exception
         self.assertEqual(3, exc.code)
         stderr.write.assert_called_with('cannot have both destination and content\n')
         with self.assertRaises(SystemExit) as cm:
-            plugin.get_route_args(['-i', 'myinst', '-p', '/path/out'])
+            plugin.get_route_args(['-s', 'myservice', '-i', 'myinst', '-p', '/path/out'])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('route: error: too few arguments\n')
@@ -246,9 +255,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.route(['add', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
+        plugin.route(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
@@ -266,9 +275,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.set_envs()
         self.addCleanup(self.delete_envs)
         path = os.path.join(os.path.dirname(__file__), "testdata", "location")
-        plugin.route(['add', '-i', 'myinst', '-p', '/path/out', '-c', '@'+path])
+        plugin.route(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-c', '@'+path])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
@@ -279,16 +288,19 @@ class TsuruPluginTestCase(unittest.TestCase):
 
     @mock.patch("sys.stderr")
     def test_purge_args(self, stderr):
-        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', '/foo/bar'])
+        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar'])
         self.assertEqual(path, '/foo/bar')
-        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
+        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
         self.assertEqual(path, '/foo/bar?a=b&c=d')
-        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'http://www.example.com/'])
+
+        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                            'http://www.example.com/'])
         self.assertEqual(path, '/')
-        _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'www.example.com/'])
+        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', 'www.example.com/'])
         self.assertEqual(path, 'www.example.com/')
         with self.assertRaises(SystemExit) as cm:
-            _, path = plugin.get_purge_args(['-i', 'myinst', '-l', 'http://www.example.com'])
+            _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                                'http://www.example.com'])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('purge: path is required for purge location\n')
@@ -301,9 +313,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.purge(['-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
+        plugin.purge(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/purge")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
@@ -319,9 +331,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.route(['add', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
+        plugin.route(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-c', 'my content'])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
@@ -338,9 +350,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.route(['remove', '-i', 'myinst', '-p', '/path/out'])
+        plugin.route(['remove', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out'])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
@@ -359,9 +371,9 @@ class TsuruPluginTestCase(unittest.TestCase):
             '"routes": [{"path": "/a", "destination": "desta"}, {"path": "/b", "destination": "destb"}]}'
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.route(['list', '-i', 'myinst'])
+        plugin.route(['list', '-s', 'myservice', '-i', 'myinst'])
         Request.assert_called_with(self.target +
-                                   "services/proxy/myinst?" +
+                                   "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         self.assertEqual(request.get_method(), 'GET')
