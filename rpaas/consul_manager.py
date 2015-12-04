@@ -57,6 +57,9 @@ class ConsulManager(object):
             content = self.config_manager.generate_host_config(path, destination)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
+    def remove_location(self, instance_name, path):
+        self.client.kv.delete(self._location_key(instance_name, path))
+
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
         key = self.client.kv.get(self._ssl_key_key(instance_name))[1]
@@ -67,9 +70,6 @@ class ConsulManager(object):
     def set_certificate(self, instance_name, cert_data, key_data):
         self.client.kv.put(self._ssl_cert_key(instance_name), cert_data.replace("\r\n", "\n"))
         self.client.kv.put(self._ssl_key_key(instance_name), key_data.replace("\r\n", "\n"))
-
-    def remove_location(self, instance_name, path):
-        self.client.kv.delete(self._location_key(instance_name, path))
 
     def _ssl_cert_key(self, instance_name):
         return self._key(instance_name, "ssl/cert")

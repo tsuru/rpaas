@@ -90,37 +90,3 @@ class Nginx(object):
         if rsp.status_code != 200:
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
-
-    def acme_conf(self, host, raw):
-        self._dav_put(host, 'acme.conf', raw)
-        self._reload(host)
-
-    def delete_acme_conf(self, host):
-        self._dav_put(host, 'acme.conf', '')
-        self._reload(host)
-
-    def _location_file_name(self, path):
-        return 'location_{}.conf'.format(path.replace('/', ':'))
-
-    def _dav_request(self, method, host, name, content):
-        path = "/{}/{}".format(self.nginx_dav_put_path.strip('/'), name)
-        url = "http://{}:{}{}".format(host, self.nginx_manage_port, path)
-        rsp = requests.request(method, url, data=content)
-        if rsp.status_code > 299:
-            raise NginxError(
-                "Error trying to update file in nginx: {} {}: {}".format(method, url, rsp.text))
-        return rsp
-
-    def _dav_put(self, host, name, content):
-        return self._dav_request('PUT', host, name, content)
-
-    def _dav_delete(self, host, name):
-        return self._dav_request('DELETE', host, name, None)
-
-    def _reload(self, host):
-        url = "http://{}:{}/{}".format(host, self.nginx_manage_port,
-                                       self.nginx_reload_path.lstrip('/'))
-        rsp = requests.get(url)
-        if rsp.status_code > 299:
-            raise NginxError(
-                "Error trying to reload config in nginx: {}: {}".format(url, rsp.text))

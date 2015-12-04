@@ -30,7 +30,6 @@ class LE(BaseSSLPlugin):
         self.domain = str(domain)
         self.email = str(email)
         self.instance_name = str(instance_name)
-        self.hosts = []
 
     def upload_csr(self, csr=None):
         return None
@@ -38,15 +37,14 @@ class LE(BaseSSLPlugin):
     def download_crt(self, id=None):
         ret = None
         try:
-            crt, chain, key = _main([self.domain], self.email, self.hosts)
+            crt, chain, key = _main([self.domain], self.email, self.instance_name)
         except Exception, e:
             raise e
         else:
             ret = json.dumps({'crt': crt, 'chain': chain, 'key': key})
         finally:
-            nginx_manager = rpaas.get_manager().nginx_manager
-            for host in self.hosts:
-                nginx_manager.delete_acme_conf(host)
+            consul_manager = rpaas.get_manager().consul_manager
+            consul_manager.remove_location(self.instance_name, "/acme-validate")
         return ret
 
     def revoke(self):
@@ -76,7 +74,7 @@ class ConfigNamespace(object):
         self.strict_permissions = False
 
 
-def _main(domains=[], email=None, hosts=[]):
+def _main(domains=[], email=None, instance_name=""):
     ns = ConfigNamespace(email)
     config = NamespaceConfig(ns)
     zope.component.provideUtility(config)
@@ -84,7 +82,7 @@ def _main(domains=[], email=None, hosts=[]):
     ams = AccountMemoryStorage()
     acc, acme = register(config, ams)
 
-    authenticator = RpaasLeAuthenticator(hosts=hosts, config=config, name='')
+    authenticator = RpaasLeAuthenticator(instance_name, config=config, name='')
     installer = None
     lec = Client(config, acc, authenticator, installer, acme)
     certr, chain, key, _ = lec.obtain_certificate(domains)

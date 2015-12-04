@@ -35,16 +35,16 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
 """
     """Command template."""
 
-    def __init__(self, hosts, *args, **kwargs):
+    def __init__(self, instance_name, *args, **kwargs):
         super(RpaasLeAuthenticator, self).__init__(*args, **kwargs)
         self._root = './le'
         self._httpd = None
-        self.hosts = hosts
+        self.instance_name = instance_name
 
     def get_chall_pref(self, domain):
         return [challenges.HTTP01]
 
-    def perform(self, achalls):  # pylint: disable=missing-docstring
+    def perform(self, achalls):
         responses = []
         for achall in achalls:
             responses.append(self._perform_single(achall))
@@ -66,14 +66,10 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
                 "Self-verify of challenge failed, authorization abandoned.")
             return None
 
-    def _notify_and_wait(self, message):  # pylint: disable=no-self-use
-        nginx_manager = rpaas.get_manager().nginx_manager
-        for host in self.hosts:
-            nginx_manager.acme_conf(host, message)
+    def _notify_and_wait(self, message):
+        consul_manager = rpaas.get_manager().consul_manager
+        consul_manager.write_location(self.instance_name, "/acme-validate", content=message)
         time.sleep(6)
-        # TODO: update rpaas nginx
-        # sys.stdout.write(message)
-        # raw_input("Press ENTER to continue")
 
     def cleanup(self, achalls):
         pass
