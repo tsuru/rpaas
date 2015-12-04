@@ -22,6 +22,7 @@ setup(
     packages=find_packages(exclude=["docs", "tests"]),
     include_package_data=True,
     install_requires=[
+        "setuptools==18.4",
         "Flask==0.9",
         "requests==2.4.3",
         "gevent==1.1b6",
@@ -33,6 +34,8 @@ setup(
         "python-consul==0.4.5",
         "raven==4.2.3",
         "blinker==1.4",
+        "acme==0.0.0.dev20151108",
+        "letsencrypt==0.0.0.dev20151108",
     ],
     extras_require={
         'tests': [

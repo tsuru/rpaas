@@ -11,6 +11,10 @@ from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
 from rpaas import hc, nginx, storage
+import rpaas.ssl_plugins
+# from rpaas.ssl_plugins import default, le
+import inspect
+import json
 
 
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -123,5 +127,77 @@ class ScaleInstanceTask(BaseManagerTask):
                     self._add_host(name, lb=lb)
                 else:
                     self._delete_host(lb, lb.hosts[i])
+        finally:
+            self.storage.remove_task(name)
+
+
+class DownloadCertTask(BaseManagerTask):
+
+    def run(self, config, name, plugin, csr, key, domain):
+        try:
+            self.init_config(config)
+            lb = LoadBalancer.find(name, self.config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+
+            crt = None
+
+            #  Get plugin class
+            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+            for obj_name, obj in inspect.getmembers(p_ssl):
+                if obj_name != 'BaseSSLPlugin' and \
+                   inspect.isclass(obj) and \
+                   issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                    hosts = [host.dns_name for host in lb.hosts]
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+
+            #  Upload csr and get an Id
+            plugin_id = c_ssl.upload_csr(csr)
+            crt = c_ssl.download_crt(id=str(plugin_id))
+
+            #  Download the certificate and update nginx with it
+            if crt:
+                try:
+                    js_crt = json.loads(crt)
+                    cert = js_crt['crt']
+                    cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
+                    key = js_crt['key'] if 'key' in js_crt else key
+                except:
+                    cert = crt
+
+                for host in lb.hosts:
+                    self.nginx_manager.update_certificate(host.dns_name, cert, key)
+
+            else:
+                raise Exception('Could not download certificate')
+        except Exception, e:
+            logging.error("Error in ssl plugin task: {}".format(e))
+            raise e
+        finally:
+            self.storage.remove_task(name)
+
+
+class RevokeCertTask(BaseManagerTask):
+
+    def run(self, config, name, plugin, domain):
+        try:
+            self.init_config(config)
+            lb = LoadBalancer.find(name, self.config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+
+            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
+            for obj_name, obj in inspect.getmembers(p_ssl):
+                if obj_name != 'BaseSSLPlugin' and \
+                        inspect.isclass(obj) and \
+                        issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
+                    hosts = [host.dns_name for host in lb.hosts]
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+
+            c_ssl.revoke()
+
+        except Exception, e:
+            logging.error("Error in ssl plugin task: {}".format(e))
+            raise e
         finally:
             self.storage.remove_task(name)

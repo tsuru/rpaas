@@ -154,6 +154,37 @@ def get_certificate_args(args):
     return parsed
 
 
+def get_ssl_args(args):
+    parser = argparse.ArgumentParser("ssl")
+    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-d", "--domain", required=True, help="Registered domain name")
+    parser.add_argument("-a", "--auth", required=False, help="Authorization plugin")
+    parsed = parser.parse_args(args)
+    return parsed
+
+
+def ssl(args):
+    args = get_ssl_args(args)
+    rpaas_path = "/resources/{}/ssl".format(args.instance)
+    params = {}
+    params['domain'] = args.domain
+    params['plugin'] = args.plugin if 'plugin' in args else 'default'
+    body = urllib.urlencode(params)
+    method = "POST"
+    try:
+        result = proxy_request(args.instance, rpaas_path, body=body, method=method,
+                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    except Exception, e:
+        sys.stderr.write("ERROR: "+str(e)+"\n")
+        sys.exit(1)
+    if result.getcode() in [200, 201]:
+        sys.stdout.write("Certificate successfully updated\n")
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
 def get_scale_args(args):
     parser = argparse.ArgumentParser("scale")
     parser.add_argument("-s", "--service", required=True)
@@ -236,7 +267,8 @@ def available_commands():
         "scale": scale,
         "certificate": certificate,
         "route": route,
-        "purge": purge
+        "purge": purge,
+        "ssl": ssl,
     }
 
 
