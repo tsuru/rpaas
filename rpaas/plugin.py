@@ -156,6 +156,7 @@ def get_certificate_args(args):
 
 def get_ssl_args(args):
     parser = argparse.ArgumentParser("ssl")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-d", "--domain", required=True, help="Registered domain name")
     parser.add_argument("-a", "--auth", required=False, help="Authorization plugin")
@@ -172,7 +173,7 @@ def ssl(args):
     body = urllib.urlencode(params)
     method = "POST"
     try:
-        result = proxy_request(args.instance, rpaas_path, body=body, method=method,
+        result = proxy_request(args.service, args.instance, rpaas_path, body=body, method=method,
                                headers={'Content-Type': 'application/x-www-form-urlencoded'})
     except Exception, e:
         sys.stderr.write("ERROR: "+str(e)+"\n")
