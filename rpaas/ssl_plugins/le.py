@@ -26,10 +26,11 @@ logger = logging.getLogger(__name__)
 
 class LE(BaseSSLPlugin):
 
-    def __init__(self, domain, email, hosts=[]):
+    def __init__(self, domain, email, instance_name):
         self.domain = str(domain)
         self.email = str(email)
-        self.hosts = [str(x) for x in hosts]
+        self.instance_name = str(instance_name)
+        self.hosts = []
 
     def upload_csr(self, csr=None):
         return None
@@ -49,8 +50,9 @@ class LE(BaseSSLPlugin):
         return ret
 
     def revoke(self):
-        nginx_manager = rpaas.get_manager().nginx_manager
-        return _revoke(nginx_manager.get_key_crt(self.hosts[0]))
+        consul_manager = rpaas.get_manager().consul_manager
+        cert, key = consul_manager.get_certificate(self.instance_name)
+        return _revoke(key, cert)
 
 
 class ConfigNamespace(object):

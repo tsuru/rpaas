@@ -57,6 +57,13 @@ class ConsulManager(object):
             content = self.config_manager.generate_host_config(path, destination)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
+    def get_certificate(self, instance_name):
+        cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
+        key = self.client.kv.get(self._ssl_key_key(instance_name))[1]
+        if not cert or not key:
+            raise ValueError("certificate not defined")
+        return cert["Value"], key["Value"]
+
     def set_certificate(self, instance_name, cert_data, key_data):
         self.client.kv.put(self._ssl_cert_key(instance_name), cert_data.replace("\r\n", "\n"))
         self.client.kv.put(self._ssl_key_key(instance_name), key_data.replace("\r\n", "\n"))

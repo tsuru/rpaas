@@ -6,13 +6,14 @@ from celery import Celery, Task
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
+
 from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import hc, nginx, storage
+from rpaas import consul_manager, hc, nginx, storage
+
 import rpaas.ssl_plugins
-# from rpaas.ssl_plugins import default, le
 import inspect
 import json
 
@@ -38,6 +39,7 @@ class BaseManagerTask(Task):
     def init_config(self, config=None):
         self.config = config
         self.nginx_manager = nginx.Nginx(config)
+        self.consul_manager = consul_manager.ConsulManager(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.hc = hc.Dumb()
@@ -142,14 +144,13 @@ class DownloadCertTask(BaseManagerTask):
 
             crt = None
 
-            #  Get plugin class
             p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
             for obj_name, obj in inspect.getmembers(p_ssl):
                 if obj_name != 'BaseSSLPlugin' and \
                    inspect.isclass(obj) and \
                    issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                    hosts = [host.dns_name for host in lb.hosts]
-                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
+                                name)
 
             #  Upload csr and get an Id
             plugin_id = c_ssl.upload_csr(csr)
@@ -165,9 +166,7 @@ class DownloadCertTask(BaseManagerTask):
                 except:
                     cert = crt
 
-                for host in lb.hosts:
-                    self.nginx_manager.update_certificate(host.dns_name, cert, key)
-
+                self.consul_manager.set_certificate(cert, key)
             else:
                 raise Exception('Could not download certificate')
         except Exception, e:
@@ -191,10 +190,9 @@ class RevokeCertTask(BaseManagerTask):
                 if obj_name != 'BaseSSLPlugin' and \
                         inspect.isclass(obj) and \
                         issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                    hosts = [host.dns_name for host in lb.hosts]
-                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain), hosts)
-
-            c_ssl.revoke()
+                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
+                                name)
+                    c_ssl.revoke()
 
         except Exception, e:
             logging.error("Error in ssl plugin task: {}".format(e))
