@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import glob
-
 from abc import ABCMeta, abstractmethod
-from os.path import dirname, basename, isfile
 
 
 class BaseSSLPlugin(object):
@@ -25,5 +22,4 @@ class BaseSSLPlugin(object):
     def revoke(self):
         raise NotImplementedError()
 
-modules = glob.glob(dirname(__file__)+"/*.py")
-__all__ = [basename(f)[:-3] for f in modules if isfile(f)]
+__all__ = ["default", "le", "le_authenticator"]
