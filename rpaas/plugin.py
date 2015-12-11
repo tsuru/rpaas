@@ -159,7 +159,7 @@ def get_ssl_args(args):
     parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-d", "--domain", required=True, help="Registered domain name")
-    parser.add_argument("-a", "--auth", required=False, help="Authorization plugin")
+    parser.add_argument("-p", "--plugin", required=False, help="Authorization plugin")
     parsed = parser.parse_args(args)
     return parsed
 
