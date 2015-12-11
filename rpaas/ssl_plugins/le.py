@@ -56,7 +56,7 @@ class LE(BaseSSLPlugin):
 class ConfigNamespace(object):
     def __init__(self, email):
         self.server = os.environ.get("RPAAS_PLUGIN_LE_URL",
-                                     "https://acme-staging.api.letsencrypt.org/directory")
+                                     "https://acme-v01.api.letsencrypt.org/directory")
         self.config_dir = './le/conf'
         self.work_dir = './le/work'
         self.http01_port = None
