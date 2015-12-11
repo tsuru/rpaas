@@ -2,8 +2,6 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-import os
-
 import consul
 
 from . import nginx
@@ -24,13 +22,13 @@ service "nginx" {{
 
 class ConsulManager(object):
 
-    def __init__(self, conf=None):
-        host = os.environ.get("CONSUL_HOST")
-        port = int(os.environ.get("CONSUL_PORT", "8500"))
-        token = os.environ.get("CONSUL_TOKEN")
+    def __init__(self, config):
+        host = config.get("CONSUL_HOST")
+        port = int(config.get("CONSUL_PORT", "8500"))
+        token = config.get("CONSUL_TOKEN")
         self.client = consul.Consul(host=host, port=port, token=token)
-        self.config_manager = nginx.ConfigManager(conf)
-        self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
+        self.config_manager = nginx.ConfigManager(config)
+        self.service_name = config.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def generate_token(self, instance_name):
         rules = ACL_TEMPLATE.format(service_name=self.service_name,

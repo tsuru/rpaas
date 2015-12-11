@@ -20,7 +20,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.consul = consul.Consul(token=self.master_token)
         self.consul.kv.delete("test-suite-rpaas", recurse=True)
         self._remove_tokens()
-        self.manager = consul_manager.ConsulManager()
+        self.manager = consul_manager.ConsulManager(os.environ)
 
     def _remove_tokens(self):
         for token in self.consul.acl.list():

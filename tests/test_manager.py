@@ -35,6 +35,8 @@ class ManagerTestCase(unittest.TestCase):
             "HOST_MANAGER": "my-host-manager",
             "LB_MANAGER": "my-lb-manager",
             "serviceofferingid": "abcdef123459",
+            "CONSUL_HOST": "127.0.0.1",
+            "CONSUL_TOKEN": "rpaas-test",
         }
 
     def tearDown(self):
