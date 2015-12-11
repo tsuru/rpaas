@@ -328,9 +328,7 @@ class Manager(object):
         key = self._generate_key()
         csr = self._generate_csr(key, domain)
 
-        if plugin.isalpha() and plugin in ssl_plugins.__all__ and \
-           plugin not in ['default', '__init__']:
-
+        if plugin == 'le':
             try:
                 self.storage.store_task(name)
                 task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-from rpaas.ssl_plugins import BaseSSLPlugin
+import datetime
+import uuid
+
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
-import datetime
-import uuid
+
+from rpaas.ssl_plugins import BaseSSLPlugin
 
 
 class Default(BaseSSLPlugin):

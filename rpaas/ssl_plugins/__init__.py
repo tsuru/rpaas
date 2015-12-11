@@ -22,4 +22,14 @@ class BaseSSLPlugin(object):
     def revoke(self):
         raise NotImplementedError()
 
-__all__ = ["default", "le", "le_authenticator"]
+_plugins = {}
+
+
+def register_plugins():
+    from . import default, le
+    _plugins["le"] = le.LE
+    _plugins["default"] = default.Default
+
+
+def get(name):
+    return _plugins.get(name)

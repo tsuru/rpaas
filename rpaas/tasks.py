@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import sys
 
@@ -11,11 +12,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, storage
-
-import rpaas.ssl_plugins
-import inspect
-import json
+from rpaas import consul_manager, hc, nginx, ssl_plugins, storage
 
 
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -30,6 +27,8 @@ app.conf.update(
     CELERY_RESULT_SERIALIZER='json',
     CELERY_ACCEPT_CONTENT=['json'],
 )
+
+ssl_plugins.register_plugins()
 
 
 class BaseManagerTask(Task):
@@ -144,17 +143,15 @@ class DownloadCertTask(BaseManagerTask):
 
             crt = None
 
-            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
-            for obj_name, obj in inspect.getmembers(p_ssl):
-                if obj_name != 'BaseSSLPlugin' and \
-                   inspect.isclass(obj) and \
-                   issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
-                                name)
+            plugin_class = ssl_plugins.get(plugin)
+            if not plugin_class:
+                raise Exception("Invalid plugin {}".format(plugin))
+            plugin_obj = plugin_class(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
+                                      name, consul_manager=self.consul_manager)
 
             #  Upload csr and get an Id
-            plugin_id = c_ssl.upload_csr(csr)
-            crt = c_ssl.download_crt(id=str(plugin_id))
+            plugin_id = plugin_obj.upload_csr(csr)
+            crt = plugin_obj.download_crt(id=str(plugin_id))
 
             #  Download the certificate and update nginx with it
             if crt:
@@ -169,9 +166,6 @@ class DownloadCertTask(BaseManagerTask):
                 self.consul_manager.set_certificate(cert, key)
             else:
                 raise Exception('Could not download certificate')
-        except Exception, e:
-            logging.error("Error in ssl plugin task: {}".format(e))
-            raise e
         finally:
             self.storage.remove_task(name)
 
@@ -185,14 +179,10 @@ class RevokeCertTask(BaseManagerTask):
             if lb is None:
                 raise storage.InstanceNotFoundError()
 
-            p_ssl = getattr(getattr(__import__('rpaas'), 'ssl_plugins'), plugin)
-            for obj_name, obj in inspect.getmembers(p_ssl):
-                if obj_name != 'BaseSSLPlugin' and \
-                        inspect.isclass(obj) and \
-                        issubclass(obj, rpaas.ssl_plugins.BaseSSLPlugin):
-                    c_ssl = obj(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
-                                name)
-                    c_ssl.revoke()
+            plugin_class = ssl_plugins.get(plugin)
+            plugin_obj = plugin_class(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
+                                      name)
+            plugin_obj.revoke()
 
         except Exception, e:
             logging.error("Error in ssl plugin task: {}".format(e))

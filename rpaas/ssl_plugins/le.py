@@ -16,8 +16,6 @@ from cryptography.hazmat.backends import default_backend
 
 import zope.component
 
-import rpaas
-
 from rpaas.ssl_plugins import BaseSSLPlugin
 from le_authenticator import RpaasLeAuthenticator
 
@@ -26,30 +24,25 @@ logger = logging.getLogger(__name__)
 
 class LE(BaseSSLPlugin):
 
-    def __init__(self, domain, email, instance_name):
+    def __init__(self, domain, email, instance_name, consul_manager=None):
         self.domain = str(domain)
         self.email = str(email)
         self.instance_name = str(instance_name)
+        self.consul_manager = consul_manager
 
     def upload_csr(self, csr=None):
         return None
 
     def download_crt(self, id=None):
-        ret = None
         try:
-            crt, chain, key = _main([self.domain], self.email, self.instance_name)
-        except Exception, e:
-            raise e
-        else:
-            ret = json.dumps({'crt': crt, 'chain': chain, 'key': key})
+            crt, chain, key = _main([self.domain], self.email, self.instance_name,
+                                    consul_manager=self.consul_manager)
+            return json.dumps({'crt': crt, 'chain': chain, 'key': key})
         finally:
-            consul_manager = rpaas.get_manager().consul_manager
-            consul_manager.remove_location(self.instance_name, "/acme-validate")
-        return ret
+            self.consul_manager.remove_location(self.instance_name, "/acme-validate")
 
     def revoke(self):
-        consul_manager = rpaas.get_manager().consul_manager
-        cert, key = consul_manager.get_certificate(self.instance_name)
+        cert, key = self.consul_manager.get_certificate(self.instance_name)
         return _revoke(key, cert)
 
 
@@ -74,7 +67,7 @@ class ConfigNamespace(object):
         self.strict_permissions = False
 
 
-def _main(domains=[], email=None, instance_name=""):
+def _main(domains=[], email=None, instance_name="", consul_manager=None):
     ns = ConfigNamespace(email)
     config = NamespaceConfig(ns)
     zope.component.provideUtility(config)
@@ -82,7 +75,8 @@ def _main(domains=[], email=None, instance_name=""):
     ams = AccountMemoryStorage()
     acc, acme = register(config, ams)
 
-    authenticator = RpaasLeAuthenticator(instance_name, config=config, name='')
+    authenticator = RpaasLeAuthenticator(instance_name, config=config, name='',
+                                         consul_manager=consul_manager)
     installer = None
     lec = Client(config, acc, authenticator, installer, acme)
     certr, chain, key, _ = lec.obtain_certificate(domains)

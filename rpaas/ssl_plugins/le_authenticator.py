@@ -10,8 +10,6 @@ from acme import challenges
 from letsencrypt import interfaces
 from letsencrypt.plugins import common
 
-import rpaas
-
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +38,7 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
         self._root = './le'
         self._httpd = None
         self.instance_name = instance_name
+        self.consul_manager = kwargs.get('consul_manager')
 
     def get_chall_pref(self, domain):
         return [challenges.HTTP01]
@@ -67,8 +66,8 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
             return None
 
     def _notify_and_wait(self, message):
-        consul_manager = rpaas.get_manager().consul_manager
-        consul_manager.write_location(self.instance_name, "/acme-validate", content=message)
+        self.consul_manager.write_location(self.instance_name, "/acme-validate",
+                                           content=message)
         time.sleep(6)
 
     def cleanup(self, achalls):
