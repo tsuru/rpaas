@@ -167,7 +167,7 @@ class DownloadCertTask(BaseManagerTask):
                 except:
                     cert = crt
 
-                self.consul_manager.set_certificate(cert, key)
+                self.consul_manager.set_certificate(name, cert, key)
             else:
                 raise Exception('Could not download certificate')
         finally:
