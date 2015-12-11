@@ -36,12 +36,12 @@ location /{achall.URI_ROOT_PATH}/{encoded_token} {{
 """
     """Command template."""
 
-    def __init__(self, instance_name, *args, **kwargs):
+    def __init__(self, instance_name, consul_manager, *args, **kwargs):
         super(RpaasLeAuthenticator, self).__init__(*args, **kwargs)
         self._root = './le'
         self._httpd = None
         self.instance_name = instance_name
-        self.consul_manager = kwargs.get('consul_manager')
+        self.consul_manager = consul_manager
 
     def get_chall_pref(self, domain):
         return [challenges.HTTP01]
