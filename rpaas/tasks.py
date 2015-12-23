@@ -168,6 +168,7 @@ class DownloadCertTask(BaseManagerTask):
                     cert = crt
 
                 self.consul_manager.set_certificate(name, cert, key)
+                self.storage.store_le_certificate(name, domain)
             else:
                 raise Exception('Could not download certificate')
         finally:
@@ -187,7 +188,7 @@ class RevokeCertTask(BaseManagerTask):
             plugin_obj = plugin_class(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
                                       name)
             plugin_obj.revoke()
-
+            self.storage.remove_le_certificate(name, domain)
         except Exception, e:
             logging.error("Error in ssl plugin task: {}".format(e))
             raise e
