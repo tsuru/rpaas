@@ -4,7 +4,10 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import datetime
 import unittest
+
+import freezegun
 
 from rpaas import plan, storage
 
@@ -15,6 +18,7 @@ class MongoDBStorageTestCase(unittest.TestCase):
         self.storage = storage.MongoDBStorage()
         self.storage.db[self.storage.quota_collection].remove()
         self.storage.db[self.storage.plans_collection].remove()
+        self.storage.db[self.storage.le_certificates_collection].remove()
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "small",
              "description": "some cool plan",
@@ -113,3 +117,36 @@ class MongoDBStorageTestCase(unittest.TestCase):
         self.storage.remove_instance_metadata("myinstance")
         inst_metadata = self.storage.find_instance_metadata("myinstance")
         self.assertIsNone(inst_metadata)
+
+    @freezegun.freeze_time("2014-12-23 10:53:00", tz_offset=2)
+    def test_store_le_certificate(self):
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.io")
+        coll = self.storage.db[self.storage.le_certificates_collection]
+        item = coll.find_one({"_id": "myinstance"})
+        expected = {"_id": "myinstance", "domain": "docs.tsuru.io",
+                    "created": datetime.datetime(2014, 12, 23, 10, 53, 0)}
+        self.assertEqual(expected, item)
+
+    @freezegun.freeze_time("2014-12-23 10:53:00", tz_offset=2)
+    def test_store_le_certificate_overwrite(self):
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.io")
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.com")
+        coll = self.storage.db[self.storage.le_certificates_collection]
+        item = coll.find_one({"_id": "myinstance"})
+        expected = {"_id": "myinstance", "domain": "docs.tsuru.com",
+                    "created": datetime.datetime(2014, 12, 23, 10, 53, 0)}
+        self.assertEqual(expected, item)
+
+    def test_remove_le_certificate(self):
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.io")
+        self.storage.remove_le_certificate("myinstance", "docs.tsuru.io")
+        coll = self.storage.db[self.storage.le_certificates_collection]
+        item = coll.find_one({"_id": "myinstance"})
+        self.assertIsNone(item)
+
+    def test_remove_le_certificate_wrong_domain(self):
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.io")
+        self.storage.remove_le_certificate("myinstance", "docs.tsuru.com")
+        coll = self.storage.db[self.storage.le_certificates_collection]
+        item = coll.find_one({"_id": "myinstance"})
+        self.assertIsNotNone(item)

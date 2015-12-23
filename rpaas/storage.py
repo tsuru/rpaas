@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import datetime
+
 import pymongo.errors
 
 from hm import storage
@@ -28,6 +30,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     plans_collection = "plans"
     instance_metadata_collection = "instance_metadata"
     quota_collection = "quota"
+    le_certificates_collection = "le_certificates"
 
     def store_hc(self, hc):
         self.db[self.hcs_collections].update({"_id": hc["_id"]}, hc, upsert=True)
@@ -189,3 +192,12 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def decrement_quota(self, servicename):
         self.db[self.quota_collection].update({}, {'$pull': {'used': servicename}}, multi=True)
+
+    def store_le_certificate(self, name, domain):
+        doc = {"_id": name, "domain": domain,
+               "created": datetime.datetime.utcnow()}
+        self.db[self.le_certificates_collection].update({"_id": name}, doc,
+                                                        upsert=True)
+
+    def remove_le_certificate(self, name, domain):
+        self.db[self.le_certificates_collection].remove({"_id": name, "domain": domain})
