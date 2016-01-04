@@ -12,15 +12,7 @@ import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.x509.oid import NameOID
-
-from rpaas import consul_manager, nginx, ssl_plugins, storage, tasks
+from rpaas import consul_manager, nginx, ssl, ssl_plugins, storage, tasks
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -153,8 +145,6 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        # if not self._verify_crt(cert, key):
-        #     raise SslError('Invalid certificate')
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
@@ -229,71 +219,6 @@ class Manager(object):
         if task:
             raise NotReadyError("Async task still running")
 
-    def _verify_crt(self, raw_crt, raw_key):
-        ''' Verify if a random private key signed message is valid
-        '''
-        try:
-            crt = x509.load_pem_x509_certificate(raw_crt, default_backend())
-            key = serialization.load_pem_private_key(raw_key, None, default_backend())
-
-            signer = key.signer(
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA1()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-            message = b"A message I want to sign"
-            signer.update(message)
-            signature = signer.finalize()
-
-            public_key = crt.public_key()
-            verifier = public_key.verifier(
-                signature,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA1()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-            verifier.update(message)
-            verifier.verify()
-        except:
-            return False
-        return True
-
-    def _generate_key(self):
-        # Generate our key
-        key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-
-        # Return serialized private key
-        return key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-
-    def _generate_csr(self, key, domainname):
-        private_key = serialization.load_pem_private_key(key, password=None,
-                                                         backend=default_backend())
-        csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
-            # Provide various details about who we are.
-            x509.NameAttribute(NameOID.COUNTRY_NAME, u"BR"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"RJ"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, u"Rio de Janeiro"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"globo.com"),
-            x509.NameAttribute(NameOID.COMMON_NAME, domainname),
-        ])).add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(domainname)]),
-            critical=False,
-        ).sign(private_key, hashes.SHA256(), default_backend())
-
-        return csr.public_bytes(serialization.Encoding.PEM)
-
     def _check_dns(self, name, domain):
         ''' Check if the DNS name is registered for the rpaas VIP
         @param domain Domain name
@@ -325,8 +250,8 @@ class Manager(object):
         if not self._check_dns(name, domain):
             raise SslError('rpaas IP is not registered for this DNS name')
 
-        key = self._generate_key()
-        csr = self._generate_csr(key, domain)
+        key = ssl.generate_key()
+        csr = ssl.generate_csr(key, domain)
 
         if plugin == 'le':
             try:

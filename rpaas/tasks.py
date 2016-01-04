@@ -2,9 +2,8 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-import os
-import json
 import logging
+import os
 import sys
 
 from celery import Celery, Task
@@ -16,7 +15,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, ssl_plugins, storage
+from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage
 
 
 redis_host = os.environ.get('REDIS_HOST', 'localhost')
@@ -141,36 +140,7 @@ class DownloadCertTask(BaseManagerTask):
     def run(self, config, name, plugin, csr, key, domain):
         try:
             self.init_config(config)
-            lb = LoadBalancer.find(name, self.config)
-            if lb is None:
-                raise storage.InstanceNotFoundError()
-
-            crt = None
-
-            plugin_class = ssl_plugins.get(plugin)
-            if not plugin_class:
-                raise Exception("Invalid plugin {}".format(plugin))
-            plugin_obj = plugin_class(domain, os.environ.get('RPAAS_PLUGIN_LE_EMAIL', 'admin@'+domain),
-                                      name, consul_manager=self.consul_manager)
-
-            #  Upload csr and get an Id
-            plugin_id = plugin_obj.upload_csr(csr)
-            crt = plugin_obj.download_crt(id=str(plugin_id))
-
-            #  Download the certificate and update nginx with it
-            if crt:
-                try:
-                    js_crt = json.loads(crt)
-                    cert = js_crt['crt']
-                    cert = cert+js_crt['chain'] if 'chain' in js_crt else cert
-                    key = js_crt['key'] if 'key' in js_crt else key
-                except:
-                    cert = crt
-
-                self.consul_manager.set_certificate(name, cert, key)
-                self.storage.store_le_certificate(name, domain)
-            else:
-                raise Exception('Could not download certificate')
+            ssl.generate_crt(self.config, name, plugin, csr, key, domain)
         finally:
             self.storage.remove_task(name)
 
