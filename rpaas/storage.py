@@ -201,3 +201,13 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def remove_le_certificate(self, name, domain):
         self.db[self.le_certificates_collection].remove({"_id": name, "domain": domain})
+
+    def find_le_certificates(self, query):
+        if "name" in query:
+            query["_id"] = query["name"]
+            del query["name"]
+        certificates = self.db[self.le_certificates_collection].find(query)
+        for certificate in certificates:
+            certificate["name"] = certificate["_id"]
+            del certificate["_id"]
+            yield certificate

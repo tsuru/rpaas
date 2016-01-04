@@ -150,3 +150,11 @@ class MongoDBStorageTestCase(unittest.TestCase):
         coll = self.storage.db[self.storage.le_certificates_collection]
         item = coll.find_one({"_id": "myinstance"})
         self.assertIsNotNone(item)
+
+    def test_find_le_certificates(self):
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.io")
+        self.storage.store_le_certificate("myinstance", "docs.tsuru.com")
+        certs_domain = list(self.storage.find_le_certificates({"domain": "docs.tsuru.com"}))
+        certs_name = list(self.storage.find_le_certificates({"name": "myinstance"}))
+        self.assertEqual(certs_name, certs_domain)
+        self.assertEqual("myinstance", certs_name[0]["name"])
