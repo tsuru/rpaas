@@ -6,6 +6,10 @@ import os
 import threading
 import time
 
+import redis
+
+from redis import lock
+
 from rpaas import tasks
 
 
@@ -23,12 +27,19 @@ class LeRenewer(threading.Thread):
         self.daemon = True
         self.config = config or os.environ
         self.interval = int(self.config.get("LE_RENEWER_RUN_INTERVAL", 86400))
+        lock_name = self.config.get("LE_RENEWER_LOCK_NAME", "le_renewer_rpaas")
+        conn = redis.StrictRedis(host=tasks.redis_host, port=tasks.redis_port,
+                                 password=tasks.redis_password)
+        self.lock = lock.Lock(conn, lock_name, timeout=self.interval*2,
+                              sleep=self.interval / 24 + 1)
 
     def run(self):
         self.running = True
         while self.running:
+            self.lock.acquire()
             tasks.RenewCertsTask().delay(self.config)
             time.sleep(self.interval)
+            self.lock.release()
 
     def stop(self):
         self.running = False

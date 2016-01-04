@@ -7,7 +7,9 @@ install:
   - unzip 0.5.2_linux_amd64.zip
   - GOMAXPROCS=8 PATH=":$PATH" make start-consul
 script: make test
-services: mongodb
+services:
+  - mongodb
+  - redis
 notifications:
   email:
     recipients:
