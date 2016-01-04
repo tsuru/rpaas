@@ -26,6 +26,10 @@ else:
 api.logger.addHandler(handler)
 hm.log.set_handler(handler)
 
+if "RUN_LE_RENEWER" in os.environ:
+    from rpaas.ssl_plugins import le_renewer
+    le_renewer.LeRenewer().start()
+
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
 if SENTRY_DSN:
     api.config['SENTRY_DSN'] = SENTRY_DSN
