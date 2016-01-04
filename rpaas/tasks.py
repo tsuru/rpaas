@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import copy
+import datetime
 import logging
 import os
 import sys
@@ -164,3 +166,25 @@ class RevokeCertTask(BaseManagerTask):
             raise e
         finally:
             self.storage.remove_task(name)
+
+
+class RenewCertsTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        expires_in = int(self.config.get("LE_CERTIFICATE_EXPIRATION_DAYS", 90))
+        limit = datetime.datetime.utcnow() - datetime.timedelta(days=expires_in - 3)
+        query = {"created": {"$lte": limit}}
+        for cert in self.storage.find_le_certificates(query):
+            metadata = self.storage.find_instance_metadata(cert["name"])
+            config = copy.deepcopy(self.config)
+            if metadata and "plan_name" in metadata:
+                plan = self.storage.find_plan(metadata["plan_name"])
+                config.update(plan.config)
+            self.renew(cert, config)
+
+    def renew(self, cert, config):
+        key = ssl.generate_key()
+        csr = ssl.generate_csr(key, cert["domain"])
+        DownloadCertTask().delay(config=config, name=cert["name"], plugin="le",
+                                 csr=csr, key=key, domain=cert["domain"])
