@@ -49,7 +49,7 @@ class LeRenewer(threading.Thread):
                 if last_run:
                     last_run_date = datetime.datetime.strptime(last_run, DATETIME_FORMAT)
                     if now - last_run_date < interval_delta:
-                        pipe.unwatch(self.last_run_key)
+                        pipe.unwatch()
                         return False
                 pipe.multi()
                 pipe.set(self.last_run_key, now.strftime(DATETIME_FORMAT))
