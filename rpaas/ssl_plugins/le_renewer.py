@@ -37,7 +37,7 @@ class LeRenewer(threading.Thread):
         while self.running:
             if self.try_lock():
                 tasks.RenewCertsTask().delay(self.config)
-            time.sleep(self.interval)
+            time.sleep(self.interval / 2)
 
     def try_lock(self):
         interval_delta = datetime.timedelta(seconds=self.interval)
