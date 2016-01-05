@@ -26,7 +26,7 @@ class LeRenewer(threading.Thread):
     def __init__(self, config=None, *args, **kwargs):
         super(LeRenewer, self).__init__(*args, **kwargs)
         self.daemon = True
-        self.config = config or os.environ
+        self.config = config or dict(os.environ)
         self.interval = int(self.config.get("LE_RENEWER_RUN_INTERVAL", 86400))
         self.last_run_key = self.config.get("LE_RENEWER_LAST_RUN_KEY", "le_renewer:last_run")
         self.conn = redis.StrictRedis(host=tasks.redis_host, port=tasks.redis_port,
