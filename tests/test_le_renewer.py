@@ -7,6 +7,8 @@ import mock
 import time
 import unittest
 
+import redis
+
 from rpaas import storage, tasks
 from rpaas.ssl_plugins import le_renewer
 
@@ -19,7 +21,7 @@ class LeRenewerTestCase(unittest.TestCase):
         self.config = {
             "MONGO_DATABASE": "le_renewer_test",
             "RPAAS_SERVICE_NAME": "test_rpaas_renewer",
-            "LE_RENEWER_RUN_INTERVAL": 1,
+            "LE_RENEWER_RUN_INTERVAL": 2,
         }
         self.storage = storage.MongoDBStorage(self.config)
 
@@ -42,8 +44,10 @@ class LeRenewerTestCase(unittest.TestCase):
             {"_id": "instance7", "domain": "i7.tsuru.io",
              "created": now - datetime.timedelta(days=86)},
         ]
+        self.storage.db[self.storage.le_certificates_collection].remove()
         for cert in certs:
             self.storage.db[self.storage.le_certificates_collection].insert(cert)
+        redis.StrictRedis().delete("le_renewer:last_run")
 
     def tearDown(self):
         self.storage.db[self.storage.le_certificates_collection].remove()
