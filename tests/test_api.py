@@ -395,3 +395,40 @@ class APITestCase(unittest.TestCase):
 
     def delete_auth_env(self):
         del os.environ["API_USERNAME"], os.environ["API_PASSWORD"]
+
+    def test_add_block(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': 'http'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance('someapp')
+        self.assertDictEqual(instance.blocks.get('http'), {
+            'content': u'something',
+        })
+
+    def test_add_block_without_content(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': None,
+            'block_name': 'http'
+        })
+        self.assertEqual(400, resp.status_code)
+
+
+    def test_add_block_without_block_name(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': None
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_add_block_not_server_http(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': 'location'
+        })
+        self.assertEqual(400, resp.status_code)

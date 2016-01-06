@@ -232,6 +232,24 @@ def list_routes(name):
         return "Instance not found", 404
 
 
+@api.route("/resource/<name>/block", methods=["POST"])
+@auth.required
+def add_block(name):
+    content = request.form.get('content')
+    block_name = request.form.get('block_name')
+    if block_name not in ('server', 'http'):
+        return 'please, send block_name for this block (server or http)', 400
+    if not content:
+        return 'please, send content for this block', 400
+    try:
+        get_manager().add_block(name, block_name, content)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "", 201
+
+
 @api.route("/resources/<name>/purge", methods=["POST"])
 @auth.required
 def purge_location(name):
