@@ -62,6 +62,9 @@ class ConsulManager(object):
         content = content.strip()
         self.client.kv.put(self._block_key(instance_name, block_name), content)
 
+    def remove_block(self, instance_name, block_name):
+        self.client.kv.delete(self._block_key(instance_name, block_name))
+
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
         key = self.client.kv.get(self._ssl_key_key(instance_name))[1]

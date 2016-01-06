@@ -105,6 +105,10 @@ class FakeManager(object):
         _, instance = self.find_instance(name)
         instance.blocks[block_name] = {'content': content}
 
+    def delete_block(self, name, block_name):
+        _, instance = self.find_instance(name)
+        del instance.blocks[block_name]
+
     def purge_location(self, name, path):
         _, instance = self.find_instance(name)
         return 4

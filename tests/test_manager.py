@@ -652,7 +652,6 @@ content = location /x {
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_block_with_content(self, LoadBalancer):
-        self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
@@ -664,6 +663,18 @@ content = location /x {
         manager.consul_manager.write_block.assert_called_with(
             "inst", "server", "location /x { something; }"
         )
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_delete_block(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.delete_block("inst", "http")
+
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.remove_block.assert_called_with("inst", "http")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_purge_location(self, LoadBalancer):

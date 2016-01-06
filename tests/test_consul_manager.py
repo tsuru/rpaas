@@ -143,3 +143,16 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.remove_location("myrpaas", "/admin/app_sites/")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         self.assertIsNone(item[1])
+
+    def test_remove_block_server_root(self):
+        self.manager.write_block("myrpaas", "server",
+                                 "something nice in server")
+        self.manager.remove_block("myrpaas", "server")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
+        self.assertIsNone(item[1])
+
+    def test_remove_block_http_root(self):
+        self.manager.write_block("myrpaas", "http", "something nice in http")
+        self.manager.remove_block("myrpaas", "http")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
+        self.assertIsNone(item[1])

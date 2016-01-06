@@ -250,6 +250,21 @@ def add_block(name):
     return "", 201
 
 
+@api.route("/resources/<name>/block", methods=["DELETE"])
+@auth.required
+def delete_block(name):
+    block_name = request.form.get('block_name')
+    if not block_name:
+        return 'missing block_name', 400
+    try:
+        get_manager().delete_block(name, block_name)
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "", 200
+
+
 @api.route("/resources/<name>/purge", methods=["POST"])
 @auth.required
 def purge_location(name):

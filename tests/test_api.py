@@ -432,3 +432,13 @@ class APITestCase(unittest.TestCase):
             'block_name': 'location'
         })
         self.assertEqual(400, resp.status_code)
+
+    def test_delete_block(self):
+        instance = self.manager.new_instance("someapp")
+        instance.blocks['server'] = 'true.com'
+        resp = self.api.delete("/resources/someapp/block", data={
+            'block_name': 'server'
+        }, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertIsNone(instance.blocks.get('server'))
