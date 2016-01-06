@@ -677,6 +677,36 @@ content = location /x {
         manager.consul_manager.remove_block.assert_called_with("inst", "http")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_list_block(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.list_blocks.return_value = [
+            None, [{'Value': 'my content'}, {'Value': 'my content 2'}]
+        ]
+        manager.list_blocks("inst")
+
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.list_blocks.assert_called_with("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_list_block_with_one_content(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.list_blocks.return_value = [
+            None, [{'Value': 'my content'}]
+        ]
+        manager.list_blocks("inst")
+
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.list_blocks.assert_called_with("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_purge_location(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
