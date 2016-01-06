@@ -442,3 +442,12 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(200, resp.status_code)
         _, instance = self.manager.find_instance("someapp")
         self.assertIsNone(instance.blocks.get('server'))
+
+    def test_list_blocks(self):
+        instance = self.manager.new_instance("someapp")
+        instance.blocks['http'] = 'true.com'
+        resp = self.api.get("/resources/someapp/block")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("application/json", resp.mimetype)
+        data = json.loads(resp.data)
+        self.assertDictEqual({"http": "true.com"}, data)

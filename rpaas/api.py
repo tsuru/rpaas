@@ -243,8 +243,6 @@ def add_block(name):
         return 'please, send content for this block', 400
     try:
         get_manager().add_block(name, block_name, content)
-    except storage.InstanceNotFoundError:
-        return "Instance not found", 404
     except manager.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 201
@@ -258,11 +256,20 @@ def delete_block(name):
         return 'missing block_name', 400
     try:
         get_manager().delete_block(name, block_name)
-    except storage.InstanceNotFoundError:
-        return "Instance not found", 404
     except manager.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 200
+
+
+@api.route("/resources/<name>/block", methods=["GET"])
+@auth.required
+def list_block(name):
+    try:
+        info = get_manager().list_blocks(name)
+        return Response(response=json.dumps(info), status=200,
+                        mimetype="application/json")
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
 
 
 @api.route("/resources/<name>/purge", methods=["POST"])
