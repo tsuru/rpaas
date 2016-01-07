@@ -276,7 +276,7 @@ def get_block_args(args):
     parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-b", "--block_name", required=False, help="Block in nginx", type=nginx_block)
     parser.add_argument("-c", "--content", required=False,
-                        help="(advanced) raw nginx block content")
+                        help="Raw nginx block content")
     parsed = parser.parse_args(args)
     if parsed.action == 'add' and (not parsed.block_name or not parsed.content):
         sys.stderr.write("block_name and content are required\n")

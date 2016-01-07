@@ -238,9 +238,9 @@ def add_block(name):
     content = request.form.get('content')
     block_name = request.form.get('block_name')
     if block_name not in ('server', 'http'):
-        return 'please, send block_name for this block (server or http)', 400
+        return 'invalid block_name (valid values are "server" or "http")', 400
     if not content:
-        return 'please, send content for this block', 400
+        return 'missing content', 400
     try:
         get_manager().add_block(name, block_name, content)
     except manager.NotReadyError as e:
@@ -248,12 +248,9 @@ def add_block(name):
     return "", 201
 
 
-@api.route("/resources/<name>/block", methods=["DELETE"])
+@api.route("/resources/<name>/block/<block_name>", methods=["DELETE"])
 @auth.required
-def delete_block(name):
-    block_name = request.form.get('block_name')
-    if not block_name:
-        return 'missing block_name', 400
+def delete_block(name, block_name):
     try:
         get_manager().delete_block(name, block_name)
     except manager.NotReadyError as e:
