@@ -395,3 +395,59 @@ class APITestCase(unittest.TestCase):
 
     def delete_auth_env(self):
         del os.environ["API_USERNAME"], os.environ["API_PASSWORD"]
+
+    def test_add_block(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': 'http'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance('someapp')
+        self.assertDictEqual(instance.blocks.get('http'), {
+            'content': u'something',
+        })
+
+    def test_add_block_without_content(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': None,
+            'block_name': 'http'
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_add_block_without_block_name(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': None
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_add_block_not_server_http(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resource/someapp/block', data={
+            'content': 'something',
+            'block_name': 'location'
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_delete_block(self):
+        instance = self.manager.new_instance("someapp")
+        instance.blocks['server'] = 'true.com'
+        resp = self.api.delete("/resources/someapp/block/server", headers={
+            'Content-Type': 'application/x-www-form-urlencoded'
+        })
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertIsNone(instance.blocks.get('server'))
+
+    def test_list_blocks(self):
+        instance = self.manager.new_instance("someapp")
+        instance.blocks['http'] = 'https'
+        instance.blocks['server'] = 'true.com'
+        resp = self.api.get("/resources/someapp/block")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("application/json", resp.mimetype)
+        data = json.loads(resp.data)
+        self.assertDictEqual({"server": "true.com", "http": "https"}, data)

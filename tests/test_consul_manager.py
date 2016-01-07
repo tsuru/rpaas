@@ -90,6 +90,18 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         self.assertEqual("something nice", item[1]["Value"])
 
+    def test_write_block_http_content(self):
+        self.manager.write_block("myrpaas", "http",
+                                 content=" something nice in http         \n")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
+        self.assertEqual("something nice in http", item[1]["Value"])
+
+    def test_write_block_server_content(self):
+        self.manager.write_block("myrpaas", "server",
+                                 content=" something nice in server         \n")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
+        self.assertEqual("something nice in server", item[1]["Value"])
+
     def test_get_certificate(self):
         origin_cert, origin_key = "cert", "key"
         self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/cert", origin_cert)
@@ -131,3 +143,32 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.remove_location("myrpaas", "/admin/app_sites/")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         self.assertIsNone(item[1])
+
+    def test_remove_block_server_root(self):
+        self.manager.write_block("myrpaas", "server",
+                                 "something nice in server")
+        self.manager.remove_block("myrpaas", "server")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
+        self.assertIsNone(item[1])
+
+    def test_remove_block_http_root(self):
+        self.manager.write_block("myrpaas", "http", "something nice in http")
+        self.manager.remove_block("myrpaas", "http")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
+        self.assertIsNone(item[1])
+
+    def test_list_one_block(self):
+        self.manager.write_block("myrpaas", "server",
+                                 "something nice in server")
+        items = self.manager.list_blocks("myrpaas")
+        self.assertEqual(1, len(items[1]))
+        self.assertEqual("something nice in server", items[1][0]["Value"])
+
+    def test_list_block(self):
+        self.manager.write_block("myrpaas", "server",
+                                 "something nice in server")
+        self.manager.write_block("myrpaas", "http", "something nice in http")
+        items = self.manager.list_blocks("myrpaas")
+        self.assertEqual(2, len(items[1]))
+        self.assertEqual("something nice in http", items[1][0]["Value"])
+        self.assertEqual("something nice in server", items[1][1]["Value"])

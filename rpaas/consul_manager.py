@@ -58,6 +58,17 @@ class ConsulManager(object):
     def remove_location(self, instance_name, path):
         self.client.kv.delete(self._location_key(instance_name, path))
 
+    def write_block(self, instance_name, block_name, content):
+        content = content.strip()
+        self.client.kv.put(self._block_key(instance_name, block_name), content)
+
+    def remove_block(self, instance_name, block_name):
+        self.client.kv.delete(self._block_key(instance_name, block_name))
+
+    def list_blocks(self, instance_name, block_name=None):
+        return self.client.kv.get(self._block_key(instance_name, block_name),
+                                  recurse=True)
+
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
         key = self.client.kv.get(self._ssl_key_key(instance_name))[1]
@@ -80,6 +91,16 @@ class ConsulManager(object):
         if path != "/":
             location_key = path.replace("/", "___")
         return self._key(instance_name, "locations/" + location_key)
+
+    def _block_key(self, instance_name, block_name=None):
+        block_key = "ROOT"
+        if block_name:
+            block_path_key = self._key(instance_name,
+                                       "blocks/%s/%s" % (block_name,
+                                                         block_key))
+        else:
+            block_path_key = self._key(instance_name, "blocks")
+        return block_path_key
 
     def _key(self, instance_name, suffix=None):
         key = "{}/{}".format(self.service_name, instance_name)

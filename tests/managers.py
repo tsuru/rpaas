@@ -14,6 +14,7 @@ class FakeInstance(object):
         self.plan = plan
         self.bound = []
         self.routes = {}
+        self.blocks = {}
 
     def bind(self, app_host):
         self.bound.append(app_host)
@@ -99,6 +100,18 @@ class FakeManager(object):
     def list_routes(self, name):
         _, instance = self.find_instance(name)
         return instance.routes
+
+    def add_block(self, name, block_name, content):
+        _, instance = self.find_instance(name)
+        instance.blocks[block_name] = {'content': content}
+
+    def delete_block(self, name, block_name):
+        _, instance = self.find_instance(name)
+        del instance.blocks[block_name]
+
+    def list_blocks(self, name):
+        _, instance = self.find_instance(name)
+        return instance.blocks
 
     def purge_location(self, name, path):
         _, instance = self.find_instance(name)

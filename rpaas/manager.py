@@ -214,6 +214,30 @@ class Manager(object):
                 purged_hosts += 1
         return purged_hosts
 
+    def add_block(self, name, block_name, content):
+        self._ensure_ready(name)
+        block_name = block_name.strip()
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.write_block(name, block_name, content)
+
+    def delete_block(self, name, block_name):
+        self._ensure_ready(name)
+        block_name = block_name.strip()
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.remove_block(name, block_name)
+
+    def list_blocks(self, name):
+        self._ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        blocks = self.consul_manager.list_blocks(name)
+        return [block['Value'] for block in blocks[1]]
+
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
         if task:
