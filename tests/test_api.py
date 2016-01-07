@@ -416,7 +416,6 @@ class APITestCase(unittest.TestCase):
         })
         self.assertEqual(400, resp.status_code)
 
-
     def test_add_block_without_block_name(self):
         self.manager.new_instance('someapp')
         resp = self.api.post('/resource/someapp/block', data={

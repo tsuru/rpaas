@@ -315,7 +315,6 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        path = os.path.join(os.path.dirname(__file__), "testdata", "block_http")
         plugin.block(['add', '-s', 'myservice', '-i', 'myinst', '-b', 'http', '-c', 'lalala'])
         Request.assert_called_with(self.target +
                                    "services/myservice/proxy/myinst?" +
@@ -353,7 +352,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         request = Request.return_value
         urlopen.return_value.getcode.return_value = 200
         urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
-            '"blocks": [{"block_name": "http", "content": "my content"}, {"block_name": "server", "content": "server content"}]}'
+            '"blocks": [{"block_name": "http", "content": "my content"}, ' + \
+            '{"block_name": "server", "content": "server content"}]}'
         self.set_envs()
         self.addCleanup(self.delete_envs)
         plugin.block(['list', '-s', 'myservice', '-i', 'myinst'])
