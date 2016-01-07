@@ -335,6 +335,7 @@ def available_commands():
         "route": route,
         "purge": purge,
         "ssl": ssl,
+        "block": block,
     }
 
 
