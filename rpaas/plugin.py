@@ -82,6 +82,12 @@ def certificate(args):
         sys.exit(1)
 
 
+def nginx_block(value):
+    if value in ('server', 'http'):
+        return value
+    raise argparse.ArgumentTypeError('Block must be "server" or "http"')
+
+
 def route(args):
     args = get_route_args(args)
     req_path = "/resources/{}/route".format(args.instance)
@@ -119,6 +125,46 @@ def route(args):
             sys.stdout.write('\n'.join(out) + '\n')
         else:
             sys.stdout.write("route successfully {}\n".format(message))
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
+def block(args):
+    args = get_block_args(args)
+    req_path = "/resources/{}/block".format(args.instance)
+    params = {}
+    method = "GET"
+
+    if args.content and args.content.startswith('@'):
+        with open(args.content[1:]) as f:
+            args.content = f.read()
+
+    if args.action == 'add':
+        params['block_name'] = args.block_name
+        params['content'] = args.content
+        method = "POST"
+        message = "added"
+    elif args.action == 'remove':
+        params['block_name'] = args.block_name
+        method = "DELETE"
+        message = "removed"
+    body = urllib.urlencode(params)
+    result = proxy_request(args.service, args.instance, req_path,
+                           body=body,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if result.getcode() in [200, 201]:
+        if args.action == 'list':
+            parsed = json.loads(result.read())
+            blocks = parsed.get('blocks') or []
+            out = ["block_name: content", ""]
+            for block in blocks:
+                out.append("{}: {}".format(block.get('block_name'), block.get('content')))
+            sys.stdout.write('\n'.join(out) + '\n')
+        else:
+            sys.stdout.write("block successfully {}\n".format(message))
     else:
         msg = result.read().rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
@@ -218,6 +264,25 @@ def get_route_args(args):
             sys.exit(3)
     if parsed.action != 'list' and not parsed.path:
         sys.stderr.write("path is required to add/remove action\n")
+        sys.exit(2)
+    return parsed
+
+
+def get_block_args(args):
+    parser = argparse.ArgumentParser("block")
+    parser.add_argument("action", choices=["add", "list", "remove"],
+                        help="Action, add or remove blocks from nginx config")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Instance name")
+    parser.add_argument("-b", "--block_name", required=False, help="Block in nginx", type=nginx_block)
+    parser.add_argument("-c", "--content", required=False,
+                        help="(advanced) raw nginx block content")
+    parsed = parser.parse_args(args)
+    if parsed.action == 'add' and (not parsed.block_name or not parsed.content):
+        sys.stderr.write("block_name and content are required\n")
+        sys.exit(2)
+    if parsed.action == 'remove' and not parsed.block_name:
+        sys.stderr.write("block_name is required\n")
         sys.exit(2)
     return parsed
 

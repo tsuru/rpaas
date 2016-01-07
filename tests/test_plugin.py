@@ -7,6 +7,7 @@ import unittest
 import re
 
 import mock
+import argparse
 
 from rpaas import plugin
 
@@ -285,6 +286,136 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_block_add_file_content(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        path = os.path.join(os.path.dirname(__file__), "testdata", "block_http")
+        plugin.block(['add', '-s', 'myservice', '-i', 'myinst', '-b', 'http', '-c', '@'+path])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/block")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("content=content%0A&block_name=http")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("block successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_block_add(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        path = os.path.join(os.path.dirname(__file__), "testdata", "block_http")
+        plugin.block(['add', '-s', 'myservice', '-i', 'myinst', '-b', 'http', '-c', 'lalala'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/block")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("content=lalala&block_name=http")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("block successfully added\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_block_remove(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.block(['remove', '-s', 'myservice', '-i', 'myinst', '-b', 'http'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/block")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("block_name=http")
+        self.assertEqual(request.get_method(), 'DELETE')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("block successfully removed\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_block_list(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
+            '"blocks": [{"block_name": "http", "content": "my content"}, {"block_name": "server", "content": "server content"}]}'
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.block(['list', '-s', 'myservice', '-i', 'myinst'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/block")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual(request.get_method(), 'GET')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("""block_name: content
+
+http: my content
+server: server content
+""")
+
+    @mock.patch("sys.stderr")
+    def test_block_args(self, stderr):
+        parsed = plugin.get_block_args(
+            ['add', '-s', 'myservice', '-i', 'myinst', '-b', 'http', '-c', 'my block'])
+        self.assertEqual(parsed.action, 'add')
+        self.assertEqual(parsed.block_name, 'http')
+        self.assertEqual(parsed.content, 'my block')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_block_args(['add', '-s', 'myservice', '-i', 'myinst', '-b', 'server'])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('block_name and content are required\n')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_block_args([
+                'add', '-s', 'myservice', '-i', 'myinst', '-c', 'my content',
+            ])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('block_name and content are required\n')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_block_args(
+                ['remove', '-s', 'myservice', '-i', 'myinst', '-b', 'blabla']
+            )
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with(
+            'block: error: argument -b/--block_name: Block must be "server" or "http"\n'
+        )
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_block_args(
+                ['remove', '-s', 'myservice', '-i', 'myinst']
+            )
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('block_name is required\n')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_block_args(
+                ['-s', 'myservice', '-i', 'myinst', '-b', 'http']
+            )
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('block: error: too few arguments\n')
+
+    def test_nginx_block(self):
+        self.assertEqual('http', plugin.nginx_block('http'))
+        with self.assertRaises(argparse.ArgumentTypeError):
+            plugin.nginx_block('lelele')
 
     @mock.patch("sys.stderr")
     def test_purge_args(self, stderr):
