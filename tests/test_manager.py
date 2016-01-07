@@ -684,25 +684,23 @@ content = location /x {
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.consul_manager.list_blocks.return_value = [
-            None, [{'Value': 'my content'}, {'Value': 'my content 2'}]
+            '9796', [{u'LockIndex': 0,
+                      u'ModifyIndex': 9796,
+                      u'Value': 'something nice in server',
+                      u'Flags': 0,
+                      u'Key': u'test-suite-rpaas/myrpaas/blocks/server/ROOT',
+                      u'CreateIndex': 9796},
+                     {u'LockIndex': 0,
+                      u'ModifyIndex': 9796,
+                      u'Value': 'something nice in http',
+                      u'Flags': 0,
+                      u'Key': u'test-suite-rpaas/myrpaas/blocks/http/ROOT',
+                      u'CreateIndex': 9796}]
         ]
-        manager.list_blocks("inst")
+        blocks = manager.list_blocks("inst")
 
-        LoadBalancer.find.assert_called_with("inst")
-        manager.consul_manager.list_blocks.assert_called_with("inst")
-
-    @mock.patch("rpaas.manager.LoadBalancer")
-    def test_list_block_with_one_content(self, LoadBalancer):
-        lb = LoadBalancer.find.return_value
-        lb.hosts = [mock.Mock(), mock.Mock()]
-
-        manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
-        manager.consul_manager.list_blocks.return_value = [
-            None, [{'Value': 'my content'}]
-        ]
-        manager.list_blocks("inst")
-
+        self.assertDictEqual(blocks[0], {'server': 'something nice in server'})
+        self.assertDictEqual(blocks[1], {'http': 'something nice in http'})
         LoadBalancer.find.assert_called_with("inst")
         manager.consul_manager.list_blocks.assert_called_with("inst")
 
