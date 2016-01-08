@@ -236,10 +236,12 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         blocks = self.consul_manager.list_blocks(name)
-        block_list = [
-            {'block_name': block['Key'].split('/')[-2],
-             'content': block['Value']} for block in blocks[1]
-        ]
+        block_list = []
+        if blocks[1]:
+            block_list = [
+                {'block_name': block['Key'].split('/')[-2],
+                 'content': block['Value']} for block in blocks[1]
+            ]
         return block_list
 
     def _ensure_ready(self, name):

@@ -707,6 +707,20 @@ content = location /x {
         manager.consul_manager.list_blocks.assert_called_with("inst")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_empty_list_blocks(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.list_blocks.return_value = ['9796', None]
+        blocks = manager.list_blocks("inst")
+
+        self.assertEqual(blocks, [])
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.list_blocks.assert_called_with("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_purge_location(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]

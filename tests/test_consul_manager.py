@@ -157,10 +157,15 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
         self.assertIsNone(item[1])
 
+    def test_list_no_block(self):
+        items = self.manager.list_blocks("myrpaas")
+        self.assertIsNone(items[1])
+
     def test_list_one_block(self):
         self.manager.write_block("myrpaas", "server",
                                  "something nice in server")
         items = self.manager.list_blocks("myrpaas")
+
         self.assertEqual(1, len(items[1]))
         self.assertEqual("something nice in server", items[1][0]["Value"])
 
