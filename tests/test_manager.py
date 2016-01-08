@@ -699,8 +699,10 @@ content = location /x {
         ]
         blocks = manager.list_blocks("inst")
 
-        self.assertDictEqual(blocks[0], {'server': 'something nice in server'})
-        self.assertDictEqual(blocks[1], {'http': 'something nice in http'})
+        self.assertDictEqual(blocks[0], {'block_name': 'server',
+                                         'content': 'something nice in server'})
+        self.assertDictEqual(blocks[1], {'block_name': 'http',
+                                         'content': 'something nice in http'})
         LoadBalancer.find.assert_called_with("inst")
         manager.consul_manager.list_blocks.assert_called_with("inst")
 

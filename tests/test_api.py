@@ -368,12 +368,12 @@ class APITestCase(unittest.TestCase):
 
     def test_list_routes(self):
         instance = self.manager.new_instance("someapp")
-        instance.routes['/somewhere'] = 'true.com'
+        instance.routes = {"routes": [{'/somewhere': 'true.com'}]}
         resp = self.api.get("/resources/someapp/route")
         self.assertEqual(200, resp.status_code)
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)
-        self.assertDictEqual({"/somewhere": "true.com"}, data)
+        self.assertDictEqual({"routes": [{'/somewhere': 'true.com'}]}, data)
 
     def test_purge_location(self):
         resp = self.api.post("/resources/someapp/purge", data={
@@ -444,10 +444,10 @@ class APITestCase(unittest.TestCase):
 
     def test_list_blocks(self):
         instance = self.manager.new_instance("someapp")
-        instance.blocks['http'] = 'https'
-        instance.blocks['server'] = 'true.com'
+        instance.blocks = [{'http': 'https', 'server': 'true.com'}]
         resp = self.api.get("/resources/someapp/block")
         self.assertEqual(200, resp.status_code)
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)
-        self.assertDictEqual({"server": "true.com", "http": "https"}, data)
+        self.assertDictEqual({"blocks": [{'http': 'https',
+                                          'server': 'true.com'}]}, data)
