@@ -147,7 +147,7 @@ def block(args):
         method = "POST"
         message = "added"
     elif args.action == 'remove':
-        params['block_name'] = args.block_name
+        req_path = "{}/{}".format(req_path, args.block_name)
         method = "DELETE"
         message = "removed"
     body = urllib.urlencode(params)

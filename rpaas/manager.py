@@ -237,8 +237,8 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         blocks = self.consul_manager.list_blocks(name)
         block_list = [
-            {block['Key'].split('/')[-2]: block['Value']}
-            for block in blocks[1]
+            {'block_name': block['Key'].split('/')[-2],
+             'content': block['Value']} for block in blocks[1]
         ]
         return block_list
 

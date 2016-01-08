@@ -262,8 +262,8 @@ def delete_block(name, block_name):
 @auth.required
 def list_block(name):
     try:
-        info = get_manager().list_blocks(name)
-        return Response(response=json.dumps(info), status=200,
+        blocks = {'blocks': get_manager().list_blocks(name)}
+        return Response(response=json.dumps(blocks), status=200,
                         mimetype="application/json")
     except manager.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412

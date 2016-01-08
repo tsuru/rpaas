@@ -337,10 +337,9 @@ class TsuruPluginTestCase(unittest.TestCase):
         plugin.block(['remove', '-s', 'myservice', '-i', 'myinst', '-b', 'http'])
         Request.assert_called_with(self.target +
                                    "services/myservice/proxy/myinst?" +
-                                   "callback=/resources/myinst/block")
+                                   "callback=/resources/myinst/block/http")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
-        request.add_data.assert_called_with("block_name=http")
         self.assertEqual(request.get_method(), 'DELETE')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("block successfully removed\n")
