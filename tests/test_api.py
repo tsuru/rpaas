@@ -398,7 +398,7 @@ class APITestCase(unittest.TestCase):
 
     def test_add_block(self):
         self.manager.new_instance('someapp')
-        resp = self.api.post('/resource/someapp/block', data={
+        resp = self.api.post('/resources/someapp/block', data={
             'content': 'something',
             'block_name': 'http'
         })
@@ -410,7 +410,7 @@ class APITestCase(unittest.TestCase):
 
     def test_add_block_without_content(self):
         self.manager.new_instance('someapp')
-        resp = self.api.post('/resource/someapp/block', data={
+        resp = self.api.post('/resources/someapp/block', data={
             'content': None,
             'block_name': 'http'
         })
@@ -418,7 +418,7 @@ class APITestCase(unittest.TestCase):
 
     def test_add_block_without_block_name(self):
         self.manager.new_instance('someapp')
-        resp = self.api.post('/resource/someapp/block', data={
+        resp = self.api.post('/resources/someapp/block', data={
             'content': 'something',
             'block_name': None
         })
@@ -426,7 +426,7 @@ class APITestCase(unittest.TestCase):
 
     def test_add_block_not_server_http(self):
         self.manager.new_instance('someapp')
-        resp = self.api.post('/resource/someapp/block', data={
+        resp = self.api.post('/resources/someapp/block', data={
             'content': 'something',
             'block_name': 'location'
         })

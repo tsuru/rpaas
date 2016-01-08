@@ -232,7 +232,7 @@ def list_routes(name):
         return "Instance not found", 404
 
 
-@api.route("/resource/<name>/block", methods=["POST"])
+@api.route("/resources/<name>/block", methods=["POST"])
 @auth.required
 def add_block(name):
     content = request.form.get('content')
