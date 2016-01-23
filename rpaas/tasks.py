@@ -137,6 +137,9 @@ class ScaleInstanceTask(BaseManagerTask):
         finally:
             self.storage.remove_task(name)
 
+#class RestoreMachineTask(BaseManagerTask):
+
+
 
 class DownloadCertTask(BaseManagerTask):
 
