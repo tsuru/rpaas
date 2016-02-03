@@ -73,6 +73,23 @@ class Manager(object):
         self.storage.remove_instance_metadata(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
 
+    def restore_machine_instance(self, name, machine, cancel_task=False):
+        if cancel_task:
+            try:
+                self._ensure_ready("restore_{}".format(machine))
+            except NotReadyError():
+                self.storage.remove_task("restore_{}".format(machine))
+                return
+            raise TaskNotFoundError()
+        self._ensure_ready("restore_{}".format(machine))
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        machine_data = self.storage.find_host_id(machine)
+        if machine_data is None:
+            raise storage.InstanceMachineNotFoundError()
+        self.storage.store_task("{}_{}".format(name, machine))
+
     def bind(self, name, app_host):
         self._ensure_ready(name)
         lb = LoadBalancer.find(name)
@@ -337,6 +354,10 @@ class RouteError(Exception):
 
 
 class SslError(Exception):
+    pass
+
+
+class TaskNotFoundError(Exception):
     pass
 
 

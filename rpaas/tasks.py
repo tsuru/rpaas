@@ -137,8 +137,21 @@ class ScaleInstanceTask(BaseManagerTask):
         finally:
             self.storage.remove_task(name)
 
-#class RestoreMachineTask(BaseManagerTask):
 
+class RestoreMachineTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
+        created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
+        query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
+        for task in self.storage.find_task(query):
+            try:
+                host = self.storage.find_host_id(task['host'])
+                Host.from_dict({"_id": host['_id'], "dns_name": task['host'], "manager": host['manager']},
+                               conf=config).restore()
+            finally:
+                self.storage.remove_task({"_id": task['_id']})
 
 
 class DownloadCertTask(BaseManagerTask):

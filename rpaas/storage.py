@@ -43,18 +43,23 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def store_task(self, name):
         try:
-            self.db[self.tasks_collection].insert({'_id': name})
+            if name.__class__ is dict:
+                self.db[self.tasks_collection].insert(name)
+            else:
+                self.db[self.tasks_collection].insert({'_id': name})
         except pymongo.errors.DuplicateKeyError:
             raise DuplicateError(name)
 
-    def remove_task(self, name):
-        self.db[self.tasks_collection].remove({'_id': name})
+    def remove_task(self, query):
+        self.db[self.tasks_collection].remove(query)
 
     def update_task(self, name, task_id):
         self.db[self.tasks_collection].update({'_id': name}, {'$set': {'task_id': task_id}})
 
-    def find_task(self, name):
-        return self.db[self.tasks_collection].find_one({'_id': name})
+    def find_task(self, query):
+        if query.__class__ is dict:
+            return self.db[self.tasks_collection].find(query)
+        return self.db[self.tasks_collection].find_one(query)
 
     def store_instance_metadata(self, instance_name, **data):
         data['_id'] = instance_name
@@ -63,6 +68,9 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def find_instance_metadata(self, instance_name):
         return self.db[self.instance_metadata_collection].find_one({'_id': instance_name})
+
+    def find_host_id(self, name):
+        return self.db[self.hosts_collection].find_one({'dns_name': name})
 
     def remove_instance_metadata(self, instance_name):
         self.db[self.instance_metadata_collection].remove({'_id': instance_name})
