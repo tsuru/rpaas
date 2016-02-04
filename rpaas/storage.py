@@ -53,8 +53,11 @@ class MongoDBStorage(storage.MongoDBStorage):
     def remove_task(self, query):
         self.db[self.tasks_collection].remove(query)
 
-    def update_task(self, name, task_id):
-        self.db[self.tasks_collection].update({'_id': name}, {'$set': {'task_id': task_id}})
+    def update_task(self, name, task_id_or_spec):
+        if task_id_or_spec.__class__ is dict:
+            self.db[self.tasks_collection].update({'_id': name}, {'$set': task_id_or_spec})
+        else:
+            self.db[self.tasks_collection].update({'_id': name}, {'$set': {'task_id': task_id_or_spec}})
 
     def find_task(self, query):
         if query.__class__ is dict:
