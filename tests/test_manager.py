@@ -184,6 +184,40 @@ class ManagerTestCase(unittest.TestCase):
             manager.new_instance("g")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_machine_instance(self, LoadBalancer):
+        manager = Manager(self.config)
+        lb = LoadBalancer.find.return_value
+        lb.adress = "10.1.1.1"
+        self.storage.store_instance_metadata("foo", consul_token="abc")
+        self.storage.db[self.storage.hosts_collection].insert({"_id": 0, "dns_name": "10.1.1.1",
+                                                               "manager": "fake", "group": "foo",
+                                                               "alternative_id": 0})
+        manager.restore_machine_instance('foo', '10.1.1.1')
+        task = self.storage.find_task("restore_10.1.1.1")
+        self.assertEqual(task['host'], "10.1.1.1")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_machine_invalid_dns_name(self, LoadBalancer):
+        manager = Manager(self.config)
+        lb = LoadBalancer.find.return_value
+        lb.adress = "10.2.2.2"
+        self.storage.store_instance_metadata("foo", consul_token="abc")
+        with self.assertRaises(rpaas.manager.InstanceMachineNotFoundError):
+            manager.restore_machine_instance('foo', '10.1.1.1')
+
+    def teste_restore_machine_instance_cancel(self):
+        manager = Manager(self.config)
+        self.storage.store_task("restore_10.1.1.1")
+        manager.restore_machine_instance('foo', '10.1.1.1', True)
+        task = self.storage.find_task("restore_10.1.1.1")
+        self.assertIsNone(task)
+
+    def teste_restore_machine_instance_cancel_invalid_task(self):
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.TaskNotFoundError):
+            manager.restore_machine_instance('foo', '10.1.1.1', True)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_info(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.address = "192.168.1.1"

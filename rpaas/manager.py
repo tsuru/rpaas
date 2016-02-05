@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import datetime
 import os
 import socket
 
@@ -77,18 +78,19 @@ class Manager(object):
         if cancel_task:
             try:
                 self._ensure_ready("restore_{}".format(machine))
-            except NotReadyError():
+            except NotReadyError:
                 self.storage.remove_task("restore_{}".format(machine))
                 return
-            raise TaskNotFoundError()
+            raise TaskNotFoundError("Task restore_{} not found for removal".format(machine))
         self._ensure_ready("restore_{}".format(machine))
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         machine_data = self.storage.find_host_id(machine)
         if machine_data is None:
-            raise storage.InstanceMachineNotFoundError()
-        self.storage.store_task("{}_{}".format(name, machine))
+            raise InstanceMachineNotFoundError()
+        self.storage.store_task({"_id": "restore_{}".format(machine), "host": machine,
+                                "instance": name, "created": datetime.datetime.utcnow()})
 
     def bind(self, name, app_host):
         self._ensure_ready(name)
@@ -358,6 +360,10 @@ class SslError(Exception):
 
 
 class TaskNotFoundError(Exception):
+    pass
+
+
+class InstanceMachineNotFoundError(Exception):
     pass
 
 
