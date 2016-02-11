@@ -35,6 +35,10 @@ if SENTRY_DSN:
     api.config['SENTRY_DSN'] = SENTRY_DSN
     sentry = Sentry(api)
 
+if "RUN_RESTORE_MACHINE" in os.environ:
+    from rpaas.scheduler import RestoreMachine
+    RestoreMachine.start()
+
 
 @api.route("/resources/plans", methods=["GET"])
 @auth.required
@@ -162,6 +166,44 @@ def scale_instance(name):
         return msg, 400
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
+    return "", 201
+
+
+@api.route("/resources/<name>/restore_machine", methods=["POST"])
+@auth.required
+def restore_machine(name):
+    if "RUN_RESTORE_MACHINE" not in os.environ:
+        return "Restore machine not enabled", 412
+    machine = request.form.get("machine")
+    if not machine:
+        return "missing machine name", 400
+    try:
+        get_manager().restore_machine_instance(name, machine)
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.InstanceMachineNotFoundError:
+        return "Instance machine not found", 404
+    return "", 201
+
+
+@api.route("/resources/<name>/restore_machine", methods=["DELETE"])
+@auth.required
+def cancel_restore_machine(name):
+    if "RUN_RESTORE_MACHINE" not in os.environ:
+        return "Restore machine not enabled", 412
+    machine = request.form.get("machine")
+    if not machine:
+        return "missing machine name", 400
+    try:
+        get_manager().restore_machine_instance(name, machine, True)
+    except manager.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except manager.InstanceMachineNotFoundError:
+        return "Instance machine not found", 404
     return "", 201
 
 
