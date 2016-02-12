@@ -97,6 +97,20 @@ class RestoreMachineTestCase(unittest.TestCase):
         restorer.stop()
         self.assertEqual(log.info.call_args_list, [call("Machine 0 restored"), call("Machine 2 restored"),
                                                    call("Machine 3 restored"), call("Machine 4 restored")])
+        tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
+        self.assertListEqual(tasks, ['restore_10.2.2.2'])
+
+    @patch("hm.log.logging")
+    def test_restore_machine_dry_mode(self, log):
+        FakeManager.fail_ids = []
+        self.config['RESTORE_MACHINE_DRY_MODE'] = 1
+        restorer = scheduler.RestoreMachine(self.config)
+        restorer.start()
+        time.sleep(1)
+        restorer.stop()
+        self.assertListEqual(log.info.call_args_list, [])
+        tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
+        self.assertListEqual(tasks, ['restore_10.2.2.2'])
 
     @patch("hm.log.logging")
     def test_restore_machine_iaas_fail(self, log):
