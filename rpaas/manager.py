@@ -169,8 +169,8 @@ class Manager(object):
 
     def _get_address(self, name):
         task = self.storage.find_task(name)
-        if task:
-            result = tasks.NewInstanceTask().AsyncResult(task["task_id"])
+        if task.count() >= 1:
+            result = tasks.NewInstanceTask().AsyncResult(task[0]["task_id"])
             if result.status in ["FAILURE", "REVOKED"]:
                 return FAILURE
             return PENDING
@@ -265,7 +265,7 @@ class Manager(object):
 
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
-        if task:
+        if task.count() >= 1:
             raise NotReadyError("Async task still running")
 
     def _check_dns(self, name, domain):

@@ -62,7 +62,8 @@ class MongoDBStorage(storage.MongoDBStorage):
     def find_task(self, query):
         if isinstance(query, dict):
             return self.db[self.tasks_collection].find(query)
-        return self.db[self.tasks_collection].find_one(query)
+        else:
+            return self.db[self.tasks_collection].find({"_id": query})
 
     def store_instance_metadata(self, instance_name, **data):
         data['_id'] = instance_name
