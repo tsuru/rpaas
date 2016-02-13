@@ -43,7 +43,7 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def store_task(self, name):
         try:
-            if name.__class__ is dict:
+            if isinstance(name, dict):
                 self.db[self.tasks_collection].insert(name)
             else:
                 self.db[self.tasks_collection].insert({'_id': name})
@@ -54,13 +54,13 @@ class MongoDBStorage(storage.MongoDBStorage):
         self.db[self.tasks_collection].remove(query)
 
     def update_task(self, name, task_id_or_spec):
-        if task_id_or_spec.__class__ is dict:
+        if isinstance(task_id_or_spec, dict):
             self.db[self.tasks_collection].update({'_id': name}, {'$set': task_id_or_spec})
         else:
             self.db[self.tasks_collection].update({'_id': name}, {'$set': {'task_id': task_id_or_spec}})
 
     def find_task(self, query):
-        if query.__class__ is dict:
+        if isinstance(query, dict):
             return self.db[self.tasks_collection].find(query)
         return self.db[self.tasks_collection].find_one(query)
 
