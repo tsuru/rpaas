@@ -290,6 +290,72 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
+    def test_restore_machine_disabled(self):
+        if "RUN_RESTORE_MACHINE" in os.environ:
+            del os.environ["RUN_RESTORE_MACHINE"]
+        resp = self.api.post("/resources/someapp/restore_machine", data={"machine": "foo"})
+        self.assertEqual(412, resp.status_code)
+        self.assertEqual("Restore machine not enabled", resp.data)
+
+    def test_restore_machine_missing_machine(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        resp = self.api.post("/resources/someapp/restore_machine")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("missing machine name", resp.data)
+
+    def test_restore_machine_instance_not_found(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        resp = self.api.post("/resources/otherapp/restore_machine", data={"machine": "bar"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance not found", resp.data)
+
+    def test_restore_machine_instance_machine_not_found(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/restore_machine", data={"machine": "bar"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance machine not found", resp.data)
+
+    def test_restore_machine_success(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/restore_machine", data={"machine": "foo"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("", resp.data)
+
+    def test_cancel_restore_machine_disabled(self):
+        if "RUN_RESTORE_MACHINE" in os.environ:
+            del os.environ["RUN_RESTORE_MACHINE"]
+        resp = self.api.delete("/resources/someapp/restore_machine", data={"machine": "foo"})
+        self.assertEqual(412, resp.status_code)
+        self.assertEqual("Restore machine not enabled", resp.data)
+
+    def test_cancel_restore_machine_missing_machine(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        resp = self.api.delete("/resources/someapp/restore_machine")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("missing machine name", resp.data)
+
+    def test_cancel_restore_machine_instance_not_found(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        resp = self.api.delete("/resources/otherapp/restore_machine", data={"machine": "bar"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance not found", resp.data)
+
+    def test_cancel_restore_machine_instance_machine_not_found(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        self.manager.new_instance("someapp")
+        resp = self.api.delete("/resources/someapp/restore_machine", data={"machine": "bar"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance machine not found", resp.data)
+
+    def test_cancel_restore_machine_success(self):
+        os.environ["RUN_RESTORE_MACHINE"] = "1"
+        self.manager.new_instance("someapp")
+        resp = self.api.delete("/resources/someapp/restore_machine", data={"machine": "foo"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("", resp.data)
+
     def test_plugin(self):
         expected = inspect.getsource(plugin)
         resp = self.api.get("/plugin")

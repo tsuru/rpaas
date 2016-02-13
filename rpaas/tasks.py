@@ -138,6 +138,34 @@ class ScaleInstanceTask(BaseManagerTask):
             self.storage.remove_task(name)
 
 
+class RestoreMachineTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
+        restore_dry_mode = self.config.get("RESTORE_MACHINE_DRY_MODE", False)
+        retry_failure_query = {"_id": {"$regex": "restore_.+"}, "last_attempt": {"$ne": None}}
+        failure_instances = set()
+        for task in self.storage.find_task(retry_failure_query):
+            retry_failure = task['last_attempt'] + datetime.timedelta(minutes=retry_failure_delay)
+            if (retry_failure >= datetime.datetime.utcnow()):
+                failure_instances.add(task['instance'])
+        restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
+        created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
+        query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
+        for task in self.storage.find_task(query):
+            try:
+                if task['instance'] not in failure_instances:
+                    host = self.storage.find_host_id(task['host'])
+                    if not restore_dry_mode:
+                        Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
+                                        "manager": host['manager']}, conf=config).restore()
+                    self.storage.remove_task({"_id": task['_id']})
+            except Exception as e:
+                self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
+                raise e
+
+
 class DownloadCertTask(BaseManagerTask):
 
     def run(self, config, name, plugin, csr, key, domain):

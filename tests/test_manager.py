@@ -60,7 +60,7 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
-        self.assertIsNone(self.storage.find_task("x"))
+        self.assertEquals(self.storage.find_task("x").count(), 0)
         nginx.Nginx.assert_called_once_with(config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
@@ -80,7 +80,7 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
-        self.assertIsNone(manager.storage.find_task("x"))
+        self.assertEquals(manager.storage.find_task("x").count(), 0)
         nginx.Nginx.assert_called_once_with(config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
@@ -103,7 +103,7 @@ class ManagerTestCase(unittest.TestCase):
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
         lb.add_host.assert_called_with(host)
-        self.assertIsNone(manager.storage.find_task("x"))
+        self.assertEquals(manager.storage.find_task("x").count(), 0)
         nginx.Nginx.assert_called_once_with(config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
@@ -149,7 +149,7 @@ class ManagerTestCase(unittest.TestCase):
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
-        self.assertIsNone(self.storage.find_task("x"))
+        self.assertEquals(self.storage.find_task("x").count(), 0)
         self.assertIsNone(self.storage.find_instance_metadata("x"))
         manager.consul_manager.destroy_token.assert_called_with("abc-123")
         manager.consul_manager.destroy_instance.assert_called_with("x")
@@ -166,7 +166,7 @@ class ManagerTestCase(unittest.TestCase):
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
-        self.assertIsNone(self.storage.find_task("x"))
+        self.assertEquals(self.storage.find_task("x").count(), 0)
         self.assertIsNone(self.storage.find_instance_metadata("x"))
         manager.consul_manager.destroy_token.assert_not_called()
 
@@ -182,6 +182,40 @@ class ManagerTestCase(unittest.TestCase):
         manager.remove_instance("e")
         with self.assertRaises(QuotaExceededError):
             manager.new_instance("g")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_machine_instance(self, LoadBalancer):
+        manager = Manager(self.config)
+        lb = LoadBalancer.find.return_value
+        lb.adress = "10.1.1.1"
+        self.storage.store_instance_metadata("foo", consul_token="abc")
+        self.storage.db[self.storage.hosts_collection].insert({"_id": 0, "dns_name": "10.1.1.1",
+                                                               "manager": "fake", "group": "foo",
+                                                               "alternative_id": 0})
+        manager.restore_machine_instance('foo', '10.1.1.1')
+        task = self.storage.find_task("restore_10.1.1.1")
+        self.assertEqual(task[0]['host'], "10.1.1.1")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_machine_invalid_dns_name(self, LoadBalancer):
+        manager = Manager(self.config)
+        lb = LoadBalancer.find.return_value
+        lb.adress = "10.2.2.2"
+        self.storage.store_instance_metadata("foo", consul_token="abc")
+        with self.assertRaises(rpaas.manager.InstanceMachineNotFoundError):
+            manager.restore_machine_instance('foo', '10.1.1.1')
+
+    def teste_restore_machine_instance_cancel(self):
+        manager = Manager(self.config)
+        self.storage.store_task("restore_10.1.1.1")
+        manager.restore_machine_instance('foo', '10.1.1.1', True)
+        task = self.storage.find_task("restore_10.1.1.1")
+        self.assertEquals(task.count(), 0)
+
+    def teste_restore_machine_instance_cancel_invalid_task(self):
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.manager.TaskNotFoundError):
+            manager.restore_machine_instance('foo', '10.1.1.1', True)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_info(self, LoadBalancer):

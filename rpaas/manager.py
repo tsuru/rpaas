@@ -5,6 +5,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import datetime
 import os
 import socket
 
@@ -72,6 +73,24 @@ class Manager(object):
         self.storage.remove_binding(name)
         self.storage.remove_instance_metadata(name)
         tasks.RemoveInstanceTask().delay(self.config, name)
+
+    def restore_machine_instance(self, name, machine, cancel_task=False):
+        if cancel_task:
+            try:
+                self._ensure_ready("restore_{}".format(machine))
+            except NotReadyError:
+                self.storage.remove_task("restore_{}".format(machine))
+                return
+            raise TaskNotFoundError("Task restore_{} not found for removal".format(machine))
+        self._ensure_ready("restore_{}".format(machine))
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        machine_data = self.storage.find_host_id(machine)
+        if machine_data is None:
+            raise InstanceMachineNotFoundError()
+        self.storage.store_task({"_id": "restore_{}".format(machine), "host": machine,
+                                "instance": name, "created": datetime.datetime.utcnow()})
 
     def bind(self, name, app_host):
         self._ensure_ready(name)
@@ -150,8 +169,8 @@ class Manager(object):
 
     def _get_address(self, name):
         task = self.storage.find_task(name)
-        if task:
-            result = tasks.NewInstanceTask().AsyncResult(task["task_id"])
+        if task.count() >= 1:
+            result = tasks.NewInstanceTask().AsyncResult(task[0]["task_id"])
             if result.status in ["FAILURE", "REVOKED"]:
                 return FAILURE
             return PENDING
@@ -246,7 +265,7 @@ class Manager(object):
 
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
-        if task:
+        if task.count() >= 1:
             raise NotReadyError("Async task still running")
 
     def _check_dns(self, name, domain):
@@ -337,6 +356,14 @@ class RouteError(Exception):
 
 
 class SslError(Exception):
+    pass
+
+
+class TaskNotFoundError(Exception):
+    pass
+
+
+class InstanceMachineNotFoundError(Exception):
     pass
 
 

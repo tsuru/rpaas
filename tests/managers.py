@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
-from rpaas import storage
+from rpaas import storage, manager
 
 
 class FakeInstance(object):
@@ -119,3 +119,10 @@ class FakeManager(object):
 
     def reset(self):
         self.instances = []
+
+    def restore_machine_instance(self, name, machine, cancel_task=False):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        if machine != 'foo':
+            raise manager.InstanceMachineNotFoundError()
