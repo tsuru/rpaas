@@ -88,34 +88,44 @@ class RestoreMachineTestCase(unittest.TestCase):
         self.storage.db[self.storage.tasks_collection].remove()
         self.storage.db[self.storage.hosts_collection].remove()
 
+    @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
-    def test_restore_machine_success(self, log):
+    def test_restore_machine_success(self, log, nginx):
         FakeManager.fail_ids = []
+        nginx_manager = nginx.Nginx.return_value
         restorer = scheduler.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
         restorer.stop()
         self.assertEqual(log.info.call_args_list, [call("Machine 0 restored"), call("Machine 2 restored"),
                                                    call("Machine 3 restored"), call("Machine 4 restored")])
+        nginx_expected_calls = [call('10.1.1.1', timeout=600), call('10.3.3.3', timeout=600),
+                                call('10.4.4.4', timeout=600), call('10.5.5.5', timeout=600)]
+        self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)
         tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
         self.assertListEqual(tasks, ['restore_10.2.2.2'])
 
+    @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
-    def test_restore_machine_dry_mode(self, log):
+    def test_restore_machine_dry_mode(self, log, nginx):
         FakeManager.fail_ids = []
         self.config['RESTORE_MACHINE_DRY_MODE'] = 1
+        nginx_manager = nginx.Nginx.return_value
         restorer = scheduler.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
         restorer.stop()
         self.assertListEqual(log.info.call_args_list, [])
+        self.assertListEqual(nginx_manager.wait_healthcheck.call_args_list, [])
         tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
         self.assertListEqual(tasks, ['restore_10.2.2.2'])
 
+    @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
-    def test_restore_machine_iaas_fail(self, log):
+    def test_restore_machine_iaas_fail(self, log, nginx):
         FakeManager.fail_ids = [2]
         restorer = scheduler.RestoreMachine(self.config)
+        nginx_manager = nginx.Nginx.return_value
         restorer.start()
         time.sleep(1)
         restorer.stop()
@@ -123,7 +133,9 @@ class RestoreMachineTestCase(unittest.TestCase):
         self.assertListEqual(['restore_10.2.2.2', 'restore_10.3.3.3',
                               'restore_10.4.4.4', 'restore_10.5.5.5'], tasks)
         self.assertEqual(log.info.call_args_list, [call("Machine 0 restored")])
+        self.assertEqual(nginx_manager.wait_healthcheck.call_args_list, [call('10.1.1.1', timeout=600)])
         log.reset_mock()
+        nginx.reset_mock()
         redis.StrictRedis().delete("restore_machine:last_run")
         restorer = scheduler.RestoreMachine(self.config)
         restorer.start()
@@ -131,8 +143,10 @@ class RestoreMachineTestCase(unittest.TestCase):
         restorer.stop()
         tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
         self.assertEqual(log.info.call_args_list, [call("Machine 4 restored")])
+        self.assertEqual(nginx_manager.wait_healthcheck.call_args_list, [call('10.5.5.5', timeout=600)])
         self.assertListEqual(['restore_10.2.2.2', 'restore_10.3.3.3', 'restore_10.4.4.4'], tasks)
         log.reset_mock()
+        nginx.reset_mock()
         redis.StrictRedis().delete("restore_machine:last_run")
         FakeManager.fail_ids = []
         with freeze_time("2016-02-03 12:06:00"):
@@ -143,4 +157,8 @@ class RestoreMachineTestCase(unittest.TestCase):
             tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
             self.assertEqual(log.info.call_args_list, [call("Machine 1 restored"), call("Machine 2 restored"),
                                                        call("Machine 3 restored")])
+            nginx_expected_calls = [call('10.2.2.2', timeout=600),
+                                    call('10.3.3.3', timeout=600),
+                                    call('10.4.4.4', timeout=600)]
+            self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)
             self.assertListEqual(tasks, [])

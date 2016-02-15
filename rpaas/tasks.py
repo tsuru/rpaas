@@ -144,6 +144,7 @@ class RestoreMachineTask(BaseManagerTask):
         self.init_config(config)
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
         restore_dry_mode = self.config.get("RESTORE_MACHINE_DRY_MODE", False)
+        healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         retry_failure_query = {"_id": {"$regex": "restore_.+"}, "last_attempt": {"$ne": None}}
         failure_instances = set()
         for task in self.storage.find_task(retry_failure_query):
@@ -160,6 +161,7 @@ class RestoreMachineTask(BaseManagerTask):
                     if not restore_dry_mode:
                         Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
                                         "manager": host['manager']}, conf=config).restore()
+                        self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
                     self.storage.remove_task({"_id": task['_id']})
             except Exception as e:
                 self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
