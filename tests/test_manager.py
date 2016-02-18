@@ -718,18 +718,10 @@ content = location /x {
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.consul_manager.list_blocks.return_value = [
-            '9796', [{u'LockIndex': 0,
-                      u'ModifyIndex': 9796,
-                      u'Value': 'something nice in server',
-                      u'Flags': 0,
-                      u'Key': u'test-suite-rpaas/myrpaas/blocks/server/ROOT',
-                      u'CreateIndex': 9796},
-                     {u'LockIndex': 0,
-                      u'ModifyIndex': 9796,
-                      u'Value': 'something nice in http',
-                      u'Flags': 0,
-                      u'Key': u'test-suite-rpaas/myrpaas/blocks/http/ROOT',
-                      u'CreateIndex': 9796}]
+                {u'block_name': 'server',
+                 u'content': 'something nice in server'},
+                {u'block_name': 'http',
+                 u'content': 'something nice in http'}
         ]
         blocks = manager.list_blocks("inst")
 
@@ -747,7 +739,7 @@ content = location /x {
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.consul_manager.list_blocks.return_value = ['9796', None]
+        manager.consul_manager.list_blocks.return_value = []
         blocks = manager.list_blocks("inst")
 
         self.assertEqual(blocks, [])

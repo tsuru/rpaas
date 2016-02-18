@@ -94,13 +94,19 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.write_block("myrpaas", "http",
                                  content=" something nice in http         \n")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
-        self.assertEqual("something nice in http", item[1]["Value"])
+        expected_block = ("## Begin custom RpaaS http block ##\n"
+                          "something nice in http"
+                          "\n## End custom RpaaS http block ##")
+        self.assertEqual(expected_block, item[1]["Value"])
 
     def test_write_block_server_content(self):
         self.manager.write_block("myrpaas", "server",
                                  content=" something nice in server         \n")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
-        self.assertEqual("something nice in server", item[1]["Value"])
+        expected_block = ("## Begin custom RpaaS server block ##\n"
+                          "something nice in server"
+                          "\n## End custom RpaaS server block ##")
+        self.assertEqual(expected_block, item[1]["Value"])
 
     def test_get_certificate(self):
         origin_cert, origin_key = "cert", "key"
@@ -149,31 +155,32 @@ class ConsulManagerTestCase(unittest.TestCase):
                                  "something nice in server")
         self.manager.remove_block("myrpaas", "server")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
-        self.assertIsNone(item[1])
+        empty_block_value = '## Begin custom RpaaS server block ##\n\n## End custom RpaaS server block ##'
+        self.assertEqual(item[1]['Value'], empty_block_value)
 
     def test_remove_block_http_root(self):
         self.manager.write_block("myrpaas", "http", "something nice in http")
         self.manager.remove_block("myrpaas", "http")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
-        self.assertIsNone(item[1])
+        empty_block_value = '## Begin custom RpaaS http block ##\n\n## End custom RpaaS http block ##'
+        self.assertEqual(item[1]['Value'], empty_block_value)
 
     def test_list_no_block(self):
         items = self.manager.list_blocks("myrpaas")
-        self.assertIsNone(items[1])
+        self.assertEqual(items, [])
 
     def test_list_one_block(self):
         self.manager.write_block("myrpaas", "server",
                                  "something nice in server")
         items = self.manager.list_blocks("myrpaas")
-
-        self.assertEqual(1, len(items[1]))
-        self.assertEqual("something nice in server", items[1][0]["Value"])
+        self.assertEqual(1, len(items))
+        self.assertEqual("something nice in server\n", items[0]["content"])
 
     def test_list_block(self):
         self.manager.write_block("myrpaas", "server",
                                  "something nice in server")
         self.manager.write_block("myrpaas", "http", "something nice in http")
         items = self.manager.list_blocks("myrpaas")
-        self.assertEqual(2, len(items[1]))
-        self.assertEqual("something nice in http", items[1][0]["Value"])
-        self.assertEqual("something nice in server", items[1][1]["Value"])
+        self.assertEqual(2, len(items))
+        self.assertEqual("something nice in http\n", items[0]["content"])
+        self.assertEqual("something nice in server\n", items[1]["content"])

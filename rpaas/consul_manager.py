@@ -59,15 +59,32 @@ class ConsulManager(object):
         self.client.kv.delete(self._location_key(instance_name, path))
 
     def write_block(self, instance_name, block_name, content):
-        content = content.strip()
+        content = self._block_header_footer(content, block_name)
         self.client.kv.put(self._block_key(instance_name, block_name), content)
 
     def remove_block(self, instance_name, block_name):
-        self.client.kv.delete(self._block_key(instance_name, block_name))
+        self.write_block(instance_name, block_name, "")
 
     def list_blocks(self, instance_name, block_name=None):
-        return self.client.kv.get(self._block_key(instance_name, block_name),
-                                  recurse=True)
+        blocks = self.client.kv.get(self._block_key(instance_name, block_name),
+                                    recurse=True)
+        block_list = []
+        if blocks[1]:
+            for block in blocks[1]:
+                block_name = block['Key'].split('/')[-2]
+                block_value = self._block_header_footer(block['Value'], block_name,  True)
+                block_list.append({'block_name': block_name, 'content': block_value})
+        return block_list
+
+    def _block_header_footer(self, content, block_name, remove=False):
+        begin_block = "## Begin custom RpaaS {} block ##\n".format(block_name)
+        end_block = "## End custom RpaaS {} block ##".format(block_name)
+        if remove:
+            content = content.replace(begin_block, "")
+            content = content.replace(end_block, "")
+            return content
+        content_block = begin_block + content.strip() + '\n' + end_block
+        return content_block
 
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]

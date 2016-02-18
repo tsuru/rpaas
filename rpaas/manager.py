@@ -254,14 +254,7 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        blocks = self.consul_manager.list_blocks(name)
-        block_list = []
-        if blocks[1]:
-            block_list = [
-                {'block_name': block['Key'].split('/')[-2],
-                 'content': block['Value']} for block in blocks[1]
-            ]
-        return block_list
+        return self.consul_manager.list_blocks(name)
 
     def _ensure_ready(self, name):
         task = self.storage.find_task(name)
