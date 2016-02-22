@@ -9,7 +9,7 @@ import redis
 from freezegun import freeze_time
 from mock import patch, call
 from rpaas import storage, tasks
-from rpaas import scheduler
+from rpaas import healing
 from hm import managers, log
 from hm.model.host import Host
 
@@ -93,7 +93,7 @@ class RestoreMachineTestCase(unittest.TestCase):
     def test_restore_machine_success(self, log, nginx):
         FakeManager.fail_ids = []
         nginx_manager = nginx.Nginx.return_value
-        restorer = scheduler.RestoreMachine(self.config)
+        restorer = healing.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
         restorer.stop()
@@ -111,7 +111,7 @@ class RestoreMachineTestCase(unittest.TestCase):
         FakeManager.fail_ids = []
         self.config['RESTORE_MACHINE_DRY_MODE'] = 1
         nginx_manager = nginx.Nginx.return_value
-        restorer = scheduler.RestoreMachine(self.config)
+        restorer = healing.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
         restorer.stop()
@@ -124,7 +124,7 @@ class RestoreMachineTestCase(unittest.TestCase):
     @patch("hm.log.logging")
     def test_restore_machine_iaas_fail(self, log, nginx):
         FakeManager.fail_ids = [2]
-        restorer = scheduler.RestoreMachine(self.config)
+        restorer = healing.RestoreMachine(self.config)
         nginx_manager = nginx.Nginx.return_value
         restorer.start()
         time.sleep(1)
@@ -137,7 +137,7 @@ class RestoreMachineTestCase(unittest.TestCase):
         log.reset_mock()
         nginx.reset_mock()
         redis.StrictRedis().delete("restore_machine:last_run")
-        restorer = scheduler.RestoreMachine(self.config)
+        restorer = healing.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
         restorer.stop()
@@ -150,7 +150,7 @@ class RestoreMachineTestCase(unittest.TestCase):
         redis.StrictRedis().delete("restore_machine:last_run")
         FakeManager.fail_ids = []
         with freeze_time("2016-02-03 12:06:00"):
-            restorer = scheduler.RestoreMachine(self.config)
+            restorer = healing.RestoreMachine(self.config)
             restorer.start()
             time.sleep(1)
             restorer.stop()
