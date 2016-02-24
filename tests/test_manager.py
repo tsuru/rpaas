@@ -214,7 +214,7 @@ class ManagerTestCase(unittest.TestCase):
 
     def teste_restore_machine_instance_cancel_invalid_task(self):
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.TaskNotFoundError):
+        with self.assertRaises(rpaas.tasks.TaskNotFoundError):
             manager.restore_machine_instance('foo', '10.1.1.1', True)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -372,7 +372,7 @@ content = location /x {
     def test_scale_instance_error_task_running(self):
         self.storage.store_task("x")
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.NotReadyError):
+        with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.scale_instance("x", 5)
 
     def test_scale_instance_down(self):
@@ -413,7 +413,7 @@ content = location /x {
     def test_bind_instance_error_task_running(self):
         self.storage.store_task("x")
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.NotReadyError):
+        with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.bind("x", "apphost.com")
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -543,7 +543,7 @@ content = location /x {
     def test_update_certificate_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.NotReadyError):
+        with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.update_certificate("inst", "cert", "key")
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -610,7 +610,7 @@ content = location /x {
     def test_add_route_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.NotReadyError):
+        with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.add_route("inst", "/somewhere", "my.other.host", None)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -661,7 +661,7 @@ content = location /x {
     def test_delete_route_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
-        with self.assertRaises(rpaas.manager.NotReadyError):
+        with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.delete_route("inst", "/arrakis")
 
     @mock.patch("rpaas.manager.LoadBalancer")

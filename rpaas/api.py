@@ -13,7 +13,7 @@ from raven.contrib.flask import Sentry
 import hm.log
 
 from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
-                   plugin, storage)
+                   plugin, storage, tasks)
 
 api = Flask(__name__)
 api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
@@ -89,7 +89,7 @@ def bind(name):
         return "app-host is required", 400
     try:
         get_manager().bind(name, app_host)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
@@ -105,7 +105,7 @@ def unbind(name):
         return "app-host is required", 400
     try:
         get_manager().unbind(name, app_host)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
@@ -157,7 +157,7 @@ def scale_instance(name):
         return "missing quantity", 400
     try:
         get_manager().scale_instance(name, int(quantity))
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except ValueError as e:
         msg = " ".join(e.args)
@@ -179,7 +179,7 @@ def restore_machine(name):
         return "missing machine name", 400
     try:
         get_manager().restore_machine_instance(name, machine)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
@@ -198,7 +198,7 @@ def cancel_restore_machine(name):
         return "missing machine name", 400
     try:
         get_manager().restore_machine_instance(name, machine, True)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
@@ -220,7 +220,7 @@ def update_certificate(name):
         get_manager().update_certificate(name, cert, key)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except manager.SslError:
         return "Invalid key or certificate", 412
@@ -243,7 +243,7 @@ def add_route(name):
         get_manager().add_route(name, path, destination, content)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 201
 
@@ -258,7 +258,7 @@ def delete_route(name):
         get_manager().delete_route(name, path)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 200
 
@@ -285,7 +285,7 @@ def add_block(name):
         return 'missing content', 400
     try:
         get_manager().add_block(name, block_name, content)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 201
 
@@ -295,7 +295,7 @@ def add_block(name):
 def delete_block(name, block_name):
     try:
         get_manager().delete_block(name, block_name)
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "", 200
 
@@ -307,7 +307,7 @@ def list_block(name):
         blocks = {'blocks': get_manager().list_blocks(name)}
         return Response(response=json.dumps(blocks), status=200,
                         mimetype="application/json")
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
 
 
@@ -321,7 +321,7 @@ def purge_location(name):
         instances_purged = get_manager().purge_location(name, path)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     return "Path found and purged on {} servers".format(instances_purged), 200
 
@@ -338,7 +338,7 @@ def add_https(name):
         return "", 200
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
-    except manager.NotReadyError as e:
+    except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except gaierror:
         return "can't find domain", 404

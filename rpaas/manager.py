@@ -26,6 +26,7 @@ class Manager(object):
         self.storage = storage.MongoDBStorage(config)
         self.consul_manager = consul_manager.ConsulManager(config)
         self.nginx_manager = nginx.Nginx(config)
+        self.task_manager = tasks.TaskManager(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
 
     def new_instance(self, name, team=None, plan_name=None):
@@ -40,7 +41,7 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is not None:
             raise storage.DuplicateError(name)
-        self.storage.store_task(name)
+        self.task_manager.create(name)
         config = copy.deepcopy(self.config)
         metadata = {}
         if plan:
@@ -51,7 +52,7 @@ class Manager(object):
         self.storage.store_instance_metadata(name, **metadata)
         self._add_tags(name, config, consul_token)
         task = tasks.NewInstanceTask().delay(config, name)
-        self.storage.update_task(name, task.task_id)
+        self.task_manager.update(name, task.task_id)
 
     def _add_tags(self, instance_name, config, consul_token):
         tags = ["rpaas_service:" + self.service_name,
@@ -75,25 +76,22 @@ class Manager(object):
         tasks.RemoveInstanceTask().delay(self.config, name)
 
     def restore_machine_instance(self, name, machine, cancel_task=False):
+        task_name = "restore_{}".format(machine)
         if cancel_task:
-            try:
-                self._ensure_ready("restore_{}".format(machine))
-            except NotReadyError:
-                self.storage.remove_task("restore_{}".format(machine))
-                return
-            raise TaskNotFoundError("Task restore_{} not found for removal".format(machine))
-        self._ensure_ready("restore_{}".format(machine))
+            self.task_manager.remove(task_name)
+            return
+        self.task_manager.ensure_ready(task_name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         machine_data = self.storage.find_host_id(machine)
         if machine_data is None:
             raise InstanceMachineNotFoundError()
-        self.storage.store_task({"_id": "restore_{}".format(machine), "host": machine,
-                                "instance": name, "created": datetime.datetime.utcnow()})
+        self.task_manager.create({"_id": task_name, "host": machine,
+                                 "instance": name, "created": datetime.datetime.utcnow()})
 
     def bind(self, name, app_host):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
@@ -109,7 +107,7 @@ class Manager(object):
         self.storage.store_binding(name, app_host)
 
     def unbind(self, name, app_host):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
@@ -160,7 +158,7 @@ class Manager(object):
         return self._get_address(name)
 
     def update_certificate(self, name, cert, key):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
@@ -180,10 +178,10 @@ class Manager(object):
         return lb.address
 
     def scale_instance(self, name, quantity):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         if quantity <= 0:
             raise ScaleError("Can't have 0 instances")
-        self.storage.store_task(name)
+        self.task_manager.create(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
         if not metadata or "consul_token" not in metadata:
@@ -195,10 +193,10 @@ class Manager(object):
             config.update(plan.config or {})
         self._add_tags(name, config, metadata["consul_token"])
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
-        self.storage.update_task(name, task.task_id)
+        self.task_manager.update(name, task.task_id)
 
     def add_route(self, name, path, destination, content):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         path = path.strip()
         lb = LoadBalancer.find(name)
         if lb is None:
@@ -208,7 +206,7 @@ class Manager(object):
                                            content=content)
 
     def delete_route(self, name, path):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         path = path.strip()
         if path == "/":
             raise RouteError("You cannot remove a route for / location, unbind the app.")
@@ -222,7 +220,7 @@ class Manager(object):
         return self.storage.find_binding(name)
 
     def purge_location(self, name, path):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         path = path.strip()
         lb = LoadBalancer.find(name)
         purged_hosts = 0
@@ -234,7 +232,7 @@ class Manager(object):
         return purged_hosts
 
     def add_block(self, name, block_name, content):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         block_name = block_name.strip()
         lb = LoadBalancer.find(name)
         if lb is None:
@@ -242,7 +240,7 @@ class Manager(object):
         self.consul_manager.write_block(name, block_name, content)
 
     def delete_block(self, name, block_name):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         block_name = block_name.strip()
         lb = LoadBalancer.find(name)
         if lb is None:
@@ -250,16 +248,11 @@ class Manager(object):
         self.consul_manager.remove_block(name, block_name)
 
     def list_blocks(self, name):
-        self._ensure_ready(name)
+        self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         return self.consul_manager.list_blocks(name)
-
-    def _ensure_ready(self, name):
-        task = self.storage.find_task(name)
-        if task.count() >= 1:
-            raise NotReadyError("Async task still running")
 
     def _check_dns(self, name, domain):
         ''' Check if the DNS name is registered for the rpaas VIP
@@ -297,9 +290,9 @@ class Manager(object):
 
         if plugin == 'le':
             try:
-                self.storage.store_task(name)
+                self.task_manager.create(name)
                 task = tasks.DownloadCertTask().delay(self.config, name, plugin, csr, key, domain)
-                self.storage.update_task(name, task.task_id)
+                self.task_manager.update(name, task.task_id)
                 return ''
             except Exception:
                 raise SslError('rpaas IP is not registered for this DNS name')
@@ -319,9 +312,9 @@ class Manager(object):
            plugin not in ['default', '__init__']:
 
             try:
-                self.storage.store_task(name)
+                self.task_manager.create(name)
                 task = tasks.RevokeCertTask().dealy(self.config, name, plugin)
-                self.storage.update_task(name, task.task_id)
+                self.task_manager.update(name, task.task_id)
                 return ''
             except Exception:
                 raise SslError('rpaas IP is not registered for this DNS name')
@@ -336,10 +329,6 @@ class BindError(Exception):
     pass
 
 
-class NotReadyError(Exception):
-    pass
-
-
 class ScaleError(Exception):
     pass
 
@@ -349,10 +338,6 @@ class RouteError(Exception):
 
 
 class SslError(Exception):
-    pass
-
-
-class TaskNotFoundError(Exception):
     pass
 
 

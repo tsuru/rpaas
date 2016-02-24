@@ -37,6 +37,39 @@ app.conf.update(
 ssl_plugins.register_plugins()
 
 
+class NotReadyError(Exception):
+    pass
+
+
+class TaskNotFoundError(Exception):
+    pass
+
+
+class TaskManager(object):
+
+    def __init__(self, config=None):
+        self.storage = storage.MongoDBStorage(config)
+
+    def ensure_ready(self, name):
+        task = self.storage.find_task(name)
+        if task.count() >= 1:
+            raise NotReadyError("Async task still running")
+
+    def remove(self, name):
+        try:
+            self.ensure_ready(name)
+        except NotReadyError:
+            self.storage.remove_task(name)
+        else:
+            raise TaskNotFoundError("Task {} not found for removal".format(name))
+
+    def create(self, name):
+        self.storage.store_task(name)
+
+    def update(self, name, task_id):
+        self.storage.update_task(name, task_id)
+
+
 class BaseManagerTask(Task):
     ignore_result = True
     store_errors_even_if_ignored = True
