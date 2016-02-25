@@ -80,6 +80,7 @@ class BaseManagerTask(Task):
         self.consul_manager = consul_manager.ConsulManager(config)
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
+        self.task_manager = TaskManager(config)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
@@ -199,6 +200,47 @@ class RestoreMachineTask(BaseManagerTask):
             except Exception as e:
                 self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
                 raise e
+
+
+class CheckMachineTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        for node in self.consul_manager.service_healthcheck():
+            node_fail = False
+            address = node['Node']['Address']
+            if not self._check_machine_exists(address):
+                logging.error("check_machine: machine {} not found".format(address))
+                continue
+            service_instance = self.config['RPAAS_SERVICE_NAME']
+            for tag in node['Service']['Tags']:
+                if self.config['RPAAS_SERVICE_NAME'] in tag:
+                    continue
+                service_instance = tag
+            for check in node['Checks']:
+                if check['Status'] != 'passing':
+                    node_fail = True
+                    break
+            task_name = "restore_{}".format(address)
+            if node_fail:
+                try:
+                    self.task_manager.ensure_ready(task_name)
+                    self.task_manager.create({"_id": task_name, "host": address,
+                                              "instance": service_instance,
+                                              "created": datetime.datetime.utcnow()})
+                except:
+                    pass
+            else:
+                try:
+                    self.task_manager.remove(task_name)
+                except:
+                    pass
+
+    def _check_machine_exists(self, address):
+        machine_data = self.storage.find_host_id(address)
+        if machine_data is None:
+            return False
+        return True
 
 
 class DownloadCertTask(BaseManagerTask):

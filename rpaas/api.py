@@ -36,8 +36,12 @@ if SENTRY_DSN:
     sentry = Sentry(api)
 
 if "RUN_RESTORE_MACHINE" in os.environ:
-    from rpaas.scheduler import RestoreMachine
+    from rpaas.healing import RestoreMachine
     RestoreMachine.start()
+
+if set(["RUN_CHECK_MACHINE", "RUN_RESTORE_MACHINE"]) < set(os.environ):
+    from rpaas.healing import CheckMachine
+    CheckMachine.start()
 
 
 @api.route("/resources/plans", methods=["GET"])

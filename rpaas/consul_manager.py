@@ -48,6 +48,10 @@ class ConsulManager(object):
     def remove_healthcheck(self, instance_name):
         self.client.kv.delete(self._key(instance_name, "healthcheck"))
 
+    def service_healthcheck(self):
+        _, instances = self.client.health.service("nginx", tag=self.service_name)
+        return instances
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if content:
             content = content.strip()
