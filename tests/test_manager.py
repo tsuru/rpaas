@@ -385,6 +385,26 @@ content = location /x {
         lb.hosts[0].destroy.assert_called_once
         lb.remove_host.assert_called_once_with(lb.hosts[0])
 
+    @mock.patch("rpaas.tasks.consul_manager")
+    def test_scale_instance_down_with_healing_enabled(self, consul_manager):
+        consul = consul_manager.ConsulManager.return_value
+        config = copy.deepcopy(self.config)
+        lb = self.LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.2.2.2'
+        self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.addCleanup(self.storage.remove_instance_metadata, "x")
+        consul.list_node.return_value = [{'Node': 'rpaas-1', 'Address': '10.1.1.1'},
+                                         {'Node': 'rpaas-2', 'Address': '10.2.2.2'},
+                                         {'Node': 'rpaas-3', 'Address': '10.3.3.3'}]
+        manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        manager.scale_instance("x", 1)
+        lb.hosts[0].destroy.assert_called_once
+        lb.remove_host.assert_called_once_with(lb.hosts[0])
+        consul.node_remove.assert_called_once_with('rpaas-2')
+
     def test_scale_instance_error(self):
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]

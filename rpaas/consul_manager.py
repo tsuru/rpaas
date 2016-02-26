@@ -52,6 +52,13 @@ class ConsulManager(object):
         _, instances = self.client.health.service("nginx", tag=self.service_name)
         return instances
 
+    def list_node(self):
+        _, nodes = self.client.catalog.nodes(dc='dc1')
+        return nodes
+
+    def remove_node(self, name):
+        self.agent.force_leave(name)
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if content:
             content = content.strip()

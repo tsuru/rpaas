@@ -152,6 +152,12 @@ class ScaleInstanceTask(BaseManagerTask):
     def _delete_host(self, lb, host):
         host.destroy()
         lb.remove_host(host)
+        node_name = None
+        for node in self.consul_manager.list_node():
+            if node['Address'] == host.dns_name:
+                node_name = node['Node']
+        if node_name is not None:
+            self.consul_manager.node_remove(node_name)
         self.hc.remove_url(lb.name, host.dns_name)
 
     def run(self, config, name, quantity):
