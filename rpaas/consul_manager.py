@@ -53,7 +53,7 @@ class ConsulManager(object):
         return instances
 
     def list_node(self):
-        _, nodes = self.client.catalog.nodes(dc='dc1')
+        _, nodes = self.client.catalog.nodes()
         return nodes
 
     def remove_node(self, name):
