@@ -157,7 +157,7 @@ class ScaleInstanceTask(BaseManagerTask):
             if node['Address'] == host.dns_name:
                 node_name = node['Node']
         if node_name is not None:
-            self.consul_manager.node_remove(node_name)
+            self.consul_manager.remove_node(node_name)
         self.hc.remove_url(lb.name, host.dns_name)
 
     def run(self, config, name, quantity):
