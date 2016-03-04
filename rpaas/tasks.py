@@ -9,6 +9,7 @@ import os
 import sys
 
 from celery import Celery, Task
+import redis
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -81,6 +82,8 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.task_manager = TaskManager(config)
+        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password,
+                                              socket_timeout=3)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
@@ -182,30 +185,54 @@ class RestoreMachineTask(BaseManagerTask):
 
     def run(self, config):
         self.init_config(config)
+        lock_name = self.config.get("RESTORE_LOCK_NAME", "restore_lock")
+        healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
+        restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
+        created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
+        restore_query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
+        if self._redis_lock(lock_name, timeout=(healthcheck_timeout + 60)):
+            for task in self.storage.find_task(restore_query):
+                try:
+                    start_time = datetime.datetime.utcnow()
+                    self._restore_machine(task, config, healthcheck_timeout)
+                    elapsed_time = datetime.datetime.utcnow() - start_time
+                    self._redis_extend_lock(extra_time=elapsed_time.seconds)
+                except Exception as e:
+                    self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
+                    self._redis_unlock()
+                    raise e
+            self._redis_unlock()
+
+    def _restore_machine(self, task, config, healthcheck_timeout):
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
         restore_dry_mode = self.config.get("RESTORE_MACHINE_DRY_MODE", False)
-        healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         retry_failure_query = {"_id": {"$regex": "restore_.+"}, "last_attempt": {"$ne": None}}
+        if task['instance'] not in self._failure_instances(retry_failure_query, retry_failure_delay):
+            host = self.storage.find_host_id(task['host'])
+            if not restore_dry_mode:
+                Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
+                                "manager": host['manager']}, conf=config).restore()
+                self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
+            self.storage.remove_task({"_id": task['_id']})
+
+    def _failure_instances(self, retry_failure_query, retry_failure_delay):
         failure_instances = set()
         for task in self.storage.find_task(retry_failure_query):
             retry_failure = task['last_attempt'] + datetime.timedelta(minutes=retry_failure_delay)
             if (retry_failure >= datetime.datetime.utcnow()):
                 failure_instances.add(task['instance'])
-        restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
-        created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
-        query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
-        for task in self.storage.find_task(query):
-            try:
-                if task['instance'] not in failure_instances:
-                    host = self.storage.find_host_id(task['host'])
-                    if not restore_dry_mode:
-                        Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
-                                        "manager": host['manager']}, conf=config).restore()
-                        self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
-                    self.storage.remove_task({"_id": task['_id']})
-            except Exception as e:
-                self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
-                raise e
+        return failure_instances
+
+    def _redis_lock(self, lock_name, timeout):
+        self.redis_lock = self.redis_client.lock(name=lock_name, timeout=timeout,
+                                                 blocking_timeout=1)
+        return self.redis_lock.acquire(blocking=False)
+
+    def _redis_unlock(self):
+        self.redis_lock.release()
+
+    def _redis_extend_lock(self, extra_time):
+        self.redis_lock.extend(extra_time)
 
 
 class CheckMachineTask(BaseManagerTask):

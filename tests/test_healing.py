@@ -87,11 +87,12 @@ class RestoreMachineTestCase(unittest.TestCase):
     def tearDown(self):
         self.storage.db[self.storage.tasks_collection].remove()
         self.storage.db[self.storage.hosts_collection].remove()
+        redis.StrictRedis().delete("restore_lock")
+        FakeManager.fail_ids = []
 
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
     def test_restore_machine_success(self, log, nginx):
-        FakeManager.fail_ids = []
         nginx_manager = nginx.Nginx.return_value
         restorer = healing.RestoreMachine(self.config)
         restorer.start()
@@ -108,7 +109,6 @@ class RestoreMachineTestCase(unittest.TestCase):
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
     def test_restore_machine_dry_mode(self, log, nginx):
-        FakeManager.fail_ids = []
         self.config['RESTORE_MACHINE_DRY_MODE'] = 1
         nginx_manager = nginx.Nginx.return_value
         restorer = healing.RestoreMachine(self.config)
@@ -162,6 +162,89 @@ class RestoreMachineTestCase(unittest.TestCase):
                                     call('10.4.4.4', timeout=600)]
             self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)
             self.assertListEqual(tasks, [])
+
+    @patch("rpaas.tasks.nginx")
+    @patch("hm.log.logging")
+    def test_restore_machine_ignore_restore_on_locking(self, log, nginx):
+        redis_lock = redis.StrictRedis().lock('restore_lock', timeout=600, blocking_timeout=1)
+        self.assertTrue(redis_lock.acquire(blocking=False))
+        restorer = healing.RestoreMachine(self.config)
+        nginx_manager = nginx.Nginx.return_value
+        restorer.start()
+        time.sleep(1)
+        restorer.stop()
+        tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
+        self.assertListEqual(['restore_10.1.1.1', 'restore_10.2.2.2', 'restore_10.3.3.3',
+                              'restore_10.4.4.4', 'restore_10.5.5.5'], tasks)
+        self.assertEqual(log.info.call_args_list, [])
+        self.assertEqual(nginx_manager.wait_healthcheck.call_args_list, [])
+        redis_lock.release()
+
+    @patch("rpaas.tasks.nginx")
+    @patch("hm.log.logging")
+    def test_restore_machine_removing_locking_on_success(self, log, nginx):
+        redis_lock = redis.StrictRedis().lock('restore_lock', timeout=600, blocking_timeout=1)
+        self.assertTrue(redis_lock.acquire(blocking=False))
+        redis_lock.release()
+        restorer = healing.RestoreMachine(self.config)
+        nginx_manager = nginx.Nginx.return_value
+        restorer = healing.RestoreMachine(self.config)
+        restorer.start()
+        time.sleep(1)
+        restorer.stop()
+        nginx_expected_calls = [call('10.1.1.1', timeout=600), call('10.3.3.3', timeout=600),
+                                call('10.4.4.4', timeout=600), call('10.5.5.5', timeout=600)]
+        self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)
+        tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
+        self.assertListEqual(tasks, ['restore_10.2.2.2'])
+        self.assertTrue(redis_lock.acquire(blocking=False))
+        redis_lock.release()
+
+    @patch("rpaas.tasks.nginx")
+    @patch("hm.log.logging")
+    def test_restore_machine_removing_locking_on_failure(self, log, nginx):
+        redis_lock = redis.StrictRedis().lock('restore_lock', timeout=600, blocking_timeout=1)
+        self.assertTrue(redis_lock.acquire(blocking=False))
+        redis_lock.release()
+        FakeManager.fail_ids = [2]
+        restorer = healing.RestoreMachine(self.config)
+        nginx_manager = nginx.Nginx.return_value
+        restorer = healing.RestoreMachine(self.config)
+        restorer.start()
+        time.sleep(1)
+        restorer.stop()
+        tasks = [task['_id'] for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}})]
+        self.assertListEqual(['restore_10.2.2.2', 'restore_10.3.3.3',
+                              'restore_10.4.4.4', 'restore_10.5.5.5'], tasks)
+        self.assertEqual(log.info.call_args_list, [call("Machine 0 restored")])
+        self.assertEqual(nginx_manager.wait_healthcheck.call_args_list, [call('10.1.1.1', timeout=600)])
+        self.assertTrue(redis_lock.acquire(blocking=False))
+        redis_lock.release()
+
+    @patch.object(tasks.RestoreMachineTask, "_redis_extend_lock")
+    @patch("rpaas.tasks.nginx")
+    @patch("hm.log.logging")
+    def test_restore_machine_extending_time_btw_restores(self, log, nginx, extend_lock):
+        time_now = datetime.datetime.utcnow()
+        with patch.object(tasks.datetime.datetime, 'utcnow') as mock_time_now:
+            time_side_effect = []
+            for x in range(9):
+                time_side_effect.append(time_now + datetime.timedelta(seconds=10 * x))
+            mock_time_now.side_effect = time_side_effect
+            nginx_manager = nginx.Nginx.return_value
+            restorer = healing.RestoreMachine(self.config)
+            restorer.start()
+            time.sleep(1)
+            restorer.stop()
+            self.assertEqual(extend_lock.call_args_list, [call(extra_time=10), call(extra_time=10),
+                                                          call(extra_time=10)])
+            nginx_expected_calls = [call('10.1.1.1', timeout=600), call('10.3.3.3', timeout=600),
+                                    call('10.4.4.4', timeout=600), call('10.5.5.5', timeout=600)]
+            self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)
+            tasks_restore = []
+            for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}}):
+                tasks_restore.append(task['_id'])
+            self.assertListEqual(tasks_restore, ['restore_10.2.2.2'])
 
 
 class CheckMachineTestCase(unittest.TestCase):
