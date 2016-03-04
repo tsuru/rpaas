@@ -57,7 +57,7 @@ class ConsulManager(object):
         return nodes
 
     def remove_node(self, name):
-        self.agent.force_leave(name)
+        self.client.agent.force_leave(name)
 
     def write_location(self, instance_name, path, destination=None, content=None):
         if content:
