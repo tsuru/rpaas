@@ -120,7 +120,7 @@ class BaseManagerTask(Task):
             except Exception as e:
                 logging.error("Error in rollback trying to destroy load balancer: {}".format(e))
             try:
-                host.destroy()
+                self._delete_host(host)
             except Exception as e:
                 logging.error("Error in rollback trying to destroy host: {}".format(e))
             try:
@@ -128,6 +128,19 @@ class BaseManagerTask(Task):
             except Exception as e:
                 logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
             raise exc_info[0], exc_info[1], exc_info[2]
+
+    def _delete_host(self, host, lb=None):
+        host.destroy()
+        if lb is not None:
+            lb.remove_host(host)
+        node_name = None
+        for node in self.consul_manager.list_node():
+            if node['Address'] == host.dns_name:
+                node_name = node['Node']
+        if node_name is not None:
+            self.consul_manager.remove_node(node_name)
+        if lb is not None:
+            self.hc.remove_url(lb.name, host.dns_name)
 
 
 class NewInstanceTask(BaseManagerTask):
@@ -145,23 +158,12 @@ class RemoveInstanceTask(BaseManagerTask):
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
-            host.destroy()
+            self._delete_host(host, lb)
         lb.destroy()
         self.hc.destroy(name)
 
 
 class ScaleInstanceTask(BaseManagerTask):
-
-    def _delete_host(self, lb, host):
-        host.destroy()
-        lb.remove_host(host)
-        node_name = None
-        for node in self.consul_manager.list_node():
-            if node['Address'] == host.dns_name:
-                node_name = node['Node']
-        if node_name is not None:
-            self.consul_manager.remove_node(node_name)
-        self.hc.remove_url(lb.name, host.dns_name)
 
     def run(self, config, name, quantity):
         try:
@@ -176,7 +178,7 @@ class ScaleInstanceTask(BaseManagerTask):
                 if diff > 0:
                     self._add_host(name, lb=lb)
                 else:
-                    self._delete_host(lb, lb.hosts[i])
+                    self._delete_host(lb.hosts[i], lb)
         finally:
             self.storage.remove_task(name)
 
