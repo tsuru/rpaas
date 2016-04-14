@@ -145,7 +145,9 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
-        self.LoadBalancer.find.assert_called_with("x", self.config)
+        config = copy.deepcopy(self.config)
+        config.update(self.plan["config"])
+        self.LoadBalancer.find.assert_called_with("x", config)
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()
@@ -162,7 +164,9 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
-        self.LoadBalancer.find.assert_called_with("x", self.config)
+        config = copy.deepcopy(self.config)
+        config.update(self.plan["config"])
+        self.LoadBalancer.find.assert_called_with("x", config)
         for h in lb.hosts:
             h.destroy.assert_called_once()
         lb.destroy.assert_called_once()

@@ -66,6 +66,11 @@ class Manager(object):
 
     def remove_instance(self, name):
         metadata = self.storage.find_instance_metadata(name)
+        config = copy.deepcopy(self.config)
+        if metadata and "plan_name" in metadata:
+            plan = self.storage.find_plan(metadata["plan_name"])
+            if plan:
+                config.update(plan.config)
         if metadata and metadata.get("consul_token"):
             self.consul_manager.destroy_token(metadata["consul_token"])
         self.consul_manager.destroy_instance(name)
@@ -73,7 +78,7 @@ class Manager(object):
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
         self.storage.remove_instance_metadata(name)
-        tasks.RemoveInstanceTask().delay(self.config, name)
+        tasks.RemoveInstanceTask().delay(config, name)
 
     def restore_machine_instance(self, name, machine, cancel_task=False):
         task_name = "restore_{}".format(machine)
