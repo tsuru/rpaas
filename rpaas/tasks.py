@@ -124,7 +124,7 @@ class BaseManagerTask(Task):
             except Exception as e:
                 logging.error("Error in rollback trying to destroy host: {}".format(e))
             try:
-                if lb and len(lb.hosts) <= 0:
+                if lb and len(lb.hosts) == 0:
                     self.hc.destroy(name)
             except Exception as e:
                 logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
