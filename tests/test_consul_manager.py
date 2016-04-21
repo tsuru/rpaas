@@ -50,6 +50,17 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         self.assertIsNone(item[1])
 
+    def test_remove_node(self):
+        self.consul.kv.put("test-suite-rpaas/myrpaas/status/test-server", "service OK")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/status/test-server-2", "service OK")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server")
+        self.assertEqual(item[1]["Value"], "service OK")
+        self.manager.remove_node("myrpaas", "test-server")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server")
+        self.assertIsNone(item[1])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server-2")
+        self.assertEqual(item[1]["Value"], "service OK")
+
     def test_write_healthcheck(self):
         self.manager.write_healthcheck("myrpaas")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/healthcheck")

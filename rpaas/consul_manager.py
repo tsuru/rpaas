@@ -56,8 +56,9 @@ class ConsulManager(object):
         _, nodes = self.client.catalog.nodes()
         return nodes
 
-    def remove_node(self, name):
-        self.client.agent.force_leave(name)
+    def remove_node(self, instance_name, server_name):
+        self.client.kv.delete(self._server_status_key(instance_name, server_name))
+        self.client.agent.force_leave(server_name)
 
     def write_location(self, instance_name, path, destination=None, content=None):
         if content:
@@ -129,6 +130,9 @@ class ConsulManager(object):
         else:
             block_path_key = self._key(instance_name, "blocks")
         return block_path_key
+
+    def _server_status_key(self, instance_name, server_name):
+        return self._key(instance_name, "status/%s" % server_name)
 
     def _key(self, instance_name, suffix=None):
         key = "{}/{}".format(self.service_name, instance_name)

@@ -407,7 +407,7 @@ content = location /x {
         manager.scale_instance("x", 1)
         lb.hosts[0].destroy.assert_called_once
         lb.remove_host.assert_called_once_with(lb.hosts[0])
-        consul.remove_node.assert_called_once_with('rpaas-2')
+        consul.remove_node.assert_called_once_with('x', 'rpaas-2')
 
     def test_scale_instance_error(self):
         lb = self.LoadBalancer.find.return_value
