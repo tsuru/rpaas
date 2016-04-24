@@ -222,6 +222,36 @@ class ManagerTestCase(unittest.TestCase):
             manager.restore_machine_instance('foo', '10.1.1.1', True)
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_node_status(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.1.1.1'
+        lb.hosts[1].dns_name = '10.2.2.2'
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.node_hostname.side_effect = ['vm-1', 'vm-2']
+        manager.consul_manager.node_status.return_value = {'vm-1': 'OK', 'vm-2': 'DEAD'}
+        node_status = manager.node_status("x")
+        LoadBalancer.find.assert_called_with("x")
+        self.assertDictEqual(node_status, {'vm-1': {'status': 'OK', 'address': '10.1.1.1'},
+                                           'vm-2': {'status': 'DEAD', 'address': '10.2.2.2'}})
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_node_status_no_hostname(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.1.1.1'
+        lb.hosts[1].dns_name = '10.2.2.2'
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.node_hostname.side_effect = ['vm-1', None]
+        manager.consul_manager.node_status.return_value = {'vm-1': 'OK', 'vm-2': 'DEAD'}
+        node_status = manager.node_status("x")
+        LoadBalancer.find.assert_called_with("x")
+        self.assertDictEqual(node_status, {'vm-1': {'status': 'OK', 'address': '10.1.1.1'},
+                                           'vm-2': {'status': 'DEAD'}})
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_info(self, LoadBalancer):
         lb = LoadBalancer.find.return_value
         lb.address = "192.168.1.1"
@@ -398,9 +428,7 @@ content = location /x {
         lb.hosts[0].dns_name = '10.2.2.2'
         self.storage.store_instance_metadata("x", consul_token="abc-123")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
-        consul.list_node.return_value = [{'Node': 'rpaas-1', 'Address': '10.1.1.1'},
-                                         {'Node': 'rpaas-2', 'Address': '10.2.2.2'},
-                                         {'Node': 'rpaas-3', 'Address': '10.3.3.3'}]
+        consul.node_hostname.return_value = 'rpaas-2'
         manager = Manager(config)
         manager.consul_manager = mock.Mock()
         manager.consul_manager.generate_token.return_value = "abc-123"

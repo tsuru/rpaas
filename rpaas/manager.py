@@ -162,6 +162,22 @@ class Manager(object):
     def status(self, name):
         return self._get_address(name)
 
+    def node_status(self, name):
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        hostnames = {}
+        for host in lb.hosts:
+            hostname = self.consul_manager.node_hostname(host.dns_name)
+            if hostname is not None:
+                hostnames[hostname] = host.dns_name
+        node_status_return = {}
+        for node, status in self.consul_manager.node_status(name).iteritems():
+            node_status_return[node] = {'status': status}
+            if node in hostnames:
+                node_status_return[node]['address'] = hostnames[node]
+        return node_status_return
+
     def update_certificate(self, name, cert, key):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)

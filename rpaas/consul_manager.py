@@ -60,6 +60,21 @@ class ConsulManager(object):
         self.client.kv.delete(self._server_status_key(instance_name, server_name))
         self.client.agent.force_leave(server_name)
 
+    def node_hostname(self, host):
+        for node in self.list_node():
+            if node['Address'] == host.dns_name:
+                return node['Node']
+        return None
+
+    def node_status(self, instance_name):
+        node_status = self.client.kv.get(self._server_status_key(instance_name), recurse=True)
+        node_status_list = {}
+        if node_status is not None:
+            for node in node_status[1]:
+                node_server_name = node['Key'].split('/')[-1]
+                node_status_list[node_server_name] = node['Value']
+        return node_status_list
+
     def write_location(self, instance_name, path, destination=None, content=None):
         if content:
             content = content.strip()
@@ -131,8 +146,10 @@ class ConsulManager(object):
             block_path_key = self._key(instance_name, "blocks")
         return block_path_key
 
-    def _server_status_key(self, instance_name, server_name):
-        return self._key(instance_name, "status/%s" % server_name)
+    def _server_status_key(self, instance_name, server_name=None):
+        if server_name:
+            return self._key(instance_name, "status/%s" % server_name)
+        return self._key(instance_name, "status")
 
     def _key(self, instance_name, suffix=None):
         key = "{}/{}".format(self.service_name, instance_name)

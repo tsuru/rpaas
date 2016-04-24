@@ -139,6 +139,17 @@ def info(name):
         return "Instance not found", 404
 
 
+@api.route("/resources/<name>/node_status", methods=["GET"])
+@auth.required
+def node_status(name):
+    try:
+        node_status = get_manager().node_status(name)
+        return Response(response=json.dumps(node_status), status=200,
+                        mimetype="application/json")
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+
+
 @api.route("/resources/<name>/status", methods=["GET"])
 @auth.required
 def status(name):

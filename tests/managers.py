@@ -15,6 +15,7 @@ class FakeInstance(object):
         self.bound = []
         self.routes = {}
         self.blocks = {}
+        self.node_status = {}
 
     def bind(self, app_host):
         self.bound.append(app_host)
@@ -59,6 +60,12 @@ class FakeManager(object):
         if index < 0:
             raise storage.InstanceNotFoundError()
         return {"name": instance.name}
+
+    def node_status(self, name):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        return instance.node_status
 
     def status(self, name):
         index, instance = self.find_instance(name)

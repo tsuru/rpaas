@@ -218,6 +218,20 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
+    def test_node_status(self):
+        instance = self.manager.new_instance("someapp")
+        instance.node_status = {"node-1": [{'status': 'ok', 'address': '10.10.1.1'}]}
+        resp = self.api.get("/resources/someapp/node_status")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("application/json", resp.mimetype)
+        data = json.loads(resp.data)
+        self.assertDictEqual({"node-1": [{'status': 'ok', 'address': '10.10.1.1'}]}, data)
+
+    def test_node_status_not_found(self):
+        resp = self.api.get("/resources/someapp/node_status")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance not found", resp.data)
+
     def test_status_started(self):
         self.manager.new_instance("someapp", state="anything.anything")
         resp = self.api.get("/resources/someapp/status")

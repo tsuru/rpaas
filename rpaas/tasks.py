@@ -137,10 +137,7 @@ class BaseManagerTask(Task):
         host.destroy()
         if lb is not None:
             lb.remove_host(host)
-        node_name = None
-        for node in self.consul_manager.list_node():
-            if node['Address'] == host.dns_name:
-                node_name = node['Node']
+        node_name = self.consul_manager.node_hostname(host.dns_name)
         if node_name is not None:
             self.consul_manager.remove_node(name, node_name)
         self.hc.remove_url(name, host.dns_name)

@@ -4,6 +4,7 @@
 
 import os
 import unittest
+import mock
 
 import consul
 
@@ -60,6 +61,24 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertIsNone(item[1])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server-2")
         self.assertEqual(item[1]["Value"], "service OK")
+
+    def test_node_hostname(self):
+        host = mock.Mock()
+        host.dns_name = '127.0.0.1'
+        node_hostname = self.manager.node_hostname(host)
+        self.assertEqual('rpaas-test', node_hostname)
+
+    def test_node_hostname_not_found(self):
+        host = mock.Mock()
+        host.dns_name = '10.0.0.1'
+        node_hostname = self.manager.node_hostname(host)
+        self.assertEqual(None, node_hostname)
+
+    def test_node_status(self):
+        self.consul.kv.put("test-suite-rpaas/myrpaas/status/my-server-1", "service OK")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/status/my-server-2", "service DEAD")
+        node_status = self.manager.node_status("myrpaas")
+        self.assertDictEqual(node_status, {'my-server-1': 'service OK', 'my-server-2': 'service DEAD'})
 
     def test_write_healthcheck(self):
         self.manager.write_healthcheck("myrpaas")
