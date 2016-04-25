@@ -247,7 +247,7 @@ def status(args):
             if 'address' in parsed_vms[vm]:
                 address = parsed_vms[vm]['address']
             out.append("{}: {} - {}".format(vm, parsed_vms[vm]['status'], address))
-            sys.stdout.write('\n'.join(out) + '\n')
+        sys.stdout.write('\n'.join(out) + '\n')
     else:
         msg = result.read().rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
