@@ -456,6 +456,32 @@ server: server content
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
+    def test_status(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        urlopen.return_value.read.return_value = '{"vm-1":{"status": "Reload OK","address": "10.1.1.1"},' + \
+                                                 '"vm-2":{"status": "Reload FAIL","address": "10.2.2.2"},' + \
+                                                 '"vm-3":{"status": "Reload Ok"}}'
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.status(['-s', 'myservice', '-i', 'myinst'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/node_status")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        self.assertEqual(request.get_method(), 'GET')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("""Node Name: Status - Address
+
+vm-1: Reload OK - 10.1.1.1
+vm-2: Reload FAIL - 10.2.2.2
+vm-3: Reload Ok - *
+""")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
     def test_route_with_content(self, stdout, Request, urlopen):
         request = Request.return_value
         urlopen.return_value.getcode.return_value = 200

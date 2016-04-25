@@ -232,6 +232,36 @@ def ssl(args):
         sys.exit(1)
 
 
+def status(args):
+    service, instance = get_status_args(args)
+    req_path = "/resources/{}/node_status".format(instance)
+    method = "GET"
+    result = proxy_request(service, instance, req_path,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if result.getcode() == 200:
+        parsed_vms = json.loads(result.read())
+        out = ["Node Name: Status - Address", ""]
+        for vm in parsed_vms:
+            address = "*"
+            if 'address' in parsed_vms[vm]:
+                address = parsed_vms[vm]['address']
+            out.append("{}: {} - {}".format(vm, parsed_vms[vm]['status'], address))
+            sys.stdout.write('\n'.join(out) + '\n')
+    else:
+        msg = result.read().rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
+def get_status_args(args):
+    parser = argparse.ArgumentParser("status")
+    parser.add_argument("-s", "--service", required=True)
+    parser.add_argument("-i", "--instance", required=True)
+    parsed_args = parser.parse_args(args)
+    return parsed_args.service, parsed_args.instance
+
+
 def get_scale_args(args):
     parser = argparse.ArgumentParser("scale")
     parser.add_argument("-s", "--service", required=True)
@@ -336,6 +366,7 @@ def available_commands():
         "purge": purge,
         "ssl": ssl,
         "block": block,
+        "status": status
     }
 
 
