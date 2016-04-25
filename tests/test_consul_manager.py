@@ -63,8 +63,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual(item[1]["Value"], "service OK")
 
     def test_node_hostname(self):
-        host = mock.Mock()
-        host.dns_name = '127.0.0.1'
+        host = '127.0.0.1'
         node_hostname = self.manager.node_hostname(host)
         self.assertEqual('rpaas-test', node_hostname)
 

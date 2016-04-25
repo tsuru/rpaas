@@ -62,7 +62,7 @@ class ConsulManager(object):
 
     def node_hostname(self, host):
         for node in self.list_node():
-            if node['Address'] == host.dns_name:
+            if node['Address'] == host:
                 return node['Node']
         return None
 
