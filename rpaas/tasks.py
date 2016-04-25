@@ -104,9 +104,9 @@ class BaseManagerTask(Task):
         try:
             if not lb:
                 lb = created_lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
+                self.hc.create(name)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
-            self.hc.create(name)
             self.hc.add_url(name, host.dns_name)
             self.storage.remove_task(name)
         except:
