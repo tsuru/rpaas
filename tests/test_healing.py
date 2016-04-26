@@ -109,7 +109,7 @@ class RestoreMachineTestCase(unittest.TestCase):
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
     def test_restore_machine_dry_mode(self, log, nginx):
-        self.config['RESTORE_MACHINE_DRY_MODE'] = 1
+        self.config['RESTORE_MACHINE_DRY_MODE'] = "1"
         nginx_manager = nginx.Nginx.return_value
         restorer = healing.RestoreMachine(self.config)
         restorer.start()

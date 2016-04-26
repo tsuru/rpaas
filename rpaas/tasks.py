@@ -207,7 +207,7 @@ class RestoreMachineTask(BaseManagerTask):
 
     def _restore_machine(self, task, config, healthcheck_timeout):
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
-        restore_dry_mode = self.config.get("RESTORE_MACHINE_DRY_MODE", False)
+        restore_dry_mode = self.config.get("RESTORE_MACHINE_DRY_MODE", False) in ("True", "true", "1")
         retry_failure_query = {"_id": {"$regex": "restore_.+"}, "last_attempt": {"$ne": None}}
         if task['instance'] not in self._failure_instances(retry_failure_query, retry_failure_delay):
             host = self.storage.find_host_id(task['host'])

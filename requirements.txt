@@ -1,1 +1,2 @@
+git+https://gitlab.globoi.com/tsuru/python-consul.git
 -e /home/application/current
