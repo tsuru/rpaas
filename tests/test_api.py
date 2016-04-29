@@ -66,10 +66,19 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("someapp", self.manager.instances[0].name)
         self.assertEqual("small", self.manager.instances[0].plan)
 
-    def test_start_instance_without_name(self):
+    def test_start_instance_with_invalid_names(self):
         resp = self.api.post("/resources", data={"names": "someapp"})
         self.assertEqual(400, resp.status_code)
-        self.assertEqual("name is required", resp.data)
+        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        resp = self.api.post("/resources", data={"name": "test_1"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        resp = self.api.post("/resources", data={"name": "test1#"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        resp = self.api.post("/resources", data={"name": 26 * "t"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
         self.assertEqual([], self.manager.instances)
 
     def test_start_instance_without_team(self):

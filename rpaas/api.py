@@ -6,6 +6,7 @@ import inspect
 import json
 import os
 import logging
+import re
 from socket import gaierror
 
 from flask import Flask, Response, request
@@ -55,8 +56,8 @@ def plans():
 @auth.required
 def add_instance():
     name = request.form.get("name")
-    if not name:
-        return "name is required", 400
+    if not name or re.search("^[0-9a-z-]+$", name) is None or len(name) > 25:
+        return "instance name must match [0-9a-z-] and length up to 25 chars", 400
     team = request.form.get("team")
     if not team:
         return "team name is required", 400
