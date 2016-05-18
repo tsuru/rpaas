@@ -138,7 +138,6 @@ class ManagerTestCase(unittest.TestCase):
         LoadBalancer.find.assert_called_once_with("x")
 
     def test_remove_instance(self):
-        self.storage.store_task("x")
         self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
@@ -157,7 +156,6 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager.destroy_instance.assert_called_with("x")
 
     def test_remove_instance_no_token(self):
-        self.storage.store_task("x")
         self.storage.store_instance_metadata("x", plan_name="small")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]

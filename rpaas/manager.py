@@ -65,6 +65,7 @@ class Manager(object):
         config["HOST_TAGS"] = ",".join(tags)
 
     def remove_instance(self, name):
+        self.task_manager.create(name)
         metadata = self.storage.find_instance_metadata(name)
         config = copy.deepcopy(self.config)
         if metadata and "plan_name" in metadata:

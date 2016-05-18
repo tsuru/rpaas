@@ -184,6 +184,7 @@ class BaseManagerTask(Task):
         if node_name is not None:
             self.consul_manager.remove_node(name, node_name)
         self.hc.remove_url(name, host.dns_name)
+        self.storage.remove_task(name)
 
 
 class NewInstanceTask(BaseManagerTask):
