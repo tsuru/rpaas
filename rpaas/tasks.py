@@ -7,9 +7,9 @@ import datetime
 import logging
 import os
 import sys
+from urlparse import urlparse
 
 from celery import Celery, Task
-import redis
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -18,24 +18,68 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage
+from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel
+
+possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
+
+celery_sentinel.register_celery_alias()
 
 
-redis_host = os.environ.get('REDIS_HOST', 'localhost')
-redis_port = os.environ.get('REDIS_PORT', '6379')
-redis_password = os.environ.get('REDIS_PASSWORD', '')
-auth_prefix = ''
-if redis_password:
-    auth_prefix = ':{}@'.format(redis_password)
-redis_broker = "redis://{}{}:{}/0".format(auth_prefix, redis_host, redis_port)
-app = Celery('tasks', broker=redis_broker, backend=redis_broker)
-app.conf.update(
-    CELERY_TASK_SERIALIZER='json',
-    CELERY_RESULT_SERIALIZER='json',
-    CELERY_ACCEPT_CONTENT=['json'],
-)
+def setup_redis_url():
+    env_val = None
+    env_name = None
+    for e in possible_redis_envs:
+        env_name = e
+        env_val = os.environ.get(e)
+        if env_val:
+            break
+    if not env_val:
+        redis_host = os.environ.get('REDIS_HOST', 'localhost')
+        redis_port = os.environ.get('REDIS_PORT', '6379')
+        redis_password = os.environ.get('REDIS_PASSWORD', '')
+        auth_prefix = ''
+        if redis_password:
+            auth_prefix = ':{}@'.format(redis_password)
+        return "redis://{}{}:{}/0".format(auth_prefix, redis_host, redis_port), {}
+    url = urlparse(env_val)
+    if url.scheme == 'sentinel':
+        path_parts = url.path.split(':')
+        if len(path_parts) != 2:
+            raise Exception('invalid connection url in {}: {}'.format(env_name, env_val))
+        options = {
+            'service_name': path_parts[1],
+            'password': url.password,
+        }
+        host_parts = url.netloc.split('@')
+        servers = host_parts[len(host_parts) - 1].split(',')
+        sentinels = []
+        for s in servers:
+            host_port = s.split(':')
+            if len(host_port) != 2:
+                raise Exception('invalid connection url in {}: {}'.format(env_name, env_val))
+            sentinels.append(
+                (host_port[0], host_port[1])
+            )
+        options['sentinels'] = sentinels
+        return "redis-sentinel://", options
+    return env_val, {}
 
-ssl_plugins.register_plugins()
+
+def initialize_celery():
+    redis_url, broker_options = setup_redis_url()
+    app = Celery('tasks', broker=redis_url, backend=redis_url)
+    app.conf.update(
+        CELERY_TASK_SERIALIZER='json',
+        CELERY_RESULT_SERIALIZER='json',
+        CELERY_ACCEPT_CONTENT=['json'],
+        BROKER_TRANSPORT_OPTIONS=broker_options,
+        CELERY_SENTINEL_BACKEND_SETTINGS=broker_options,
+    )
+    ssl_plugins.register_plugins()
+    return app
+
+
+app = initialize_celery()
 
 
 class NotReadyError(Exception):
@@ -82,8 +126,7 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.task_manager = TaskManager(config)
-        self.redis_client = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password,
-                                              socket_timeout=3)
+        self.redis_client = app.broker_connection().channel().client
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)

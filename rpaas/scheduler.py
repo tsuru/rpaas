@@ -15,7 +15,7 @@ DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 class JobScheduler(threading.Thread):
     """
-    Generic Job Scheduler
+    Generic Job Scheduler.
 
     It should run on the API role, as it depends on environment variables for
     working.
@@ -27,8 +27,7 @@ class JobScheduler(threading.Thread):
         self.config = config or dict(os.environ)
         self.interval = int(self.config.get("JOB_SCHEDULER_RUN_INTERVAL", 30))
         self.last_run_key = self.config.get("JOB_SCHEDULER_LAST_RUN_KEY", "job_scheduler:last_run")
-        self.conn = redis.StrictRedis(host=tasks.redis_host, port=tasks.redis_port,
-                                      password=tasks.redis_password)
+        self.conn = tasks.app.broker_connection().channel().client
 
     def try_lock(self):
         interval_delta = datetime.timedelta(seconds=self.interval)
