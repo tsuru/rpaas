@@ -51,7 +51,7 @@ redis-sentinel-test: kill-redis-sentinel-test copy-redis-conf
 	redis-server /tmp/redis_test.conf --daemonize yes; sleep 1
 	redis-server /tmp/redis_test2.conf --daemonize yes; sleep 1
 	redis-server /tmp/redis_test3.conf --daemonize yes; sleep 1
-	redis-cli -p 51111 info > /dev/null
+	redis-cli -p 51111 info | grep sentinel
 
 copy-redis-conf:
 	@cp tests/testdata/sentinel_conf/*.conf /tmp
