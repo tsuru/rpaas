@@ -91,6 +91,17 @@ def patch_flower_broker():
             old_new(cls, broker_url, *args, **kwargs)
     Broker.__new__ = classmethod(new_new)
 
+    from flower.command import settings
+    from flower.views.tasks import TasksView
+    from rpaas import flower_uimodules
+    settings['ui_modules'] = flower_uimodules
+
+    def new_render(self, *args, **kwargs):
+        self._ui_module('FixTasks', self.application.ui_modules['FixTasks'])(self)
+        super(TasksView, self).render(*args, **kwargs)
+
+    TasksView.render = new_render
+
 
 def register_celery_alias(alias="redis-sentinel"):
     BACKEND_ALIASES[alias] = "rpaas.celery_sentinel.RedisSentinelBackend"
