@@ -6,7 +6,7 @@ install:
   - curl -LO https://releases.hashicorp.com/consul/0.5.2/consul_0.5.2_linux_amd64.zip
   - unzip consul_0.5.2_linux_amd64.zip
   - GOMAXPROCS=8 PATH=":$PATH" make start-consul
-script: make test
+script: make ci-test
 services:
   - mongodb
   - redis

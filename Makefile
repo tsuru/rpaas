@@ -24,7 +24,9 @@ stop-consul:
 	-consul leave
 	rm -rf /tmp/consul
 
-test: clean_pycs deps redis-sentinel-test start-consul
+test: start-consul ci-test
+
+ci-test: clean_pycs deps redis-sentinel-test
 	@python -m unittest discover
 	@flake8 --max-line-length=110 .
 
