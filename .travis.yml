@@ -16,3 +16,7 @@ notifications:
       - tsuru@corp.globo.com
     on_success: change
     on_failure: change
+addons:
+  apt:
+    packages:
+    - redis-server
