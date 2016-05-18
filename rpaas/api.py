@@ -55,6 +55,8 @@ def plans():
 @api.route("/resources", methods=["POST"])
 @auth.required
 def add_instance():
+    if "RPAAS_NEW_SERVICE" in os.environ:
+        return "New instance disabled. Use {} service instead".format(os.environ["RPAAS_NEW_SERVICE"]), 405
     name = request.form.get("name")
     if not name or re.search("^[0-9a-z-]+$", name) is None or len(name) > 25:
         return "instance name must match [0-9a-z-] and length up to 25 chars", 400

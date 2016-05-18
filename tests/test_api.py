@@ -540,3 +540,10 @@ class APITestCase(unittest.TestCase):
         data = json.loads(resp.data)
         self.assertDictEqual({"blocks": [{'http': 'https',
                                           'server': 'true.com'}]}, data)
+
+    def test_start_instance_with_instance_disabled_with_alternative_service(self):
+        os.environ["RPAAS_NEW_SERVICE"] = "rpaas_test_new_service"
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
+        self.assertEqual(405, resp.status_code)
+        self.assertEqual("New instance disabled. Use rpaas_test_new_service service instead", resp.data)
+        del os.environ["RPAAS_NEW_SERVICE"]
