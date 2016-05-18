@@ -172,6 +172,15 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(self.storage.find_instance_metadata("x"))
         manager.consul_manager.destroy_token.assert_not_called()
 
+    def test_remove_instance_remove_task_on_exception(self):
+        self.storage.store_instance_metadata("x", plan_name="small")
+        lb = self.LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(side_effect=Exception("test"))]
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.remove_instance("x")
+        self.assertEquals(self.storage.find_task("x").count(), 0)
+
     @mock.patch("rpaas.tasks.nginx")
     def test_remove_instance_decrement_quota(self, nginx):
         manager = Manager(self.config)

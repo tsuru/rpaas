@@ -177,14 +177,16 @@ class BaseManagerTask(Task):
             raise exc_info[0], exc_info[1], exc_info[2]
 
     def _delete_host(self, name, host, lb=None):
-        node_name = self.consul_manager.node_hostname(host.dns_name)
-        host.destroy()
-        if lb is not None:
-            lb.remove_host(host)
-        if node_name is not None:
-            self.consul_manager.remove_node(name, node_name)
-        self.hc.remove_url(name, host.dns_name)
-        self.storage.remove_task(name)
+        try:
+            node_name = self.consul_manager.node_hostname(host.dns_name)
+            host.destroy()
+            if lb is not None:
+                lb.remove_host(host)
+            if node_name is not None:
+                self.consul_manager.remove_node(name, node_name)
+            self.hc.remove_url(name, host.dns_name)
+        finally:
+            self.storage.remove_task(name)
 
 
 class NewInstanceTask(BaseManagerTask):
