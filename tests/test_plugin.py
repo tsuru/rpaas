@@ -37,8 +37,8 @@ class TsuruPluginTestCase(unittest.TestCase):
     def delete_envs(self):
         del os.environ["TSURU_TARGET"], os.environ["TSURU_TOKEN"]
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_scale(self, stdout, Request, urlopen):
         request = mock.Mock()
@@ -58,8 +58,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully scaled to 10 units\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_scale_singular(self, stdout, Request, urlopen):
         request = mock.Mock()
@@ -79,8 +79,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully scaled to 1 unit\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stderr")
     def test_scale_failure(self, stderr, Request, urlopen):
         request = mock.Mock()
@@ -190,8 +190,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with(u'command "wat" not found\n')
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_certificate(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -248,8 +248,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('route: error: too few arguments\n')
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_route(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -267,8 +267,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_route_file_content(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -287,8 +287,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_block_add_file_content(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -307,8 +307,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("block successfully added\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_block_add(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -326,8 +326,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("block successfully added\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_block_remove(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -344,8 +344,8 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("block successfully removed\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_block_list(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -435,8 +435,8 @@ server: server content
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('purge: path is required for purge location\n')
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_purge(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -453,8 +453,8 @@ server: server content
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_status(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -479,8 +479,8 @@ vm-2: Reload FAIL - 10.2.2.2
 vm-3: Reload Ok - *
 """)
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_route_with_content(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -498,8 +498,8 @@ vm-3: Reload Ok - *
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_route_remove(self, stdout, Request, urlopen):
         request = Request.return_value
@@ -517,8 +517,8 @@ vm-3: Reload Ok - *
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully removed\n")
 
-    @mock.patch("urllib2.urlopen")
-    @mock.patch("urllib2.Request")
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_route_list(self, stdout, Request, urlopen):
         request = Request.return_value

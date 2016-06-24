@@ -7,12 +7,20 @@
 import argparse
 import os
 import urllib
-import urllib2
 import sys
 import uuid
 import io
 import json
-import urlparse
+
+try:
+    from urllib2 import urlopen, Request
+except ImportError:
+    from urllib.request import urlopen, Request
+
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 
 def encode_multipart_formdata(files):
@@ -54,7 +62,7 @@ def scale(args):
             msg += "s"
         sys.stdout.write(msg + "\n")
     else:
-        msg = result.read().rstrip("\n")
+        msg = result.read().decode('utf-8').rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
         sys.exit(1)
 
@@ -77,7 +85,7 @@ def certificate(args):
     if result.getcode() == 200:
         sys.stdout.write("Certificate successfully updated\n")
     else:
-        msg = result.read().rstrip("\n")
+        msg = result.read().decode('utf-8').rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
         sys.exit(1)
 
@@ -115,9 +123,10 @@ def route(args):
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    content = result.read().decode('utf-8').rstrip("\n")
     if result.getcode() in [200, 201]:
         if args.action == 'list':
-            parsed = json.loads(result.read())
+            parsed = json.loads(content)
             routes = parsed.get('routes') or []
             out = ["path: destination", ""]
             for route in routes:
@@ -126,8 +135,7 @@ def route(args):
         else:
             sys.stdout.write("route successfully {}\n".format(message))
     else:
-        msg = result.read().rstrip("\n")
-        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.stderr.write("ERROR: " + content + "\n")
         sys.exit(1)
 
 
@@ -155,9 +163,10 @@ def block(args):
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    content = result.read().decode('utf-8').rstrip("\n")
     if result.getcode() in [200, 201]:
         if args.action == 'list':
-            parsed = json.loads(result.read())
+            parsed = json.loads(content)
             blocks = parsed.get('blocks') or []
             out = ["block_name: content", ""]
             for block in blocks:
@@ -166,8 +175,7 @@ def block(args):
         else:
             sys.stdout.write("block successfully {}\n".format(message))
     else:
-        msg = result.read().rstrip("\n")
-        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.stderr.write("ERROR: " + content + "\n")
         sys.exit(1)
 
 
@@ -182,11 +190,11 @@ def purge(args):
                            body=body,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    content = result.read().decode('utf-8').rstrip("\n")
     if result.getcode() == 200:
-        sys.stdout.write(result.read() + '\n')
+        sys.stdout.write(content + '\n')
     else:
-        msg = result.read().rstrip("\n")
-        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.stderr.write("ERROR: " + content + "\n")
         sys.exit(1)
 
 
@@ -221,13 +229,13 @@ def ssl(args):
     try:
         result = proxy_request(args.service, args.instance, rpaas_path, body=body, method=method,
                                headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    except Exception, e:
+    except Exception as e:
         sys.stderr.write("ERROR: "+str(e)+"\n")
         sys.exit(1)
     if result.getcode() in [200, 201]:
         sys.stdout.write("Certificate successfully updated\n")
     else:
-        msg = result.read().rstrip("\n")
+        msg = result.read().decode('utf-8').rstrip("\n")
         sys.stderr.write("ERROR: " + msg + "\n")
         sys.exit(1)
 
@@ -239,8 +247,9 @@ def status(args):
     result = proxy_request(service, instance, req_path,
                            method=method,
                            headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    content = result.read().decode('utf-8').rstrip("\n")
     if result.getcode() == 200:
-        parsed_vms = json.loads(result.read())
+        parsed_vms = json.loads(content)
         out = ["Node Name: Status - Address", ""]
         for vm in parsed_vms:
             address = "*"
@@ -249,8 +258,7 @@ def status(args):
             out.append("{}: {} - {}".format(vm, parsed_vms[vm]['status'], address))
         sys.stdout.write('\n'.join(out) + '\n')
     else:
-        msg = result.read().rstrip("\n")
-        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.stderr.write("ERROR: " + content + "\n")
         sys.exit(1)
 
 
@@ -323,7 +331,7 @@ def get_purge_args(args):
     parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-l", "--location", required=True, help="Location to be purged")
     parsed_args = parser.parse_args(args)
-    parsed_url = urlparse.urlparse(parsed_args.location)
+    parsed_url = urlparse(parsed_args.location)
     if parsed_url.path == '':
         sys.stderr.write("purge: path is required for purge location\n")
         sys.exit(2)
@@ -347,7 +355,7 @@ def proxy_request(service_name, instance_name, path, body=None, headers=None, me
     token = get_env("TSURU_TOKEN")
     url = "{}/services/{}/proxy/{}?callback={}".format(target, service_name, instance_name,
                                                        path)
-    request = urllib2.Request(url)
+    request = Request(url)
     request.add_header("Authorization", "bearer " + token)
     request.get_method = lambda: method
     if body:
@@ -355,7 +363,7 @@ def proxy_request(service_name, instance_name, path, body=None, headers=None, me
     if headers:
         for key, value in headers.items():
             request.add_header(key, value)
-    return urllib2.urlopen(request)
+    return urlopen(request)
 
 
 def available_commands():
