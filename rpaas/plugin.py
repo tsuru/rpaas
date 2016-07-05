@@ -127,10 +127,12 @@ def route(args):
     if result.getcode() in [200, 201]:
         if args.action == 'list':
             parsed = json.loads(content)
-            routes = parsed.get('routes') or []
-            out = ["path: destination", ""]
+            routes = parsed.get('paths') or []
+            out = []
+            sys.stdout.write("Routes:\n")
             for route in routes:
-                out.append("{}: {}".format(route.get('path'), route.get('destination')))
+                out.append("path = {}".format(route.get('path')))
+                out.append("content = {}".format(route.get('content')))
             sys.stdout.write('\n'.join(out) + '\n')
         else:
             sys.stdout.write("route successfully {}\n".format(message))

@@ -524,7 +524,7 @@ vm-3: Reload Ok - *
         request = Request.return_value
         urlopen.return_value.getcode.return_value = 200
         urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
-            '"routes": [{"path": "/a", "destination": "desta"}, {"path": "/b", "destination": "destb"}]}'
+            '"paths": [{"path": "/a", "content": "desta"}, {"path": "/b", "content": "destb"}]}'
         self.set_envs()
         self.addCleanup(self.delete_envs)
         plugin.route(['list', '-s', 'myservice', '-i', 'myinst'])
@@ -534,8 +534,4 @@ vm-3: Reload Ok - *
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         self.assertEqual(request.get_method(), 'GET')
         urlopen.assert_called_with(request)
-        stdout.write.assert_called_with("""path: destination
-
-/a: desta
-/b: destb
-""")
+        stdout.write.assert_called_with("path = /a\ncontent = desta\npath = /b\ncontent = destb\n")
