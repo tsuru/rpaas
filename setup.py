@@ -32,7 +32,7 @@ setup(
         "celery[redis]==3.1.23",
         "flower==0.9.1",
         "GloboNetworkAPI==0.2.2",
-        "python-consul",
+        "python-consul==0.6.1",
         "raven==4.2.3",
         "blinker==1.4",
         "acme==0.0.0.dev20151108",
