@@ -6,6 +6,7 @@
 
 import datetime
 import unittest
+import os
 
 import freezegun
 
@@ -15,10 +16,11 @@ from rpaas import plan, storage
 class MongoDBStorageTestCase(unittest.TestCase):
 
     def setUp(self):
+        os.environ["MONGO_DATABASE"] = "storage_test"
         self.storage = storage.MongoDBStorage()
-        self.storage.db[self.storage.quota_collection].remove()
-        self.storage.db[self.storage.plans_collection].remove()
-        self.storage.db[self.storage.le_certificates_collection].remove()
+        colls = self.storage.db.collection_names(False)
+        for coll in colls:
+            self.storage.db.drop_collection(coll)
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "small",
              "description": "some cool plan",
@@ -158,3 +160,20 @@ class MongoDBStorageTestCase(unittest.TestCase):
         certs_name = list(self.storage.find_le_certificates({"name": "myinstance"}))
         self.assertEqual(certs_name, certs_domain)
         self.assertEqual("myinstance", certs_name[0]["name"])
+
+    @freezegun.freeze_time("2016-08-02 10:53:00", tz_offset=2)
+    def test_store_and_update_healing(self):
+        healing_id = self.storage.store_healing("myinstance", "10.10.1.1")
+        coll = self.storage.db[self.storage.healing_collection]
+        item = coll.find_one({"_id": healing_id})
+        expected = {"_id": healing_id, "instance": "myinstance", "machine": "10.10.1.1",
+                    "start_time": datetime.datetime(2016, 8, 2, 10, 53, 0)}
+        self.assertDictEqual(item, expected)
+        with freezegun.freeze_time("2016-08-02 10:55:00", tz_offset=2):
+            self.storage.update_healing(healing_id, "some random reason")
+            item = coll.find_one({"_id": healing_id})
+            expected = {"_id": healing_id, "instance": "myinstance", "machine": "10.10.1.1",
+                        "start_time": datetime.datetime(2016, 8, 2, 10, 53, 0),
+                        "end_time": datetime.datetime(2016, 8, 2, 10, 55, 0),
+                        "status": "some random reason"}
+            self.assertDictEqual(item, expected)

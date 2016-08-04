@@ -258,9 +258,15 @@ class RestoreMachineTask(BaseManagerTask):
         if task['instance'] not in self._failure_instances(retry_failure_query, retry_failure_delay):
             host = self.storage.find_host_id(task['host'])
             if not restore_dry_mode:
-                Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
-                                "manager": host['manager']}, conf=config).restore()
-                self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
+                healing_id = self.storage.store_healing(task['instance'], task['host'])
+                try:
+                    Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
+                                    "manager": host['manager']}, conf=config).restore()
+                    self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
+                    self.storage.update_healing(healing_id, "success")
+                except Exception as e:
+                    self.storage.update_healing(healing_id, e.message)
+                    raise e
             self.storage.remove_task({"_id": task['_id']})
 
     def _failure_instances(self, retry_failure_query, retry_failure_delay):

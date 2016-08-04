@@ -221,10 +221,13 @@ class RestoreMachineTestCase(unittest.TestCase):
         self.assertTrue(redis_lock.acquire(blocking=False))
         redis_lock.release()
 
+    @patch.object(storage.MongoDBStorage, "store_healing")
+    @patch.object(storage.MongoDBStorage, "update_healing")
     @patch.object(tasks.RestoreMachineTask, "_redis_extend_lock")
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
-    def test_restore_machine_extending_time_btw_restores(self, log, nginx, extend_lock):
+    def test_restore_machine_extending_time_btw_restores(self, log, nginx, extend_lock, update_healing,
+                                                         store_healing):
         time_now = datetime.datetime.utcnow()
         with patch.object(tasks.datetime.datetime, 'utcnow') as mock_time_now:
             time_side_effect = []
@@ -245,6 +248,45 @@ class RestoreMachineTestCase(unittest.TestCase):
             for task in self.storage.find_task({"_id": {"$regex": "restore_.+"}}):
                 tasks_restore.append(task['_id'])
             self.assertListEqual(tasks_restore, ['restore_10.2.2.2'])
+
+    @patch.object(tasks.RestoreMachineTask, "_redis_extend_lock")
+    @patch("rpaas.tasks.nginx")
+    @patch("hm.log.logging")
+    def test_restore_machine_store_healing_events(self, log, nginx, extend_lock):
+        time_now = datetime.datetime.utcnow()
+
+        def healing_time(x):
+            return time_now + datetime.timedelta(seconds=x)
+        with patch.object(tasks.datetime.datetime, 'utcnow') as mock_time_now:
+            time_side_effect = []
+            for x in range(18):
+                time_side_effect.append(time_now + datetime.timedelta(seconds=10 * x))
+            mock_time_now.side_effect = time_side_effect
+            FakeManager.fail_ids = [4]
+            restorer = healing.RestoreMachine(self.config)
+            restorer.start()
+            time.sleep(1)
+            restorer.stop()
+            expected_healings = [{'end_time': healing_time(40), 'machine': '10.1.1.1',
+                                  'start_time': healing_time(30), 'status': 'success'},
+                                 {'end_time': healing_time(80), 'machine': '10.3.3.3',
+                                  'start_time': healing_time(70), 'status': 'success'},
+                                 {'end_time': healing_time(120), 'machine': '10.4.4.4',
+                                  'start_time': healing_time(110), 'status': 'success'}]
+            foo_instances_healings = []
+            filter_fields = {"status": 1, "start_time": 1, "machine": 1, "end_time": 1}
+            healing_collection = self.storage.db[self.storage.healing_collection]
+            for event in healing_collection.find({"instance": "foo"}, filter_fields):
+                del event['_id']
+                foo_instances_healings.append(event)
+            self.assertListEqual(foo_instances_healings, expected_healings)
+            expected_healings = [{'end_time': healing_time(160), 'machine': '10.5.5.5',
+                                  'start_time': healing_time(150), 'status': 'iaas restore error'}]
+            bar_instances_healings = []
+            for event in healing_collection.find({"instance": "bar"}, filter_fields):
+                del event['_id']
+                bar_instances_healings.append(event)
+            self.assertListEqual(bar_instances_healings, expected_healings)
 
 
 class CheckMachineTestCase(unittest.TestCase):

@@ -31,6 +31,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     instance_metadata_collection = "instance_metadata"
     quota_collection = "quota"
     le_certificates_collection = "le_certificates"
+    healing_collection = "healing"
 
     def store_hc(self, hc):
         self.db[self.hcs_collections].update({"_id": hc["_id"]}, hc, upsert=True)
@@ -40,6 +41,15 @@ class MongoDBStorage(storage.MongoDBStorage):
 
     def remove_hc(self, name):
         self.db[self.hcs_collections].remove({"_id": name})
+
+    def store_healing(self, instance, machine):
+        return self.db[self.healing_collection].insert({"instance": instance, "machine": machine,
+                                                        "start_time": datetime.datetime.utcnow()})
+
+    def update_healing(self, id, status):
+        self.db[self.healing_collection].update({"_id": id},
+                                                {"$set": {"status": status,
+                                                          "end_time": datetime.datetime.utcnow()}})
 
     def store_task(self, name):
         try:
