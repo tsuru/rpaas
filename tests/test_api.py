@@ -17,6 +17,7 @@ class APITestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        os.environ["MONGO_DATABASE"] = "api_test"
         cls.storage = storage.MongoDBStorage()
         cls.manager = managers.FakeManager(storage=cls.storage)
         api.get_manager = lambda: cls.manager
@@ -24,7 +25,9 @@ class APITestCase(unittest.TestCase):
 
     def setUp(self):
         self.manager.reset()
-        self.storage.db[self.storage.plans_collection].remove()
+        colls = self.storage.db.collection_names(False)
+        for coll in colls:
+            self.storage.db.drop_collection(coll)
 
     def test_plans(self):
         resp = self.api.get("/resources/plans")

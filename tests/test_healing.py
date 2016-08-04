@@ -85,8 +85,6 @@ class RestoreMachineTestCase(unittest.TestCase):
         redis.StrictRedis().delete("restore_machine:last_run")
 
     def tearDown(self):
-        self.storage.db[self.storage.tasks_collection].remove()
-        self.storage.db[self.storage.hosts_collection].remove()
         redis.StrictRedis().delete("restore_lock")
         FakeManager.fail_ids = []
 

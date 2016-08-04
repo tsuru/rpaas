@@ -24,6 +24,9 @@ class LeRenewerTestCase(unittest.TestCase):
             "LE_RENEWER_RUN_INTERVAL": 2,
         }
         self.storage = storage.MongoDBStorage(self.config)
+        colls = self.storage.db.collection_names(False)
+        for coll in colls:
+            self.storage.db.drop_collection(coll)
 
         now = datetime.datetime.utcnow()
         certs = [
@@ -44,7 +47,6 @@ class LeRenewerTestCase(unittest.TestCase):
             {"_id": "instance7", "domain": "i7.tsuru.io",
              "created": now - datetime.timedelta(days=86)},
         ]
-        self.storage.db[self.storage.le_certificates_collection].remove()
         for cert in certs:
             self.storage.db[self.storage.le_certificates_collection].insert(cert)
         redis.StrictRedis().delete("le_renewer:last_run")

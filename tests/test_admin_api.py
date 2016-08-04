@@ -4,6 +4,7 @@
 
 import json
 import unittest
+import os
 
 from rpaas import api, admin_api, storage
 from . import managers
@@ -14,6 +15,7 @@ class AdminAPITestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         admin_api.register_views(api.api, api.plans)
+        os.environ["MONGO_DATABASE"] = "api_admin_test"
         cls.storage = storage.MongoDBStorage()
         cls.manager = managers.FakeManager(storage=cls.storage)
         api.get_manager = lambda: cls.manager
@@ -21,8 +23,9 @@ class AdminAPITestCase(unittest.TestCase):
 
     def setUp(self):
         self.manager.reset()
-        self.storage.db[self.storage.plans_collection].remove()
-        self.storage.db[self.storage.quota_collection].remove()
+        colls = self.storage.db.collection_names(False)
+        for coll in colls:
+            self.storage.db.drop_collection(coll)
 
     def test_list_plans(self):
         resp = self.api.get("/admin/plans")
