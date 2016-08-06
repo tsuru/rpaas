@@ -241,6 +241,9 @@ class Manager(object):
     def list_routes(self, name):
         return self.storage.find_binding(name)
 
+    def list_healings(self, quantity):
+        return self.storage.list_healings(quantity)
+
     def purge_location(self, name, path):
         self.task_manager.ensure_ready(name)
         path = path.strip()

@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import datetime
 import json
 import unittest
 import os
 
+from bson import json_util
 from rpaas import api, admin_api, storage
 from . import managers
 
@@ -26,6 +28,29 @@ class AdminAPITestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
+
+    def test_list_healings(self):
+        resp = self.api.get("/admin/healings")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("[]", resp.data)
+        loop_time = datetime.datetime(2016, 8, 2, 10, 53, 0)
+        healing_list = []
+        for x in range(1, 30):
+            data = {"instance": "myinstance", "machine": "10.10.1.{}".format(x),
+                    "start_time": loop_time, "end_time": loop_time, "status": "success"}
+            healing_list.append(json.loads(json.dumps(data, default=json_util.default)))
+            self.storage.db[self.storage.healing_collection].insert(data)
+            loop_time = loop_time + datetime.timedelta(minutes=5)
+        healing_list.reverse()
+        resp = self.api.get("/admin/healings")
+        self.assertEqual(200, resp.status_code)
+        self.assertListEqual(healing_list[:20], json.loads(resp.data))
+        resp = self.api.get("/admin/healings?quantity=10")
+        self.assertEqual(200, resp.status_code)
+        self.assertListEqual(healing_list[:10], json.loads(resp.data))
+        resp = self.api.get("/admin/healings?quantity=aaaa")
+        self.assertEqual(200, resp.status_code)
+        self.assertListEqual(healing_list[:20], json.loads(resp.data))
 
     def test_list_plans(self):
         resp = self.api.get("/admin/plans")

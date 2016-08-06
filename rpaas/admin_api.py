@@ -3,10 +3,21 @@
 # license that can be found in the LICENSE file.
 
 import json
+from bson import json_util
 
 from flask import request
 
 from rpaas import auth, get_manager, storage, plan
+
+
+@auth.required
+def healings():
+    manager = get_manager()
+    quantity = request.args.get("quantity", type=int)
+    if quantity is None or quantity <= 0:
+        quantity = 20
+    healing_list = manager.storage.list_healings(quantity)
+    return json.dumps(healing_list, default=json_util.default)
 
 
 @auth.required
@@ -79,6 +90,8 @@ def set_team_quota(team_name):
 
 
 def register_views(app, list_plans):
+    app.add_url_rule("/admin/healings", methods=["GET"],
+                     view_func=healings)
     app.add_url_rule("/admin/plans", methods=["GET"],
                      view_func=list_plans)
     app.add_url_rule("/admin/plans", methods=["POST"],

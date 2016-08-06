@@ -162,8 +162,14 @@ class MongoDBStorageTestCase(unittest.TestCase):
         self.assertEqual("myinstance", certs_name[0]["name"])
 
     @freezegun.freeze_time("2016-08-02 10:53:00", tz_offset=2)
-    def test_store_and_update_healing(self):
+    def test_store_update_retrieve_healing(self):
         healing_id = self.storage.store_healing("myinstance", "10.10.1.1")
+        loop_time = datetime.datetime.utcnow()
+        for x in range(2, 5):
+            loop_time = loop_time + datetime.timedelta(minutes=5)
+            with freezegun.freeze_time(loop_time, tz_offset=2):
+                healing_tmp = self.storage.store_healing("myinstance", "10.10.1.{}".format(x))
+                self.storage.update_healing(healing_tmp, "success")
         coll = self.storage.db[self.storage.healing_collection]
         item = coll.find_one({"_id": healing_id})
         expected = {"_id": healing_id, "instance": "myinstance", "machine": "10.10.1.1",
@@ -177,3 +183,12 @@ class MongoDBStorageTestCase(unittest.TestCase):
                         "end_time": datetime.datetime(2016, 8, 2, 10, 55, 0),
                         "status": "some random reason"}
             self.assertDictEqual(item, expected)
+        loop_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+        expected = []
+        for x in range(2, 5):
+            expected.append({"instance": "myinstance", "machine": "10.10.1.{}".format(x),
+                             "start_time": loop_time, "end_time": loop_time, "status": "success"})
+            loop_time = loop_time + datetime.timedelta(minutes=5)
+        expected.reverse()
+        healing_list = self.storage.list_healings(3)
+        self.assertListEqual(healing_list, expected)

@@ -51,6 +51,11 @@ class MongoDBStorage(storage.MongoDBStorage):
                                                 {"$set": {"status": status,
                                                           "end_time": datetime.datetime.utcnow()}})
 
+    def list_healings(self, quantity):
+        coll = self.healing_collection
+        healings = self.db[coll].find({}, {'_id': 0}).sort("start_time", -1).limit(quantity)
+        return [healing for healing in healings]
+
     def store_task(self, name):
         try:
             if isinstance(name, dict):
