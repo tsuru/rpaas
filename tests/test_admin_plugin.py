@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import datetime
 import json
 import os
 import unittest
@@ -12,6 +13,7 @@ import urlparse
 import mock
 
 from rpaas import admin_plugin
+from bson import json_util
 
 
 class CommandNotFoundErrorTestCase(unittest.TestCase):
@@ -475,3 +477,94 @@ Config:
             exc = cm.exception
             self.assertEqual(2, exc.code)
             stderr.write.assert_any_call("set-quota: error: " + err_message + "\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_list_healings(self, stdout, Request, urlopen):
+        lines = []
+        stdout.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        start_time = datetime.datetime(2016, 8, 2, 10, 53, 0)
+        healing_list = []
+        status = ['success', None, 'Long and ugly error with a large testing description']
+        for x in range(0, 3):
+            end_time = start_time + datetime.timedelta(minutes=3)
+            if x == 1:
+                end_time = None
+            data = {"instance": "myinstance", "machine": "10.10.1.{}".format(x),
+                    "start_time": start_time, "end_time": end_time, "status": status[x]}
+            healing_list.append(data)
+            start_time = start_time + datetime.timedelta(minutes=5)
+        result.read.return_value = json.dumps(healing_list, default=json_util.default)
+        args = ['-s', self.service_name]
+        admin_plugin.list_healings(args)
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/healings?quantity=20")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
+        expected_output = u"""
++------------+-----------+---------------------------+----------+--------------------------------+
+| Instance   | Machine   | Start Time                | Duration | Status                         |
++------------+-----------+---------------------------+----------+--------------------------------+
+| myinstance | 10.10.1.0 | 2016-08-02 10:53:00+00:00 | 0:03:00  | success                        |
++------------+-----------+---------------------------+----------+--------------------------------+
+| myinstance | 10.10.1.1 | 2016-08-02 10:58:00+00:00 |          |                                |
++------------+-----------+---------------------------+----------+--------------------------------+
+| myinstance | 10.10.1.2 | 2016-08-02 11:03:00+00:00 | 0:03:00  | Long and ugly error with a lar |
+|            |           |                           |          | ge testing description         |
++------------+-----------+---------------------------+----------+--------------------------------+
+"""
+        self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_list_healings_empty_json_response(self, stdout, Request, urlopen):
+        lines = []
+        stdout.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        healing_list = []
+        result.read.return_value = json.dumps(healing_list, default=json_util.default)
+        args = ['-s', self.service_name]
+        admin_plugin.list_healings(args)
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/healings?quantity=20")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
+        expected_output = u"""
++----------+---------+------------+----------+--------+
+| Instance | Machine | Start Time | Duration | Status |
++----------+---------+------------+----------+--------+
+"""
+        self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    def test_list_healings_invalid_response(self, stderr, Request, urlopen):
+        lines = []
+        stderr.write.side_effect = lambda data, **kw: lines.append(data)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        result.read.return_value = "weird value"
+        args = ['-s', self.service_name]
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.list_healings(args)
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        expected_output = "ERROR: invalid json response - No JSON object could be decoded\n"
+        self.assertEqual(expected_output, "".join(lines))

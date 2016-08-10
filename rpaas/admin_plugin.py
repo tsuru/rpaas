@@ -4,6 +4,9 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+
+from bson import json_util
+
 import argparse
 import copy
 import json
@@ -27,6 +30,72 @@ class CommandNotFoundError(Exception):
 
     def __unicode__(self):
         return unicode(str(self))
+
+
+class DisplayTable:
+
+    def __init__(self, fields, max_field_width=30):
+        self.fields_names = fields
+        self.rows = []
+        self.fields_widths = []
+        self.max_field_width = max_field_width
+
+    def _compute_widths(self):
+        widths = [len(field) for field in self.fields_names]
+        for row in self.rows:
+            for index, value in enumerate(row):
+                field_width = max(widths[index], len(value))
+                if field_width > self.max_field_width:
+                    widths[index] = self.max_field_width
+                else:
+                    widths[index] = field_width
+        self.fields_widths = widths
+
+    def _add_hrule(self):
+        bits = []
+        bits.append("\n+")
+        for field, width in zip(self.fields_names, self.fields_widths):
+            bits.append((width + 2) * "-")
+            bits.append("+")
+        return "".join(bits)
+
+    def _align_left(self, fieldname, width):
+        padding_width = width - len(fieldname)
+        return fieldname + " " * padding_width
+
+    def _write_row(self, row):
+        bits = []
+        bits.append("\n|")
+        extra_size_row = []
+        for field, width in zip(row, self.fields_widths):
+            if len(field) > self.max_field_width:
+                bits.append(" " + self._align_left(field[:self.max_field_width], width) + " |")
+                extra_size_row.append(field[self.max_field_width:])
+            else:
+                bits.append(" " + self._align_left(field, width) + " |")
+                extra_size_row.append("")
+        if extra_size_row != ["" for x in self.fields_widths]:
+            return "".join(bits) + self._write_row(extra_size_row)
+        return "".join(bits)
+
+    def add_row(self, *args):
+        row = []
+        for value in args:
+            if value is None:
+                row.append("")
+                continue
+            row.append(str(value))
+        self.rows.append(row)
+
+    def display(self):
+        self._compute_widths()
+        sys.stdout.write(self._add_hrule())
+        sys.stdout.write(self._write_row(self.fields_names))
+        sys.stdout.write(self._add_hrule())
+        for row in self.rows:
+            sys.stdout.write(self._write_row(row))
+            sys.stdout.write(self._add_hrule())
+        sys.stdout.write("\n")
 
 
 def list_plans(args):
@@ -171,6 +240,36 @@ def set_quota(args):
     sys.stdout.write("Quota successfully updated.\n")
 
 
+def list_healings(args):
+    parser = _base_args("list-healings")
+    parser.add_argument("-n", "--quantity", default=20, required=False, type=int)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/healings?quantity=" + str(parsed_args.quantity),
+                           method="GET")
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    try:
+        healings_list = []
+        healings_list = json.loads(body, object_hook=json_util.object_hook)
+    except Exception as e:
+        sys.stderr.write("ERROR: invalid json response - {}\n".format(e.message))
+        sys.exit(1)
+    healings_table = DisplayTable(['Instance', 'Machine', 'Start Time', 'Duration', 'Status'])
+    _render_healings_list(healings_table, healings_list)
+
+
+def _render_healings_list(healings_table, healings_list):
+    for healing in healings_list:
+        elapsed_time = None
+        if 'end_time' in healing and healing['end_time'] is not None:
+            elapsed_time = str(healing['end_time'] - healing['start_time'])
+        healings_table.add_row(healing['instance'], healing['machine'], healing['start_time'],
+                               elapsed_time, healing['status'])
+    healings_table.display()
+
+
 def _base_args(cmd_name):
     parser = argparse.ArgumentParser(cmd_name)
     parser.add_argument("-s", "--service", required=True)
@@ -192,6 +291,7 @@ def available_commands():
         "list-plans": list_plans,
         "show-quota": show_quota,
         "set-quota": set_quota,
+        "list-healings": list_healings
     }
 
 
