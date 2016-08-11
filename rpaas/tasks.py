@@ -265,7 +265,7 @@ class RestoreMachineTask(BaseManagerTask):
                     self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
                     self.storage.update_healing(healing_id, "success")
                 except Exception as e:
-                    self.storage.update_healing(healing_id, e.message)
+                    self.storage.update_healing(healing_id, str(e.message))
                     raise e
             self.storage.remove_task({"_id": task['_id']})
 

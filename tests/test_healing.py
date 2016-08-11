@@ -6,12 +6,14 @@ import datetime
 import time
 import unittest
 import redis
+
 from freezegun import freeze_time
 from mock import patch, call
 from rpaas import storage, tasks
 from rpaas import healing, consul_manager
 from hm import managers, log
 from hm.model.host import Host
+from requests.exceptions import ConnectionError
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
@@ -36,7 +38,7 @@ class FakeManager(managers.BaseManager):
 
     def restore_host(self, id):
         if id in self.fail_ids:
-            raise RestoreHostError("iaas restore error")
+            raise RestoreHostError(ConnectionError("iaas restore error"))
         log.logging.info("Machine {} restored".format(id))
 
     def destroy_host(self, id):

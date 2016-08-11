@@ -266,7 +266,7 @@ def _render_healings_list(healings_table, healings_list):
         if 'end_time' in healing and healing['end_time'] is not None:
             elapsed_time = str(healing['end_time'] - healing['start_time'])
         healings_table.add_row(healing['instance'], healing['machine'], healing['start_time'],
-                               elapsed_time, healing['status'])
+                               elapsed_time, healing.get('status'))
     healings_table.display()
 
 
