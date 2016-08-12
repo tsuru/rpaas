@@ -41,6 +41,9 @@ class FakeManager(managers.BaseManager):
             raise RestoreHostError(ConnectionError("iaas restore error"))
         log.logging.info("Machine {} restored".format(id))
 
+    def start_host(self, id):
+        pass
+
     def destroy_host(self, id):
         log.logging.info("Machine {} destroyed".format(id))
 

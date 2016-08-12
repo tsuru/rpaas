@@ -262,6 +262,8 @@ class RestoreMachineTask(BaseManagerTask):
                 try:
                     Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
                                     "manager": host['manager']}, conf=config).restore()
+                    Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
+                                    "manager": host['manager']}, conf=config).start()
                     self.nginx_manager.wait_healthcheck(task['host'], timeout=healthcheck_timeout)
                     self.storage.update_healing(healing_id, "success")
                 except Exception as e:
