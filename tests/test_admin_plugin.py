@@ -5,6 +5,7 @@
 import datetime
 import json
 import os
+import time
 import unittest
 import urllib
 import urllib2
@@ -37,6 +38,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     def setUp(self):
         os.environ["TSURU_TARGET"] = self.target = "https://cloud.tsuru.io/"
         os.environ["TSURU_TOKEN"] = self.token = "abc123"
+        os.environ["TZ"] = 'US/Eastern'
+        time.tzset()
         self.service_name = "rpaas"
 
     def tearDown(self):
@@ -509,16 +512,16 @@ Config:
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         self.assertEqual("GET", request.get_method())
         expected_output = u"""
-+------------+-----------+---------------------------+----------+--------------------------------+
-| Instance   | Machine   | Start Time                | Duration | Status                         |
-+------------+-----------+---------------------------+----------+--------------------------------+
-| myinstance | 10.10.1.0 | 2016-08-02 10:53:00+00:00 | 0:03:00  | success                        |
-+------------+-----------+---------------------------+----------+--------------------------------+
-| myinstance | 10.10.1.1 | 2016-08-02 10:58:00+00:00 |          |                                |
-+------------+-----------+---------------------------+----------+--------------------------------+
-| myinstance | 10.10.1.2 | 2016-08-02 11:03:00+00:00 | 0:03:00  | Long and ugly error with a lar |
-|            |           |                           |          | ge testing description         |
-+------------+-----------+---------------------------+----------+--------------------------------+
++------------+-----------+------------------+----------+--------------------------------+
+| Instance   | Machine   | Start Time       | Duration | Status                         |
++------------+-----------+------------------+----------+--------------------------------+
+| myinstance | 10.10.1.0 | Aug  02 05:53:00 | 00:03:00 | success                        |
++------------+-----------+------------------+----------+--------------------------------+
+| myinstance | 10.10.1.1 | Aug  02 05:58:00 |          |                                |
++------------+-----------+------------------+----------+--------------------------------+
+| myinstance | 10.10.1.2 | Aug  02 06:03:00 | 00:03:00 | Long and ugly error with a lar |
+|            |           |                  |          | ge testing description         |
++------------+-----------+------------------+----------+--------------------------------+
 """
         self.assertEqual(expected_output, "".join(lines))
 
@@ -526,6 +529,7 @@ Config:
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
     def test_list_healings_empty_json_response(self, stdout, Request, urlopen):
+
         lines = []
         stdout.write.side_effect = lambda data, **kw: lines.append(data)
         request = mock.Mock()

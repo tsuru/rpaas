@@ -8,11 +8,13 @@
 from bson import json_util
 
 import argparse
+import datetime
 import copy
 import json
 import os
 import re
 import sys
+import time
 import urllib
 import urllib2
 
@@ -264,8 +266,10 @@ def _render_healings_list(healings_table, healings_list):
     for healing in healings_list:
         elapsed_time = None
         if 'end_time' in healing and healing['end_time'] is not None:
-            elapsed_time = str(healing['end_time'] - healing['start_time'])
-        healings_table.add_row(healing['instance'], healing['machine'], healing['start_time'],
+            seconds = int((healing['end_time'] - healing['start_time']).total_seconds())
+            elapsed_time = '{:02}:{:02}:{:02}'.format(seconds // 3600, seconds % 3600 // 60, seconds % 60)
+        start_time = (healing['start_time'] - datetime.timedelta(seconds=time.timezone)).strftime('%b  %d %X')
+        healings_table.add_row(healing['instance'], healing['machine'], start_time,
                                elapsed_time, healing.get('status'))
     healings_table.display()
 
