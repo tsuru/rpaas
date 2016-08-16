@@ -9,3 +9,9 @@ from rpaas import manager
 
 def get_manager():
     return manager.Manager(dict(os.environ))
+
+
+def check_option_enable(option):
+    if option is not None and str(option) in ('True', 'true', '1'):
+        return True
+    return False

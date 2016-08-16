@@ -322,6 +322,10 @@ class APITestCase(unittest.TestCase):
         resp = self.api.post("/resources/someapp/restore_machine", data={"machine": "foo"})
         self.assertEqual(412, resp.status_code)
         self.assertEqual("Restore machine not enabled", resp.data)
+        os.environ["RUN_RESTORE_MACHINE"] = "0"
+        resp = self.api.post("/resources/someapp/restore_machine", data={"machine": "foo"})
+        self.assertEqual(412, resp.status_code)
+        self.assertEqual("Restore machine not enabled", resp.data)
 
     def test_restore_machine_missing_machine(self):
         os.environ["RUN_RESTORE_MACHINE"] = "1"

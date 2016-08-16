@@ -14,10 +14,10 @@ from raven.contrib.flask import Sentry
 import hm.log
 
 from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
-                   plugin, storage, tasks)
+                   plugin, storage, tasks, check_option_enable)
 
 api = Flask(__name__)
-api.debug = os.environ.get("API_DEBUG", "0") in ("True", "true", "1")
+api.debug = check_option_enable(os.environ.get("API_DEBUG"))
 handler = logging.StreamHandler()
 if api.debug:
     logging.basicConfig(level=logging.DEBUG)
@@ -27,7 +27,7 @@ else:
 api.logger.addHandler(handler)
 hm.log.set_handler(handler)
 
-if "RUN_LE_RENEWER" in os.environ:
+if check_option_enable(os.environ.get("RUN_LE_RENEWER")):
     from rpaas.ssl_plugins import le_renewer
     le_renewer.LeRenewer().start()
 
@@ -36,11 +36,12 @@ if SENTRY_DSN:
     api.config['SENTRY_DSN'] = SENTRY_DSN
     sentry = Sentry(api)
 
-if "RUN_RESTORE_MACHINE" in os.environ:
+if check_option_enable(os.environ.get("RUN_RESTORE_MACHINE")):
     from rpaas.healing import RestoreMachine
     RestoreMachine().start()
 
-if set(["RUN_CHECK_MACHINE", "RUN_RESTORE_MACHINE"]) < set(os.environ):
+if check_option_enable(os.environ.get("RUN_RESTORE_MACHINE")) and \
+   check_option_enable(os.environ.get("RUN_CHECK_MACHINE")):
     from rpaas.healing import CheckMachine
     CheckMachine().start()
 
@@ -190,7 +191,7 @@ def scale_instance(name):
 @api.route("/resources/<name>/restore_machine", methods=["POST"])
 @auth.required
 def restore_machine(name):
-    if "RUN_RESTORE_MACHINE" not in os.environ:
+    if not check_option_enable(os.environ.get("RUN_RESTORE_MACHINE")):
         return "Restore machine not enabled", 412
     machine = request.form.get("machine")
     if not machine:
@@ -209,7 +210,7 @@ def restore_machine(name):
 @api.route("/resources/<name>/restore_machine", methods=["DELETE"])
 @auth.required
 def cancel_restore_machine(name):
-    if "RUN_RESTORE_MACHINE" not in os.environ:
+    if not check_option_enable(os.environ.get("RUN_RESTORE_MACHINE")):
         return "Restore machine not enabled", 412
     machine = request.form.get("machine")
     if not machine:
