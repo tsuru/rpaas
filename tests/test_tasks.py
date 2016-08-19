@@ -116,9 +116,7 @@ class TasksTestCase(unittest.TestCase):
                              'sentinel_connection_shared_{}'.format(x))
             self.assertEqual(app_client[x].get('mykey_app_client_shared'),
                              'sentinel_connection_shared_{}'.format(x))
-        self.assertEqual(len(channel[9].__dict__['_sentinel_connection_pool']), 1)
-        self.assertListEqual(channel[0].__dict__['_sentinel_connection_pool'],
-                             channel[9].__dict__['_sentinel_connection_pool'])
-        self.assertEqual(id(app_client[0].__dict__['connection_pool']),
-                         id(app_client[9].__dict__['connection_pool']))
+        self.assertEqual(len(channel[9]._sentinel_connection_pool), 1)
+        self.assertListEqual(channel[0]._sentinel_connection_pool, channel[9]._sentinel_connection_pool)
+        self.assertEqual(id(app_client[0].connection_pool), id(app_client[9].connection_pool))
         self.assertEqual(self.master_connected_clients(), 2)

@@ -28,7 +28,7 @@ class RedisSentinelBackend(RedisBackend):
 
     def __new__(cls, *args, **kwargs):
         obj = super(RedisSentinelBackend, cls).__new__(cls, *args, **kwargs)
-        obj.__dict__['_redis_connection'] = cls._redis_shared_connection
+        obj._redis_connection = cls._redis_shared_connection
         return obj
 
     def __init__(self, sentinels=None, sentinel_timeout=None, socket_timeout=None,
@@ -38,7 +38,7 @@ class RedisSentinelBackend(RedisBackend):
 
     @property
     def client(self):
-        if len(self._redis_connection) <= 0:
+        if not len(self._redis_connection):
             sentinel = Sentinel(
                 self.sentinel_conf.get('sentinels'),
                 min_other_sentinels=self.sentinel_conf.get("min_other_sentinels", 0),
@@ -66,11 +66,11 @@ class SentinelChannel(Channel):
 
     def __new__(cls, *args, **kwargs):
         obj = super(SentinelChannel, cls).__new__(cls, *args, **kwargs)
-        obj.__dict__['_sentinel_connection_pool'] = cls._sentinel_shared_connection_pool
+        obj._sentinel_connection_pool = cls._sentinel_shared_connection_pool
         return obj
 
     def _sentinel_managed_pool(self, async=False):
-        if len(self._sentinel_connection_pool) <= 0:
+        if not len(self._sentinel_connection_pool):
             sentinel = Sentinel(
                 self.sentinels,
                 min_other_sentinels=getattr(self, "min_other_sentinels", 0),
