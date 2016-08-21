@@ -17,9 +17,8 @@ from celery.backends import BACKEND_ALIASES
 from kombu.transport import TRANSPORT_ALIASES
 from celery.backends.redis import RedisBackend
 from kombu.transport.redis import Transport, Channel
-from kombu.utils import cached_property
 from redis import Redis
-from redis.sentinel import Sentinel
+from redis.sentinel import Sentinel, SentinelManagedConnection
 
 
 class RedisSentinelBackend(RedisBackend):
@@ -38,7 +37,7 @@ class RedisSentinelBackend(RedisBackend):
 
     @property
     def client(self):
-        if not len(self._redis_connection):
+        if not self._redis_connection:
             sentinel = Sentinel(
                 self.sentinel_conf.get('sentinels'),
                 min_other_sentinels=self.sentinel_conf.get("min_other_sentinels", 0),
@@ -62,33 +61,35 @@ class SentinelChannel(Channel):
         "max_connections"
     )
 
-    _sentinel_shared_connection_pool = []
+    def _sentinel_managed_pool(self, connection_class, async=False):
+        sentinel = Sentinel(
+            self.sentinels,
+            min_other_sentinels=getattr(self, "min_other_sentinels", 0),
+            password=getattr(self, "password", None),
+            socket_timeout=getattr(self, "sentinel_timeout", None)
+        )
+        return sentinel.master_for(self.service_name, self.Client,
+                                   socket_timeout=self.socket_timeout,
+                                   connection_class=connection_class).connection_pool
 
-    def __new__(cls, *args, **kwargs):
-        obj = super(SentinelChannel, cls).__new__(cls, *args, **kwargs)
-        obj._sentinel_connection_pool = cls._sentinel_shared_connection_pool
-        return obj
-
-    def _sentinel_managed_pool(self, async=False):
-        if not len(self._sentinel_connection_pool):
-            sentinel = Sentinel(
-                self.sentinels,
-                min_other_sentinels=getattr(self, "min_other_sentinels", 0),
-                password=getattr(self, "password", None),
-                socket_timeout=getattr(self, "sentinel_timeout", None)
-            )
-            connection_pool = sentinel.master_for(self.service_name, self.Client,
-                                                  socket_timeout=self.socket_timeout).connection_pool
-            self._sentinel_connection_pool.append(connection_pool)
-        return self._sentinel_connection_pool[0]
+    def _on_connection_disconnect(self, connection):
+        if self._closing:
+            self._in_poll = False
+            self._in_listen = False
+            if self.connection and self.connection.cycle:
+                self.connection.cycle._on_connection_disconnect(connection)
+            self._disconnect_pools()
 
     def _get_pool(self, async=False):
-        return self._sentinel_managed_pool(async)
+        channel = self
 
-    @cached_property
-    def client(self):
-        """Client used to publish messages, BRPOP etc."""
-        return self._create_client(async=False)
+        class Connection(SentinelManagedConnection):
+            def disconnect(self):
+                super(Connection, self).disconnect()
+                channel._on_connection_disconnect(self)
+        connection_class = Connection
+        self.keyprefix_fanout = self.keyprefix_fanout.format(db=0)
+        return self._sentinel_managed_pool(connection_class, async)
 
 
 class RedisSentinelTransport(Transport):
