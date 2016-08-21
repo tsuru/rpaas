@@ -126,7 +126,7 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.task_manager = TaskManager(config)
-        self.redis_client = app.broker_connection().channel().client
+        self.redis_client = app.backend.client
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
