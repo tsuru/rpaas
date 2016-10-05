@@ -118,7 +118,10 @@ def route(args):
         params['path'] = args.path
         method = "DELETE"
         message = "removed"
-    body = urllib.urlencode(params)
+    try:
+        body = urllib.urlencode(params)
+    except AttributeError:
+        body = urllib.parse.urlencode(params)
     result = proxy_request(args.service, args.instance, req_path,
                            body=body,
                            method=method,
@@ -160,7 +163,10 @@ def block(args):
         req_path = "{}/{}".format(req_path, args.block_name)
         method = "DELETE"
         message = "removed"
-    body = urllib.urlencode(params)
+    try:
+        body = urllib.urlencode(params)
+    except AttributeError:
+        body = urllib.parse.urlencode(params)
     result = proxy_request(args.service, args.instance, req_path,
                            body=body,
                            method=method,
@@ -187,7 +193,10 @@ def purge(args):
     params = {}
     method = "POST"
     params['path'] = path
-    body = urllib.urlencode(params)
+    try:
+        body = urllib.urlencode(params)
+    except AttributeError:
+        body = urllib.parse.urlencode(params)
     result = proxy_request(service, instance, req_path,
                            body=body,
                            method=method,
@@ -226,7 +235,10 @@ def ssl(args):
     params = {}
     params['domain'] = args.domain
     params['plugin'] = args.plugin if 'plugin' in args else 'default'
-    body = urllib.urlencode(params)
+    try:
+        body = urllib.urlencode(params)
+    except AttributeError:
+        body = urllib.parse.urlencode(params)
     method = "POST"
     try:
         result = proxy_request(args.service, args.instance, rpaas_path, body=body, method=method,
@@ -361,7 +373,10 @@ def proxy_request(service_name, instance_name, path, body=None, headers=None, me
     request.add_header("Authorization", "bearer " + token)
     request.get_method = lambda: method
     if body:
-        request.add_data(body)
+        try:
+            request.add_data(body)
+        except AttributeError:
+            request.data = body.encode('utf-8')
     if headers:
         for key, value in headers.items():
             request.add_header(key, value)
