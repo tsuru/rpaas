@@ -2,7 +2,7 @@ language: python
 sudo: false
 python: "2.7"
 install:
-  - pip install --no-binary pycparser
+  - pip install -U pip
   - make deps
   - curl -LO https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip
   - unzip consul_0.6.4_linux_amd64.zip
