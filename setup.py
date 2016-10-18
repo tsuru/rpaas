@@ -22,6 +22,7 @@ setup(
     packages=find_packages(exclude=["docs", "tests"]),
     include_package_data=True,
     install_requires=[
+        "cffi==1.8.3",
         "cryptography==1.5.2",
         "setuptools==18.4",
         "Flask==0.9",
