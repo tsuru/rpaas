@@ -22,7 +22,7 @@ setup(
     packages=find_packages(exclude=["docs", "tests"]),
     include_package_data=True,
     install_requires=[
-        "cryptography==1.1.2",
+        "cryptography==1.5.2",
         "setuptools==18.4",
         "Flask==0.9",
         "requests==2.4.3",
