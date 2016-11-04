@@ -206,6 +206,8 @@ class RemoveInstanceTask(BaseManagerTask):
         for host in lb.hosts:
             self._delete_host(name, host, lb)
         lb.destroy()
+        for cert in self.storage.find_le_certificates({'name': name}):
+            self.storage.remove_le_certificate(name, cert['domain'])
         self.hc.destroy(name)
 
 

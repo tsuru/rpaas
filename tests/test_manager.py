@@ -139,6 +139,9 @@ class ManagerTestCase(unittest.TestCase):
 
     def test_remove_instance(self):
         self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
+        self.storage.store_le_certificate("x", "foobar.com")
+        self.storage.store_le_certificate("x", "example.com")
+        self.storage.store_le_certificate("y", "test.com")
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock()]
         manager = Manager(self.config)
@@ -152,6 +155,8 @@ class ManagerTestCase(unittest.TestCase):
         lb.destroy.assert_called_once()
         self.assertEquals(self.storage.find_task("x").count(), 0)
         self.assertIsNone(self.storage.find_instance_metadata("x"))
+        self.assertEquals([cert for cert in self.storage.find_le_certificates({"name": "x"})], [])
+        self.assertEquals([cert['name'] for cert in self.storage.find_le_certificates({"name": "y"})][0], "y")
         manager.consul_manager.destroy_token.assert_called_with("abc-123")
         manager.consul_manager.destroy_instance.assert_called_with("x")
 
