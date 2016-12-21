@@ -51,7 +51,7 @@ class LE(BaseSSLPlugin):
 
 
 class ConfigNamespace(object):
-    def __init__(self, email):
+    def __init__(self, email, domains):
         self.server = os.environ.get("RPAAS_PLUGIN_LE_URL",
                                      "https://acme-v01.api.letsencrypt.org/directory")
         self.config_dir = './le/conf'
@@ -59,6 +59,7 @@ class ConfigNamespace(object):
         self.http01_port = None
         self.tls_sni_01_port = 5001
         self.email = email
+        self.domains = domains
         self.rsa_key_size = 2048
         self.no_verify_ssl = False
         self.key_dir = './le/key'
@@ -69,10 +70,15 @@ class ConfigNamespace(object):
         self.temp_checkpoint_dir = './le/tmp'
         self.renewer_config_file = './le/renew'
         self.strict_permissions = False
+        self.logs_dir = './le/logs'
+        self.user_agent = 'rpaas'
+        self.pref_challs = []
+        self.allow_subset_of_names = False
+        self.must_staple = False
 
 
 def _main(domains=[], email=None, instance_name="", consul_manager=None):
-    ns = ConfigNamespace(email)
+    ns = ConfigNamespace(email, domains)
     config = NamespaceConfig(ns)
     zope.component.provideUtility(config)
 
