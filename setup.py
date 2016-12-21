@@ -36,8 +36,8 @@ setup(
         "python-consul==0.6.1",
         "raven==4.2.3",
         "blinker==1.4",
-        "acme==0.0.0.dev20151108",
-        "letsencrypt==0.0.0.dev20151108",
+        "acme==0.9.3",
+        "letsencrypt==0.7.0",
     ],
     extras_require={
         'tests': [
