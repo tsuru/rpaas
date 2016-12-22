@@ -59,9 +59,16 @@ class Nginx(object):
                                                         conf)
         self.config_manager = ConfigManager(conf)
 
-    def purge_location(self, host, path):
+    def purge_location(self, host, path, preserve_path=False):
         purge_path = self.nginx_purge_path.lstrip('/')
         purged = False
+        if preserve_path:
+            try:
+                self._admin_request(host, "{}/{}".format(purge_path, path))
+                purged = True
+            except:
+                pass
+            return purged
         for scheme in ['http', 'https']:
             try:
                 self._admin_request(host, "{}/{}{}".format(purge_path, scheme, path))

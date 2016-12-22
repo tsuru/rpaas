@@ -244,15 +244,16 @@ class Manager(object):
     def list_healings(self, quantity):
         return self.storage.list_healings(quantity)
 
-    def purge_location(self, name, path):
+    def purge_location(self, name, path, preserve_path=False):
         self.task_manager.ensure_ready(name)
-        path = path.strip()
+        if not preserve_path:
+            path = path.strip()
         lb = LoadBalancer.find(name)
         purged_hosts = 0
         if lb is None:
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
-            if self.nginx_manager.purge_location(host.dns_name, path):
+            if self.nginx_manager.purge_location(host.dns_name, path, preserve_path):
                 purged_hosts += 1
         return purged_hosts
 

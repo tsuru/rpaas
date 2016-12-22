@@ -334,10 +334,13 @@ def list_block(name):
 @auth.required
 def purge_location(name):
     path = request.form.get('path')
+    preserve_path = request.form.get('preserve_path')
+    if not preserve_path:
+        preserve_path = False
     if not path:
         return 'missing required path', 400
     try:
-        instances_purged = get_manager().purge_location(name, path)
+        instances_purged = get_manager().purge_location(name, path, preserve_path)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except tasks.NotReadyError as e:

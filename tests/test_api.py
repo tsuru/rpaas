@@ -473,7 +473,7 @@ class APITestCase(unittest.TestCase):
 
     def test_purge_location(self):
         resp = self.api.post("/resources/someapp/purge", data={
-            'path': '/somewhere'
+            'path': '/somewhere', 'preserve_path': True
         }, headers={'Content-Type': 'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual('Path found and purged on 4 servers', resp.data)

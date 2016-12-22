@@ -188,11 +188,12 @@ def block(args):
 
 
 def purge(args):
-    service, instance, path = get_purge_args(args)
+    service, instance, path, preserve_path = get_purge_args(args)
     req_path = "/resources/{}/purge".format(instance)
     params = {}
     method = "POST"
     params['path'] = path
+    params['preserve_path'] = preserve_path
     try:
         body = urllib.urlencode(params)
     except AttributeError:
@@ -344,6 +345,8 @@ def get_purge_args(args):
     parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-l", "--location", required=True, help="Location to be purged")
+    parser.add_argument("-p", "--preserve_path", required=False, action='store_true',
+                        help="Use location as-is for cache key")
     parsed_args = parser.parse_args(args)
     parsed_url = urlparse(parsed_args.location)
     if parsed_url.path == '':
@@ -353,7 +356,9 @@ def get_purge_args(args):
         location = parsed_url.path
     else:
         location = "{}?{}".format(parsed_url.path, parsed_url.query)
-    return parsed_args.service, parsed_args.instance, location
+    if parsed_args.preserve_path:
+        location = parsed_args.location
+    return parsed_args.service, parsed_args.instance, location, parsed_args.preserve_path
 
 
 def get_env(name):

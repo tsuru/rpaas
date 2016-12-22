@@ -818,10 +818,10 @@ content = location /x {
         manager = Manager(self.config)
         manager.nginx_manager = mock.Mock()
         manager.nginx_manager.purge_location.side_effect = [True, True]
-        purged_hosts = manager.purge_location("inst", "/foo/bar")
+        purged_hosts = manager.purge_location("inst", "/foo/bar", True)
 
         LoadBalancer.find.assert_called_with("inst")
 
         self.assertEqual(purged_hosts, 2)
-        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[0].dns_name, "/foo/bar")
-        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[1].dns_name, "/foo/bar")
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[0].dns_name, "/foo/bar", True)
+        manager.nginx_manager.purge_location.assert_any_call(lb.hosts[1].dns_name, "/foo/bar", True)

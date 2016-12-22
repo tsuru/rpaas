@@ -120,7 +120,7 @@ class FakeManager(object):
         _, instance = self.find_instance(name)
         return instance.blocks
 
-    def purge_location(self, name, path):
+    def purge_location(self, name, path, preserve_path):
         _, instance = self.find_instance(name)
         return 4
 

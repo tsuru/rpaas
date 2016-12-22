@@ -418,19 +418,31 @@ server: server content
 
     @mock.patch("sys.stderr")
     def test_purge_args(self, stderr):
-        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar'])
+        _, _, path, _ = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar'])
         self.assertEqual(path, '/foo/bar')
-        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
+        _, _, path, _ = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', '/foo/bar?a=b&c=d'])
         self.assertEqual(path, '/foo/bar?a=b&c=d')
 
-        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
-                                            'http://www.example.com/'])
+        _, _, path, preserve_path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                                           'http://www.example.com/'])
+        self.assertFalse(preserve_path)
         self.assertEqual(path, '/')
-        _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', 'www.example.com/'])
+
+        _, _, path, preserve_path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                                           'http://www.example.com/?a=b', '-p'])
+        self.assertTrue(preserve_path)
+        self.assertEqual(path, 'http://www.example.com/?a=b')
+
+        _, _, path, preserve_path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                                           'http://www.example.com/'])
+        self.assertFalse(preserve_path)
+        self.assertEqual(path, '/')
+
+        _, _, path, _ = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l', 'www.example.com/'])
         self.assertEqual(path, 'www.example.com/')
         with self.assertRaises(SystemExit) as cm:
-            _, _, path = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
-                                                'http://www.example.com'])
+            _, _, path, _ = plugin.get_purge_args(['-s', 'myservice', '-i', 'myinst', '-l',
+                                                   'http://www.example.com'])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with('purge: path is required for purge location\n')
@@ -449,7 +461,7 @@ server: server content
                                    "callback=/resources/myinst/purge")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
-        request.add_data.assert_called_with("path=%2Ffoo%2Fbar%3Fa%3Db%26c%3Dd")
+        request.add_data.assert_called_with("path=%2Ffoo%2Fbar%3Fa%3Db%26c%3Dd&preserve_path=False")
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
 

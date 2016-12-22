@@ -71,6 +71,21 @@ location {path} {{
                                        mock.call('http://myhost.com:8089/purge/https/foo/bar', timeout=2)])
 
     @mock.patch('rpaas.nginx.requests')
+    def test_purge_location_preserve_path_successfully(self, requests):
+        nginx = Nginx()
+
+        response = mock.Mock()
+        response.status_code = 200
+        response.text = 'purged'
+
+        requests.get.side_effect = [response]
+        purged = nginx.purge_location('myhost.com', 'http://example.com/foo/bar', True)
+        self.assertTrue(purged)
+        self.assertEqual(requests.get.call_count, 1)
+        requests.get.assert_has_calls([mock.call('http://myhost.com:8089/purge/http://example.com/foo/bar',
+                                                 timeout=2)])
+
+    @mock.patch('rpaas.nginx.requests')
     def test_purge_location_not_found(self, requests):
         nginx = Nginx()
 
