@@ -335,7 +335,7 @@ def list_block(name):
 def purge_location(name):
     path = request.form.get('path')
     preserve_path = request.form.get('preserve_path')
-    if not preserve_path:
+    if preserve_path in (False, 'False'):
         preserve_path = False
     if not path:
         return 'missing required path', 400

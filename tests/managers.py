@@ -122,6 +122,8 @@ class FakeManager(object):
 
     def purge_location(self, name, path, preserve_path):
         _, instance = self.find_instance(name)
+        if preserve_path:
+            return 3
         return 4
 
     def reset(self):
