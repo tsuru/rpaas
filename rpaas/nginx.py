@@ -64,14 +64,16 @@ class Nginx(object):
         purged = False
         if preserve_path:
             try:
-                self._admin_request(host, "{}/{}".format(purge_path, path))
+                self._admin_request(host, "{}/{}".format(purge_path, path),
+                                    {'Accept-Encoding': ''})
                 purged = True
             except:
                 pass
             return purged
         for scheme in ['http', 'https']:
             try:
-                self._admin_request(host, "{}/{}{}".format(purge_path, scheme, path))
+                self._admin_request(host, "{}/{}{}".format(purge_path, scheme, path),
+                                    {'Accept-Encoding': ''})
                 purged = True
             except:
                 pass
@@ -91,9 +93,12 @@ class Nginx(object):
                     raise
                 time.sleep(1)
 
-    def _admin_request(self, host, path):
+    def _admin_request(self, host, path, headers=None):
         url = "http://{}:{}/{}".format(host, self.nginx_manage_port, path)
-        rsp = requests.get(url, timeout=2)
+        if headers:
+            rsp = requests.get(url, timeout=2, headers=headers)
+        else:
+            rsp = requests.get(url, timeout=2)
         if rsp.status_code != 200:
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
