@@ -7,8 +7,11 @@ install:
   - make deps
   - curl -k -LO https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip
   - unzip consul_0.6.4_linux_amd64.zip
-  - GOMAXPROCS=8 PATH=":$PATH" make start-consul
-script: make ci-test && make stop-consul
+  - export GOMAXPROCS=8 PATH=$PATH:$PWD
+  - make start-consul
+script:
+  - make ci-test
+  - make stop-consul
 services:
   - mongodb
   - redis
