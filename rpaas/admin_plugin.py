@@ -5,8 +5,6 @@
 # license that can be found in the LICENSE file.
 
 
-from bson import json_util
-
 import argparse
 import datetime
 import copy
@@ -17,6 +15,12 @@ import sys
 import time
 import urllib
 import urllib2
+
+try:
+    from bson import json_util
+except:
+    sys.stderr.write("This plugin requires json_util module\n")
+    sys.exit(1)
 
 CONFIG_REGEXP = re.compile(r"(\w+=)")
 
