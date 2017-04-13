@@ -116,6 +116,71 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(401, resp.status_code)
         self.assertEqual("you do not have access to this resource", resp.data)
 
+    def test_update_instance(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.manager.new_instance("someapp", plan_name="small")
+        resp = self.api.put("/resources/someapp", data={"plan_name": "huge"})
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("", resp.data)
+        self.assertEqual("huge", self.manager.instances[0].plan)
+
+    def test_update_instance_not_found(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.manager.new_instance("someapp", plan_name="small")
+        resp = self.api.put("/resources/someapp2", data={"plan_name": "huge"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Instance not found", resp.data)
+
+    def test_update_instance_no_plan(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.manager.new_instance("someapp", plan_name="small")
+        resp = self.api.put("/resources/someapp", data={"plan_name": ""})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Plan is required", resp.data)
+
+    def test_update_invalid_plan(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.manager.new_instance("someapp", plan_name="small")
+        resp = self.api.put("/resources/someapp", data={"plan_name": "large"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Plan not found", resp.data)
+
     def test_remove_instance(self):
         self.manager.new_instance("someapp")
         resp = self.api.delete("/resources/someapp")
@@ -215,7 +280,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)
-        self.assertEqual({"name": "someapp"}, data)
+        self.assertEqual({"name": "someapp", "plan": None}, data)
 
     def test_info_instance_not_found(self):
         resp = self.api.get("/resources/someapp")

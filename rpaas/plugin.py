@@ -67,6 +67,19 @@ def scale(args):
         sys.exit(1)
 
 
+def update(args):
+    service, instance, plan = get_update_args(args)
+    result = proxy_request(service, instance, "/resources/{}".format(instance),
+                           body="plan={}".format(plan), method='PUT')
+    if result.getcode() == 201:
+        msg = "Instance successfully updated"
+        sys.stdout.write(msg + "\n")
+    else:
+        msg = result.read().decode('utf-8').rstrip("\n")
+        sys.stderr.write("ERROR: " + msg + "\n")
+        sys.exit(1)
+
+
 def certificate(args):
     args = get_certificate_args(args)
     rpaas_path = "/resources/{}/certificate".format(args.instance)
@@ -228,6 +241,15 @@ def get_ssl_args(args):
     parser.add_argument("-p", "--plugin", required=False, help="Authorization plugin")
     parsed = parser.parse_args(args)
     return parsed
+
+
+def get_update_args(args):
+    parser = argparse.ArgumentParser("ssl")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Service instance name")
+    parser.add_argument("-p", "--plan", required=False, help="New plan name")
+    parsed = parser.parse_args(args)
+    return parsed.service, parsed.instance, parsed.plan
 
 
 def ssl(args):
@@ -396,7 +418,8 @@ def available_commands():
         "purge": purge,
         "ssl": ssl,
         "block": block,
-        "status": status
+        "status": status,
+        "update": update
     }
 
 

@@ -79,6 +79,23 @@ def add_instance():
     return "", 201
 
 
+@api.route("/resources/<name>", methods=["PUT"])
+@auth.required
+def update_instance(name):
+    plan = request.form.get("plan_name")
+    if not plan:
+        return "Plan is required", 400
+    try:
+        get_manager().update_instance(name, plan)
+    except tasks.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    except storage.InstanceNotFoundError:
+        return "Instance not found", 404
+    except storage.PlanNotFoundError:
+        return "Plan not found", 404
+    return "", 204
+
+
 @api.route("/resources/<name>", methods=["DELETE"])
 @auth.required
 def remove_instance(name):

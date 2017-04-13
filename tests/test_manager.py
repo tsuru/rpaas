@@ -228,6 +228,41 @@ class ManagerTestCase(unittest.TestCase):
             manager.new_instance("x")
         LoadBalancer.find.assert_called_once_with("x")
 
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_update_instance(self, LoadBalancer):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        LoadBalancer.find.return_value = "something"
+        self.storage.store_instance_metadata("x", plan_name=self.plan["name"], consul_token="abc-123")
+        manager = Manager(self.config)
+        manager.update_instance("x", "huge")
+        return_metadata = {'_id': 'x', 'plan_name': 'huge', 'consul_token': 'abc-123'}
+        self.assertEquals(self.storage.find_instance_metadata("x"), return_metadata)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_update_instance_invalid_plan(self, LoadBalancer):
+        LoadBalancer.find.return_value = "something"
+        self.storage.store_instance_metadata("x", plan_name=self.plan["name"], consul_token="abc-123")
+        manager = Manager(self.config)
+        with self.assertRaises(storage.PlanNotFoundError):
+            manager.update_instance("x", "large")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_update_instance_not_found(self, LoadBalancer):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        LoadBalancer.find.return_value = None
+        self.storage.store_instance_metadata("x", plan_name=self.plan["name"], consul_token="abc-123")
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.update_instance("x", "huge")
+
     def test_remove_instance(self):
         self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
         self.storage.store_le_certificate("x", "foobar.com")

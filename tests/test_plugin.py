@@ -159,6 +159,27 @@ class TsuruPluginTestCase(unittest.TestCase):
         expected_msg = "quantity must be a positive integer\n"
         stderr.write.assert_called_with(expected_msg)
 
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
+    def test_update(self, stdout, Request, urlopen):
+        request = Request.return_value
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        result = mock.Mock()
+        result.getcode.return_value = 201
+        urlopen.return_value = result
+        plugin.update(["-s", "myservice", "-i", "myinstance", "-p", "new_plan"])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinstance?" +
+                                   "callback=/resources/myinstance")
+        request.add_header.assert_called_with("Authorization",
+                                              "bearer " + self.token)
+        self.assertEqual(request.get_method(), 'PUT')
+        request.add_data.assert_called_with("plan=new_plan")
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("Instance successfully updated\n")
+
     def test_get_command(self):
         cmd = plugin.get_command("scale")
         self.assertEqual(plugin.scale, cmd)

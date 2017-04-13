@@ -55,11 +55,19 @@ class FakeManager(object):
             raise storage.InstanceNotFoundError()
         del self.instances[index]
 
+    def update_instance(self, name, plan_name):
+        if plan_name:
+            self.storage.find_plan(plan_name)
+        index, _ = self.find_instance(name)
+        if index == -1:
+            raise storage.InstanceNotFoundError()
+        self.instances[index].plan = plan_name
+
     def info(self, name):
         index, instance = self.find_instance(name)
         if index < 0:
             raise storage.InstanceNotFoundError()
-        return {"name": instance.name}
+        return {"name": instance.name, "plan": instance.plan}
 
     def node_status(self, name):
         index, instance = self.find_instance(name)

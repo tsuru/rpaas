@@ -81,6 +81,17 @@ class Manager(object):
         self.storage.remove_instance_metadata(name)
         tasks.RemoveInstanceTask().delay(config, name)
 
+    def update_instance(self, name, plan_name):
+        if not self.storage.find_plan(plan_name):
+            raise storage.PlanNotFoundError()
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        metadata = self.storage.find_instance_metadata(name)
+        metadata['plan_name'] = plan_name
+        self.storage.store_instance_metadata(name, **metadata)
+
     def restore_machine_instance(self, name, machine, cancel_task=False):
         task_name = "restore_{}".format(machine)
         if cancel_task:
