@@ -41,8 +41,7 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
     def test_scale(self, stdout, Request, urlopen):
-        request = mock.Mock()
-        Request.return_value = request
+        request = Request.return_value
         self.set_envs()
         self.addCleanup(self.delete_envs)
         result = mock.Mock()
@@ -206,7 +205,7 @@ class TsuruPluginTestCase(unittest.TestCase):
         Request.assert_called_with(self.target +
                                    "services/service1/proxy/inst1?" +
                                    "callback=/resources/inst1/certificate")
-        request.add_header.assert_has_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         data = request.add_data.call_args[0][0]
 
         has_content = re.search(r'cert\.crt.*my content.*key\.key.*my content', data, re.DOTALL)

@@ -142,16 +142,15 @@ class BaseManagerTask(Task):
 
     def _add_host(self, name, lb=None):
         healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
-        host = Host.create(self.host_manager_name, name, self.config)
         created_lb = None
         try:
+            host = Host.create(self.host_manager_name, name, self.config)
             if not lb:
                 lb = created_lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
                 self.hc.create(name)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
             self.hc.add_url(name, host.dns_name)
-            self.storage.remove_task(name)
         except:
             exc_info = sys.exc_info()
             rollback = self._get_conf("RPAAS_ROLLBACK_ON_ERROR", "0") in ("True", "true", "1")
@@ -175,6 +174,8 @@ class BaseManagerTask(Task):
             except Exception as e:
                 logging.error("Error in rollback trying to remove healthcheck: {}".format(e))
             raise exc_info[0], exc_info[1], exc_info[2]
+        finally:
+            self.storage.remove_task(name)
 
     def _delete_host(self, name, host, lb=None):
         try:

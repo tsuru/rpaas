@@ -67,6 +67,97 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager.write_healthcheck.assert_called_once_with("x")
 
     @mock.patch("rpaas.tasks.nginx")
+    def test_new_instance_host_create_fail_and_raises(self, nginx):
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.side_effect = Exception("Host create failure")
+        host = self.Host.create.return_value
+        manager.new_instance("x")
+        lb.add_host.assert_not_called()
+        lb.destroy.assert_not_called()
+        host.destroy.assert_not_called()
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.tasks.nginx")
+    def test_new_instance_host_create_fail_and_rollback(self, nginx):
+        config = copy.deepcopy(self.config)
+        config["RPAAS_ROLLBACK_ON_ERROR"] = "1"
+        manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        lb = self.LoadBalancer.create.return_value
+        self.Host.create.side_effect = Exception("Host create failure")
+        host = self.Host.create.return_value
+        manager.new_instance("x")
+        lb.assert_not_called()
+        lb.add_host.assert_not_called()
+        lb.destroy.assert_not_called()
+        host.destroy.assert_not_called()
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.tasks.nginx")
+    def test_new_instance_lb_create_fail_and_rollback(self, nginx):
+        config = copy.deepcopy(self.config)
+        config["RPAAS_ROLLBACK_ON_ERROR"] = "1"
+        manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        self.LoadBalancer.create.side_effect = Exception("LB create failure")
+        lb = self.LoadBalancer.create.return_value
+        host = self.Host.create.return_value
+        manager.new_instance("x")
+        lb.add_host.assert_not_called()
+        lb.destroy.assert_not_called()
+        host.destroy.assert_called_once()
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.tasks.hc.Dumb")
+    @mock.patch("rpaas.tasks.nginx")
+    def test_new_instance_hc_create_fail_and_rollback(self, nginx, hc):
+        config = copy.deepcopy(self.config)
+        config["RPAAS_ROLLBACK_ON_ERROR"] = "1"
+        manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        lb = self.LoadBalancer.create.return_value
+        host = self.Host.create.return_value
+        dumb_hc = hc.return_value
+        dumb_hc.create.side_effect = Exception("HC create failure")
+        manager.new_instance("x")
+        self.LoadBalancer.create.assert_called_once()
+        lb.add_host.assert_not_called()
+        lb.destroy.assert_called_once()
+        host.destroy.assert_called_once()
+        lb.remove_host.assert_not_called()
+        dumb_hc.destroy.assert_called_once()
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.tasks.hc.Dumb")
+    @mock.patch("rpaas.tasks.nginx")
+    def test_new_instance_nginx_wait_healthcheck_fail_and_rollback(self, nginx, hc):
+        config = copy.deepcopy(self.config)
+        config["RPAAS_ROLLBACK_ON_ERROR"] = "1"
+        manager = Manager(config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.generate_token.return_value = "abc-123"
+        lb = self.LoadBalancer.create.return_value
+        host = self.Host.create.return_value
+        dumb_hc = hc.return_value
+        nginx_manager = nginx.Nginx.return_value
+        nginx_manager.wait_healthcheck.side_effect = Exception("Nginx timeout")
+        manager.new_instance("x")
+        self.LoadBalancer.create.assert_called_once()
+        lb.add_host.assert_called_once()
+        dumb_hc.add_url.assert_not_called()
+        lb.destroy.assert_called_once()
+        host.destroy.assert_called_once()
+        lb.remove_host.assert_not_called()
+        dumb_hc.destroy.assert_called_once()
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_plan(self, nginx):
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()

@@ -124,7 +124,7 @@ location {path} {{
         requests.get.side_effect = side_effect
         nginx.wait_healthcheck('myhost.com', timeout=5)
         self.assertEqual(requests.get.call_count, 2)
-        requests.get.assert_has_call('http://myhost.com:8089/healthcheck', timeout=2)
+        requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck_timeout(self, requests):
@@ -137,4 +137,4 @@ location {path} {{
         with self.assertRaises(Exception):
             nginx.wait_healthcheck('myhost.com', timeout=2)
         self.assertGreaterEqual(requests.get.call_count, 2)
-        requests.get.assert_has_call('http://myhost.com:8089/healthcheck', timeout=2)
+        requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
