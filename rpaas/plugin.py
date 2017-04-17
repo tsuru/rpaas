@@ -70,7 +70,7 @@ def scale(args):
 def update(args):
     service, instance, plan = get_update_args(args)
     result = proxy_request(service, instance, "/resources/{}".format(instance),
-                           body="plan={}".format(plan), method='PUT')
+                           body="plan_name={}".format(plan), method='PUT')
     if result.getcode() == 201:
         msg = "Instance successfully updated"
         sys.stdout.write(msg + "\n")

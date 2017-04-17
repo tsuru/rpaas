@@ -176,7 +176,7 @@ class TsuruPluginTestCase(unittest.TestCase):
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
         self.assertEqual(request.get_method(), 'PUT')
-        request.add_data.assert_called_with("plan=new_plan")
+        request.add_data.assert_called_with("plan_name=new_plan")
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully updated\n")
 
