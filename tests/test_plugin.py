@@ -179,7 +179,6 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully updated\n")
 
-
     @mock.patch("rpaas.plugin.urlopen")
     @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stderr")
