@@ -13,9 +13,9 @@ import io
 import json
 
 try:
-    from urllib2 import urlopen, Request
+    from urllib2 import urlopen, Request, HTTPError
 except ImportError:
-    from urllib.request import urlopen, Request
+    from urllib.request import urlopen, Request, HTTPError
 
 try:
     from urlparse import urlparse
@@ -244,7 +244,7 @@ def get_ssl_args(args):
 
 
 def get_update_args(args):
-    parser = argparse.ArgumentParser("ssl")
+    parser = argparse.ArgumentParser("update")
     parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-p", "--plan", required=False, help="New plan name")
@@ -263,12 +263,8 @@ def ssl(args):
     except AttributeError:
         body = urllib.parse.urlencode(params)
     method = "POST"
-    try:
-        result = proxy_request(args.service, args.instance, rpaas_path, body=body, method=method,
-                               headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    except Exception as e:
-        sys.stderr.write("ERROR: "+str(e)+"\n")
-        sys.exit(1)
+    result = proxy_request(args.service, args.instance, rpaas_path, body=body, method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
     if result.getcode() in [200, 201]:
         sys.stdout.write("Certificate successfully updated\n")
     else:
@@ -407,7 +403,12 @@ def proxy_request(service_name, instance_name, path, body=None, headers=None, me
     if headers:
         for key, value in headers.items():
             request.add_header(key, value)
-    return urlopen(request)
+    try:
+        return urlopen(request)
+    except HTTPError as error:
+        return error
+    except Exception:
+        raise
 
 
 def available_commands():

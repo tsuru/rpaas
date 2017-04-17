@@ -10,6 +10,8 @@ import mock
 import argparse
 
 from rpaas import plugin
+from urllib2 import HTTPError
+from io import StringIO
 
 
 class CommandNotFoundErrorTestCase(unittest.TestCase):
@@ -81,15 +83,12 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("rpaas.plugin.urlopen")
     @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stderr")
-    def test_scale_failure(self, stderr, Request, urlopen):
+    def test_scale_failure_invalid_value(self, stderr, Request, urlopen):
         request = mock.Mock()
         Request.return_value = request
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        result = mock.Mock()
-        result.getcode.return_value = 400
-        result.read.return_value = "Invalid quantity"
-        urlopen.return_value = result
+        urlopen.return_value = HTTPError(None, 400, None, None, StringIO(u"Invalid quantity"))
         with self.assertRaises(SystemExit) as cm:
             plugin.scale(["-s", "myservice", "-i", "myinstance", "-n", "10"])
         exc = cm.exception
@@ -179,6 +178,30 @@ class TsuruPluginTestCase(unittest.TestCase):
         request.add_data.assert_called_with("plan_name=new_plan")
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully updated\n")
+
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stderr")
+    def test_update_invalid_plan_name(self, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        urlopen.return_value = HTTPError(None, 400, None, None, StringIO(u"Invalid plan name"))
+        with self.assertRaises(SystemExit) as cm:
+            plugin.update(["-s", "myservice", "-i", "myinstance", "-p", "weird_plan"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinstance?" +
+                                   "callback=/resources/myinstance")
+        request.add_header.assert_called_with("Authorization",
+                                              "bearer " + self.token)
+        self.assertEqual(request.get_method(), 'PUT')
+        request.add_data.assert_called_with("plan_name=weird_plan")
+        urlopen.assert_called_with(request)
+        stderr.write.assert_called_with("ERROR: Invalid plan name\n")
 
     def test_get_command(self):
         cmd = plugin.get_command("scale")
@@ -484,6 +507,28 @@ server: server content
         request.add_data.assert_called_with("path=%2Ffoo%2Fbar%3Fa%3Db%26c%3Dd&preserve_path=False")
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stderr")
+    def test_purge_invalid_service_name(self, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        urlopen.return_value = HTTPError(None, 404, None, None, StringIO(u"Invalid service name"))
+        with self.assertRaises(SystemExit) as cm:
+            plugin.purge(["-s", "myservice", "-i", "myinstance", "-l", "/foo/bar"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinstance?" +
+                                   "callback=/resources/myinstance/purge")
+        request.add_header.assert_any_call("Authorization",
+                                           "bearer " + self.token)
+        request.add_data.assert_called_with("path=%2Ffoo%2Fbar&preserve_path=False")
+        urlopen.assert_called_with(request)
+        stderr.write.assert_called_with("ERROR: Invalid service name\n")
 
     @mock.patch("rpaas.plugin.urlopen")
     @mock.patch("rpaas.plugin.Request")
