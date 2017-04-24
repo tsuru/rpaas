@@ -381,7 +381,7 @@ class ManagerTestCase(unittest.TestCase):
         for host in manager.restore_instance("x"):
             self.assertEqual(host, "Restoring host {}: successfully restored".format(hosts.pop(0)))
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
-                                     {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+                                      {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
 
     @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -403,11 +403,11 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.side_effect = ["OK", Exception("timeout to response")]
-        responses = [ host for host in manager.restore_instance("x") ]
+        responses = [host for host in manager.restore_instance("x")]
         self.assertEqual(responses[0], "Restoring host xxx: successfully restored")
         self.assertEqual(responses[1], "Restoring host yyy: failed to restore - 'timeout to response'")
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
-                                     {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+                                      {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
 
     @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -416,7 +416,7 @@ class ManagerTestCase(unittest.TestCase):
         self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
         LoadBalancer.find.return_value = None
         manager = Manager(self.config)
-        responses = [ host for host in manager.restore_instance("x") ]
+        responses = [host for host in manager.restore_instance("x")]
         self.assertListEqual(responses, ["instance x not found"])
 
     @mock.patch("rpaas.manager.LoadBalancer")
