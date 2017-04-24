@@ -5,7 +5,7 @@
 import json
 from bson import json_util
 
-from flask import request
+from flask import request, Response
 
 from rpaas import auth, get_manager, storage, plan
 
@@ -89,6 +89,15 @@ def set_team_quota(team_name):
     return ""
 
 
+@auth.required
+def restore_instance():
+    instance_name = request.form.get("instance_name")
+    if not instance_name:
+        return "instance name required", 400
+    manager = get_manager()
+    return Response(manager.restore_instance(instance_name))
+
+
 def register_views(app, list_plans):
     app.add_url_rule("/admin/healings", methods=["GET"],
                      view_func=healings)
@@ -106,3 +115,5 @@ def register_views(app, list_plans):
                      view_func=view_team_quota)
     app.add_url_rule("/admin/quota/<team_name>", methods=["POST"],
                      view_func=set_team_quota)
+    app.add_url_rule("/admin/restore", methods=["POST"],
+                     view_func=restore_instance)

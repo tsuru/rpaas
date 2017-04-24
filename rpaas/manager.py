@@ -107,6 +107,34 @@ class Manager(object):
         self.task_manager.create({"_id": task_name, "host": machine,
                                  "instance": name, "created": datetime.datetime.utcnow()})
 
+    def restore_instance(self, name):
+        self.task_manager.ensure_ready(name)
+        config = copy.deepcopy(self.config)
+        metadata = self.storage.find_instance_metadata(name)
+        if metadata and "plan_name" in metadata:
+            plan = self.storage.find_plan(metadata["plan_name"])
+            config.update(plan.config or {})
+        healthcheck_timeout = int(config.get("RPAAS_HEALTHCHECK_TIMEOUT", 600))
+        tags = []
+        extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
+        if extra_tags:
+            tags.append(extra_tags)
+            config["HOST_TAGS"] = ",".join(tags)
+        try:
+            lb = LoadBalancer.find(name, config)
+            if lb is None:
+                raise storage.InstanceNotFoundError()
+            for host in lb.hosts:
+                msg = "Restoring host {}".format(host.id)
+                host.restore(reset_template=True)
+                host.start()
+                self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
+                yield "{}: successfully restored".format(msg)
+        except storage.InstanceNotFoundError:
+            yield "instance {} not found".format(name)
+        except Exception as e:
+            yield "{}: failed to restore - {}".format(msg, repr(e.message))
+
     def bind(self, name, app_host):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)

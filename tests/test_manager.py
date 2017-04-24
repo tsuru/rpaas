@@ -347,17 +347,77 @@ class ManagerTestCase(unittest.TestCase):
         with self.assertRaises(rpaas.manager.InstanceMachineNotFoundError):
             manager.restore_machine_instance('foo', '10.1.1.1')
 
-    def teste_restore_machine_instance_cancel(self):
+    def test_restore_machine_instance_cancel(self):
         manager = Manager(self.config)
         self.storage.store_task("restore_10.1.1.1")
         manager.restore_machine_instance('foo', '10.1.1.1', True)
         task = self.storage.find_task("restore_10.1.1.1")
         self.assertEquals(task.count(), 0)
 
-    def teste_restore_machine_instance_cancel_invalid_task(self):
+    def test_restore_machine_instance_cancel_invalid_task(self):
         manager = Manager(self.config)
         with self.assertRaises(rpaas.tasks.TaskNotFoundError):
             manager.restore_machine_instance('foo', '10.1.1.1', True)
+
+    @mock.patch("rpaas.manager.nginx")
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_instance_successfully(self, LoadBalancer, nginx):
+        self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
+        self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"CLOUDSTACK_TEMPLATE_ID": "1234", "INSTANCE_EXTRA_TAGS": "a:b,c:d"}}
+        )
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.1.1.1'
+        lb.hosts[0].id = 'xxx'
+        lb.hosts[1].dns_name = '10.2.2.2'
+        lb.hosts[1].id = 'yyy'
+        self.storage.store_instance_metadata("x", plan_name="huge", consul_token="abc-123")
+        manager = Manager(self.config)
+        hosts = ['xxx', 'yyy']
+        for host in manager.restore_instance("x"):
+            self.assertEqual(host, "Restoring host {}: successfully restored".format(hosts.pop(0)))
+        self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
+                                     {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+
+    @mock.patch("rpaas.manager.nginx")
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_instance_failed_restore(self, LoadBalancer, nginx):
+        self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
+        self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"CLOUDSTACK_TEMPLATE_ID": "1234", "INSTANCE_EXTRA_TAGS": "a:b,c:d"}}
+        )
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.1.1.1'
+        lb.hosts[0].id = 'xxx'
+        lb.hosts[1].dns_name = '10.2.2.2'
+        lb.hosts[1].id = 'yyy'
+        self.storage.store_instance_metadata("x", plan_name="huge", consul_token="abc-123")
+        manager = Manager(self.config)
+        nginx_manager = nginx.Nginx.return_value
+        nginx_manager.wait_healthcheck.side_effect = ["OK", Exception("timeout to response")]
+        responses = [ host for host in manager.restore_instance("x") ]
+        self.assertEqual(responses[0], "Restoring host xxx: successfully restored")
+        self.assertEqual(responses[1], "Restoring host yyy: failed to restore - 'timeout to response'")
+        self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
+                                     {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+
+    @mock.patch("rpaas.manager.nginx")
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_instance_service_instance_not_found(self, LoadBalancer, nginx):
+        self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
+        self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        LoadBalancer.find.return_value = None
+        manager = Manager(self.config)
+        responses = [ host for host in manager.restore_instance("x") ]
+        self.assertListEqual(responses, ["instance x not found"])
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_node_status(self, LoadBalancer):

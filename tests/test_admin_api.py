@@ -8,7 +8,7 @@ import unittest
 import os
 
 from bson import json_util
-from rpaas import api, admin_api, storage
+from rpaas import api, storage, admin_api
 from . import managers
 
 
@@ -16,11 +16,11 @@ class AdminAPITestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        admin_api.register_views(api.api, api.plans)
         os.environ["MONGO_DATABASE"] = "api_admin_test"
         cls.storage = storage.MongoDBStorage()
         cls.manager = managers.FakeManager(storage=cls.storage)
         api.get_manager = lambda: cls.manager
+        admin_api.get_manager = lambda: cls.manager
         cls.api = api.api.test_client()
 
     def setUp(self):
@@ -244,3 +244,20 @@ class AdminAPITestCase(unittest.TestCase):
         resp = self.api.post("/admin/quota/myteam", data={"quota": "-3"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("quota must be an integer value greather than 0", resp.data)
+
+    def test_restore_instance_successfully(self):
+        resp = self.api.post("/admin/restore", data={"instance_name": "blah"})
+        self.assertEqual(200, resp.status_code)
+        response = ["host a restored", "host b restored"]
+        self.assertEqual("".join(response), resp.data)
+
+    def test_restore_invalid_instance_name(self):
+        resp = self.api.post("/admin/restore", data={"instance_name": "invalid"})
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("instance invalid not found", resp.data)
+
+    def test_restore_instance_error_on_restore(self):
+        resp = self.api.post("/admin/restore", data={"instance_name": "error"})
+        self.assertEqual(200, resp.status_code)
+        response = ["host a restored", "host b restored", "host c failed to restore"]
+        self.assertEqual("".join(response), resp.data)

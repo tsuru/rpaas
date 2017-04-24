@@ -143,3 +143,12 @@ class FakeManager(object):
             raise storage.InstanceNotFoundError()
         if machine != 'foo':
             raise manager.InstanceMachineNotFoundError()
+
+    def restore_instance(self, name):
+        if name in "invalid":
+            yield "instance {} not found".format(name)
+            return
+        for machine in ["a", "b"]:
+            yield "host {} restored".format(machine)
+        if name in "error":
+            yield "host c failed to restore"
