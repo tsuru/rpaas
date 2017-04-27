@@ -348,7 +348,6 @@ def list_block(name):
 
 
 @api.route("/resources/<name>/purge", methods=["POST"])
-@auth.required
 def purge_location(name):
     path = request.form.get('path')
     preserve_path = request.form.get('preserve_path')
