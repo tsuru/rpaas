@@ -128,7 +128,7 @@ class Manager(object):
                 raise storage.InstanceNotFoundError()
             for host in lb.hosts:
                 yield "Restoring host {}".format(host.id)
-                restore_host_job = JobWaiting(host.restore, reset_template=True)
+                restore_host_job = JobWaiting(host.restore, reset_template=True, reset_tags=True)
                 restore_host_job.start()
                 while restore_host_job.is_alive():
                     yield "."

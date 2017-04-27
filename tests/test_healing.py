@@ -36,7 +36,7 @@ class FakeManager(managers.BaseManager):
         FakeManager.host_id += 1
         return Host(id=id, dns_name=FakeManager.hosts.pop(0), alternative_id=alternative_id)
 
-    def restore_host(self, id, template_id=None):
+    def restore_host(self, id, reset_template=False, reset_tags=False):
         if id in self.fail_ids:
             raise RestoreHostError(ConnectionError("iaas restore error"))
         log.logging.info("Machine {} restored".format(id))

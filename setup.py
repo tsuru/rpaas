@@ -29,7 +29,7 @@ setup(
         "requests==2.4.3",
         "gevent==1.1b6",
         "gunicorn==0.17.2",
-        "tsuru-hm==0.6.5",
+        "tsuru-hm==0.6.7",
         "celery[redis]==3.1.23",
         "flower==0.9.1",
         "GloboNetworkAPI==0.2.2",
