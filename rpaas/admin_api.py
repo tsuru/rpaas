@@ -95,7 +95,7 @@ def restore_instance():
     if not instance_name:
         return "instance name required", 400
     manager = get_manager()
-    return Response(manager.restore_instance(instance_name))
+    return Response(manager.restore_instance(instance_name), content_type='event/stream')
 
 
 def register_views(app, list_plans):

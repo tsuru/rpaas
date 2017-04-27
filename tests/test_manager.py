@@ -377,9 +377,12 @@ class ManagerTestCase(unittest.TestCase):
         lb.hosts[1].id = 'yyy'
         self.storage.store_instance_metadata("x", plan_name="huge", consul_token="abc-123")
         manager = Manager(self.config)
-        hosts = ['xxx', 'yyy']
-        for host in manager.restore_instance("x"):
-            self.assertEqual(host, "Restoring host {}: successfully restored".format(hosts.pop(0)))
+        responses = [response for response in manager.restore_instance("x")]
+        while "." in responses:
+            responses.remove(".")
+        expected_responses = ["Restoring host xxx", ": successfully restored\n",
+                              "Restoring host yyy", ": successfully restored\n"]
+        self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
 
@@ -403,9 +406,13 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.side_effect = ["OK", Exception("timeout to response")]
-        responses = [host for host in manager.restore_instance("x")]
-        self.assertEqual(responses[0], "Restoring host xxx: successfully restored")
-        self.assertEqual(responses[1], "Restoring host yyy: failed to restore - 'timeout to response'")
+        responses = [response for response in manager.restore_instance("x")]
+        while "." in responses:
+            responses.remove(".")
+        nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600)
+        expected_responses = ["Restoring host xxx", ": successfully restored\n",
+                              "Restoring host yyy", ": failed to restore - 'timeout to response'\n"]
+        self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
 
@@ -417,7 +424,7 @@ class ManagerTestCase(unittest.TestCase):
         LoadBalancer.find.return_value = None
         manager = Manager(self.config)
         responses = [host for host in manager.restore_instance("x")]
-        self.assertListEqual(responses, ["instance x not found"])
+        self.assertListEqual(responses, ["instance x not found\n"])
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_node_status(self, LoadBalancer):

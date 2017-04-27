@@ -29,7 +29,7 @@ setup(
         "requests==2.4.3",
         "gevent==1.1b6",
         "gunicorn==0.17.2",
-        "tsuru-hm==0.6.4",
+        "tsuru-hm==0.6.5",
         "celery[redis]==3.1.23",
         "flower==0.9.1",
         "GloboNetworkAPI==0.2.2",
@@ -37,7 +37,7 @@ setup(
         "raven==4.2.3",
         "blinker==1.4",
         "acme==0.9.3",
-        "letsencrypt==0.7.0",
+        "letsencrypt==0.7.0"
     ],
     extras_require={
         'tests': [

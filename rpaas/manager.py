@@ -8,6 +8,8 @@ import copy
 import datetime
 import os
 import socket
+import threading
+import time
 
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
@@ -125,15 +127,29 @@ class Manager(object):
             if lb is None:
                 raise storage.InstanceNotFoundError()
             for host in lb.hosts:
-                msg = "Restoring host {}".format(host.id)
-                host.restore(reset_template=True)
+                yield "Restoring host {}".format(host.id)
+                restore_host_job = JobWaiting(host.restore, reset_template=True)
+                restore_host_job.start()
+                while restore_host_job.is_alive():
+                    yield "."
+                    time.sleep(1)
+                if isinstance(restore_host_job.result, Exception):
+                    raise restore_host_job.result
                 host.start()
-                self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
-                yield "{}: successfully restored".format(msg)
+                nginx_waiting = self.nginx_manager.wait_healthcheck
+                nginx_healthcheck_job = JobWaiting(nginx_waiting, host=host.dns_name,
+                                                   timeout=healthcheck_timeout)
+                nginx_healthcheck_job.start()
+                while nginx_healthcheck_job.is_alive():
+                    yield "."
+                    time.sleep(1)
+                if isinstance(nginx_healthcheck_job.result, Exception):
+                    raise nginx_healthcheck_job.result
+                yield ": successfully restored\n"
         except storage.InstanceNotFoundError:
-            yield "instance {} not found".format(name)
+            yield "instance {} not found\n".format(name)
         except Exception as e:
-            yield "{}: failed to restore - {}".format(msg, repr(e.message))
+            yield ": failed to restore - {}\n".format(repr(e.message))
 
     def bind(self, name, app_host):
         self.task_manager.ensure_ready(name)
@@ -388,6 +404,22 @@ class Manager(object):
             raise SslError('SSL plugin not defined')
 
         return ''
+
+
+class JobWaiting(threading.Thread):
+
+    def __init__(self, job, **kwargs):
+        super(JobWaiting, self).__init__()
+        self.daemon = True
+        self.job = job
+        self.job_args = kwargs
+        self.result = None
+
+    def run(self):
+        try:
+            self.result = self.job(**self.job_args)
+        except Exception as e:
+            self.result = e
 
 
 class BindError(Exception):
