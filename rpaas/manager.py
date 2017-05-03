@@ -126,8 +126,9 @@ class Manager(object):
             lb = LoadBalancer.find(name, config)
             if lb is None:
                 raise storage.InstanceNotFoundError()
-            for host in lb.hosts:
-                yield "Restoring host {}".format(host.id)
+            length = len(lb.hosts)
+            for idx, host in enumerate(lb.hosts):
+                yield "Restoring host ({}/{}) {} ".format(idx + 1, length, host.id)
                 restore_host_job = JobWaiting(host.restore, reset_template=True, reset_tags=True)
                 restore_host_job.start()
                 while restore_host_job.is_alive():

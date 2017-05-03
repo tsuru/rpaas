@@ -380,8 +380,8 @@ class ManagerTestCase(unittest.TestCase):
         responses = [response for response in manager.restore_instance("x")]
         while "." in responses:
             responses.remove(".")
-        expected_responses = ["Restoring host xxx", ": successfully restored\n",
-                              "Restoring host yyy", ": successfully restored\n"]
+        expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
+                              "Restoring host (2/2) yyy ", ": successfully restored\n"]
         self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
@@ -410,8 +410,8 @@ class ManagerTestCase(unittest.TestCase):
         while "." in responses:
             responses.remove(".")
         nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600)
-        expected_responses = ["Restoring host xxx", ": successfully restored\n",
-                              "Restoring host yyy", ": failed to restore - 'timeout to response'\n"]
+        expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
+                              "Restoring host (2/2) yyy ", ": failed to restore - 'timeout to response'\n"]
         self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
