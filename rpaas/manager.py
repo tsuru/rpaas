@@ -111,6 +111,7 @@ class Manager(object):
 
     def restore_instance(self, name):
         self.task_manager.ensure_ready(name)
+        self.task_manager.create(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
         if metadata and "plan_name" in metadata:
@@ -151,6 +152,9 @@ class Manager(object):
             yield "instance {} not found\n".format(name)
         except Exception as e:
             yield ": failed to restore - {}\n".format(repr(e.message))
+        finally:
+            self.task_manager.remove(name)
+
 
     def bind(self, name, app_host):
         self.task_manager.ensure_ready(name)

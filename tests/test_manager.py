@@ -385,6 +385,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+        self.assertEqual(self.storage.find_task("x").count(), 0)
 
     @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -415,6 +416,7 @@ class ManagerTestCase(unittest.TestCase):
         self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+        self.assertEqual(self.storage.find_task("x").count(), 0)
 
     @mock.patch("rpaas.manager.nginx")
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -425,6 +427,7 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         responses = [host for host in manager.restore_instance("x")]
         self.assertListEqual(responses, ["instance x not found\n"])
+        self.assertEqual(self.storage.find_task("x").count(), 0)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_node_status(self, LoadBalancer):
