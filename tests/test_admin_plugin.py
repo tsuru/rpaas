@@ -10,6 +10,7 @@ import unittest
 import urllib
 import urllib2
 import urlparse
+from io import StringIO
 
 import mock
 
@@ -31,6 +32,30 @@ class CommandNotFoundErrorTestCase(unittest.TestCase):
     def test_unicode(self):
         error = admin_plugin.CommandNotFoundError("scale")
         self.assertEqual(u'command "scale" not found', unicode(error))
+
+
+class FakeURLopenResponse(StringIO):
+
+    def __init__(self, *args, **kwargs):
+        try:
+            self.code = args[1]
+        except IndexError:
+            self.code = 200
+            pass
+        try:
+            self.msg = args[2]
+            self.content = args[2]
+        except IndexError:
+            self.msg = "OK"
+            pass
+        if 'headers' in kwargs:
+            self.headers = kwargs['headers']
+        else:
+            self.headers = {'content-type': 'text/plain; charset=utf-8'}
+        StringIO.__init__(self, unicode(args[0]))
+
+    def getcode(self):
+        return self.code
 
 
 class TsuruAdminPluginTestCase(unittest.TestCase):
@@ -571,3 +596,31 @@ Config:
         self.assertEqual(1, exc.code)
         expected_output = "ERROR: invalid json response - No JSON object could be decoded\n"
         self.assertEqual(expected_output, "".join(lines))
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_restore_instance_successfully(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        urlopen.return_value = FakeURLopenResponse("Restoring machine (1/1) x .....: successfully")
+        args = ['-s', self.service_name, '-i x']
+        admin_plugin.restore_instance(args)
+        expected_output = "Restoring machine (1/1) x .....: successfully"
+        call_list = []
+        for char in expected_output:
+            call_list.append(mock.call(char))
+        stdout.write.assert_has_calls(call_list)
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stderr")
+    @mock.patch("sys.stdout")
+    def test_restore_instance_fail(self, stdout, stderr, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        urlopen.return_value = FakeURLopenResponse("fail", 400, "fail")
+        args = ['-s', self.service_name, '-i x']
+        with self.assertRaises(SystemExit):
+            admin_plugin.restore_instance(args)
+        stderr.write.assert_has_calls([mock.call("ERROR: fail\n")])

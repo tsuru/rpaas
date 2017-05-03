@@ -155,7 +155,6 @@ class Manager(object):
         finally:
             self.task_manager.remove(name)
 
-
     def bind(self, name, app_host):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)

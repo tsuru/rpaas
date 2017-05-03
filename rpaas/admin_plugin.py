@@ -15,6 +15,7 @@ import sys
 import time
 import urllib
 import urllib2
+from functools import partial
 
 try:
     from bson import json_util
@@ -266,6 +267,27 @@ def list_healings(args):
     _render_healings_list(healings_table, healings_list)
 
 
+def restore_instance(args):
+    parser = _base_args("restore-instance")
+    parser.add_argument("-i", "--instance", required=True)
+    parsed_args = parser.parse_args(args)
+    result = proxy_request(parsed_args.service, "/admin/restore", method="POST",
+                           body=urllib.urlencode({"instance_name": parsed_args.instance}),
+                           headers={"Content-Type": "application/x-www-form-urlencoded"})
+    if result.getcode() == 200:
+        for msg in parser_result(result):
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+    else:
+        sys.stderr.write("ERROR: " + result.content + "\n")
+        sys.exit(1)
+
+
+def parser_result(fileobj, buffersize=1):
+    for chunk in iter(partial(fileobj.read, buffersize), ''):
+        yield chunk
+
+
 def _render_healings_list(healings_table, healings_list):
     for healing in healings_list:
         elapsed_time = None
@@ -299,7 +321,8 @@ def available_commands():
         "list-plans": list_plans,
         "show-quota": show_quota,
         "set-quota": set_quota,
-        "list-healings": list_healings
+        "list-healings": list_healings,
+        "restore-instance": restore_instance
     }
 
 
