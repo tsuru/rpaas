@@ -364,6 +364,7 @@ class ManagerTestCase(unittest.TestCase):
     def test_restore_instance_successfully(self, LoadBalancer, nginx):
         self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
         self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.config["RPAAS_RESTORE_DELAY"] = 1
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "huge",
              "description": "some cool huge plan",
@@ -392,6 +393,7 @@ class ManagerTestCase(unittest.TestCase):
     def test_restore_instance_failed_restore(self, LoadBalancer, nginx):
         self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
         self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.config["RPAAS_RESTORE_DELAY"] = 1
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "huge",
              "description": "some cool huge plan",
@@ -410,7 +412,7 @@ class ManagerTestCase(unittest.TestCase):
         responses = [response for response in manager.restore_instance("x")]
         while "." in responses:
             responses.remove(".")
-        nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600)
+        nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600, manage_healthcheck=False)
         expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
                               "Restoring host (2/2) yyy ", ": failed to restore - 'timeout to response'\n"]
         self.assertListEqual(responses, expected_responses)
@@ -423,6 +425,7 @@ class ManagerTestCase(unittest.TestCase):
     def test_restore_instance_service_instance_not_found(self, LoadBalancer, nginx):
         self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
         self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.config["RPAAS_RESTORE_DELAY"] = 1
         LoadBalancer.find.return_value = None
         manager = Manager(self.config)
         responses = [host for host in manager.restore_instance("x")]

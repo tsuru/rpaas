@@ -130,7 +130,7 @@ class Manager(object):
             length = len(lb.hosts)
             for idx, host in enumerate(lb.hosts):
                 yield "Restoring host ({}/{}) {} ".format(idx + 1, length, host.id)
-                restore_host_job = JobWaiting(host.restore, reset_template=True, reset_tags=True)
+                restore_host_job = JobWaiting(host.restore, 0, reset_template=True, reset_tags=True)
                 restore_host_job.start()
                 while restore_host_job.is_alive():
                     yield "."
@@ -139,8 +139,9 @@ class Manager(object):
                     raise restore_host_job.result
                 host.start()
                 nginx_waiting = self.nginx_manager.wait_healthcheck
-                nginx_healthcheck_job = JobWaiting(nginx_waiting, host=host.dns_name,
-                                                   timeout=healthcheck_timeout)
+                restore_delay = int(config.get("RPAAS_RESTORE_DELAY", 30))
+                nginx_healthcheck_job = JobWaiting(nginx_waiting, restore_delay, host=host.dns_name,
+                                                   timeout=healthcheck_timeout, manage_healthcheck=False)
                 nginx_healthcheck_job.start()
                 while nginx_healthcheck_job.is_alive():
                     yield "."
@@ -412,16 +413,18 @@ class Manager(object):
 
 class JobWaiting(threading.Thread):
 
-    def __init__(self, job, **kwargs):
+    def __init__(self, job, sleep, **kwargs):
         super(JobWaiting, self).__init__()
         self.daemon = True
         self.job = job
+        self.sleep = sleep
         self.job_args = kwargs
         self.result = None
 
     def run(self):
         try:
             self.result = self.job(**self.job_args)
+            time.sleep(self.sleep)
         except Exception as e:
             self.result = e
 
