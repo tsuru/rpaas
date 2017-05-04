@@ -54,9 +54,15 @@ class Nginx(object):
     def __init__(self, conf=None):
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
         self.nginx_purge_path = config.get_config('NGINX_PURGE_PATH', '/purge', conf)
+        self.nginx_expected_healthcheck = config.get_config('NGINX_HEALTHECK_EXPECTED',
+                                                            'WORKING', conf)
         self.nginx_healthcheck_path = config.get_config('NGINX_HEALTHCHECK_PATH',
-                                                        '/healthcheck',
-                                                        conf)
+                                                        '/healthcheck', conf)
+        self.nginx_healthcheck_app_path = config.get_config('NGINX_HEALTHCHECK_APP_PATH',
+                                                            '/_nginx_healthcheck/', conf)
+        self.nginx_app_port = config.get_config('NGINX_APP_PORT', '8080', conf)
+        self.nginx_app_expected_healthcheck = config.get_config('NGINX_HEALTHECK_APP_EXPECTED',
+                                                                'WORKING', conf)
         self.config_manager = ConfigManager(conf)
 
     def purge_location(self, host, path, preserve_path=False):
@@ -64,7 +70,7 @@ class Nginx(object):
         purged = False
         if preserve_path:
             try:
-                self._admin_request(host, "{}/{}".format(purge_path, path),
+                self._nginx_request(host, "{}/{}".format(purge_path, path),
                                     {'Accept-Encoding': ''})
                 purged = True
             except:
@@ -72,20 +78,27 @@ class Nginx(object):
             return purged
         for scheme in ['http', 'https']:
             try:
-                self._admin_request(host, "{}/{}{}".format(purge_path, scheme, path),
+                self._nginx_request(host, "{}/{}{}".format(purge_path, scheme, path),
                                     {'Accept-Encoding': ''})
                 purged = True
             except:
                 pass
         return purged
 
-    def wait_healthcheck(self, host, timeout=30):
+    def wait_healthcheck(self, host, timeout=30, manage_healthcheck=True):
         t0 = datetime.datetime.now()
-        healthcheck_path = self.nginx_healthcheck_path.lstrip('/')
+        if manage_healthcheck:
+            healthcheck_path = self.nginx_healthcheck_path.lstrip('/')
+            expected_response = self.nginx_expected_healthcheck
+            port = self.nginx_manage_port
+        else:
+            healthcheck_path = self.nginx_healthcheck_app_path.lstrip('/')
+            expected_response = self.nginx_app_expected_healthcheck
+            port = self.nginx_app_port
         timeout = datetime.timedelta(seconds=timeout)
         while True:
             try:
-                self._admin_request(host, healthcheck_path)
+                self._nginx_request(host, healthcheck_path, port=port, expected_response=expected_response)
                 break
             except:
                 now = datetime.datetime.now()
@@ -93,12 +106,14 @@ class Nginx(object):
                     raise
                 time.sleep(1)
 
-    def _admin_request(self, host, path, headers=None):
-        url = "http://{}:{}/{}".format(host, self.nginx_manage_port, path)
+    def _nginx_request(self, host, path, headers=None, port=None, expected_response=None):
+        if not port:
+            port = self.nginx_manage_port
+        url = "http://{}:{}/{}".format(host, port, path)
         if headers:
             rsp = requests.get(url, timeout=2, headers=headers)
         else:
             rsp = requests.get(url, timeout=2)
-        if rsp.status_code != 200:
+        if rsp.status_code != 200 or (expected_response and expected_response != rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))

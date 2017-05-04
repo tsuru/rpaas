@@ -6,7 +6,7 @@ import unittest
 
 import mock
 
-from rpaas.nginx import Nginx
+from rpaas.nginx import Nginx, NginxError
 
 
 class NginxTestCase(unittest.TestCase):
@@ -125,6 +125,45 @@ location {path} {{
         nginx.wait_healthcheck('myhost.com', timeout=5)
         self.assertEqual(requests.get.call_count, 2)
         requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
+
+    @mock.patch('rpaas.nginx.requests')
+    def test_wait_app_healthcheck(self, requests):
+        nginx = Nginx()
+        count = [0]
+        response = mock.Mock()
+        response.status_code = 200
+        response.text = 'WORKING'
+
+        def side_effect(url, timeout):
+            count[0] += 1
+            if count[0] < 2:
+                raise Exception('some error')
+            return response
+
+        requests.get.side_effect = side_effect
+        nginx.wait_healthcheck('myhost.com', timeout=5, manage_healthcheck=False)
+        self.assertEqual(requests.get.call_count, 2)
+        requests.get.assert_called_with('http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
+
+    @mock.patch('rpaas.nginx.requests')
+    def test_wait_app_healthcheck_invalid_response(self, requests):
+        nginx = Nginx()
+        count = [0]
+        response = mock.Mock()
+        response.status_code = 200
+        response.text = 'NOT WORKING'
+
+        def side_effect(url, timeout):
+            count[0] += 1
+            if count[0] < 2:
+                raise Exception('some error')
+            return response
+
+        requests.get.side_effect = side_effect
+        with self.assertRaises(NginxError):
+            nginx.wait_healthcheck('myhost.com', timeout=5, manage_healthcheck=False)
+        self.assertEqual(requests.get.call_count, 6)
+        requests.get.assert_called_with('http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck_timeout(self, requests):
