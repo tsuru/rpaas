@@ -14,6 +14,7 @@ import time
 import hm.managers.cloudstack  # NOQA
 import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
+from celery.utils import uuid
 
 from rpaas import consul_manager, nginx, ssl, ssl_plugins, storage, tasks
 
@@ -124,6 +125,7 @@ class Manager(object):
             tags.append(extra_tags)
             config["HOST_TAGS"] = ",".join(tags)
         try:
+            self.task_manager.update(name, uuid())
             lb = LoadBalancer.find(name, config)
             if lb is None:
                 raise storage.InstanceNotFoundError()

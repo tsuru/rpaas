@@ -412,7 +412,8 @@ class ManagerTestCase(unittest.TestCase):
         responses = [response for response in manager.restore_instance("x")]
         while "." in responses:
             responses.remove(".")
-        nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600, manage_healthcheck=False)
+        nginx_manager.wait_healthcheck.assert_called_with(host='10.2.2.2', timeout=600,
+                                                          manage_healthcheck=False)
         expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
                               "Restoring host (2/2) yyy ", ": failed to restore - 'timeout to response'\n"]
         self.assertListEqual(responses, expected_responses)
