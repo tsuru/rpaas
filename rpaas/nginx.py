@@ -114,6 +114,6 @@ class Nginx(object):
             rsp = requests.get(url, timeout=2, headers=headers)
         else:
             rsp = requests.get(url, timeout=2)
-        if rsp.status_code != 200 or (expected_response and expected_response != rsp.text):
+        if rsp.status_code != 200 or (expected_response and expected_response not in rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))

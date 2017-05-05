@@ -132,7 +132,7 @@ location {path} {{
         count = [0]
         response = mock.Mock()
         response.status_code = 200
-        response.text = 'WORKING'
+        response.text = '\n\nWORKING'
 
         def side_effect(url, timeout):
             count[0] += 1
@@ -151,7 +151,7 @@ location {path} {{
         count = [0]
         response = mock.Mock()
         response.status_code = 200
-        response.text = 'NOT WORKING'
+        response.text = '\nFAIL\n'
 
         def side_effect(url, timeout):
             count[0] += 1
