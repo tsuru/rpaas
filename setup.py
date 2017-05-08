@@ -37,7 +37,12 @@ setup(
         "raven==4.2.3",
         "blinker==1.4",
         "acme==0.9.3",
-        "letsencrypt==0.7.0"
+        "letsencrypt==0.7.0",
+        "certbot==0.9.3",
+        "certifi==2016.9.26",
+        "pbr==1.10.0",
+        "Babel==2.3.4",
+        "zope.interface==4.3.3"
     ],
     extras_require={
         'tests': [
