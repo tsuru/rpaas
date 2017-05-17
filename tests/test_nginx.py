@@ -11,6 +11,9 @@ from rpaas.nginx import Nginx, NginxError
 
 class NginxTestCase(unittest.TestCase):
 
+    def setUp(self):
+        self.cache_headers = [ {'Accept-Encoding': 'gzip'}, {'Accept-Encoding': 'identity'} ]
+
     def test_init_default(self):
         nginx = Nginx()
         self.assertEqual(nginx.nginx_manage_port, '8089')
@@ -63,15 +66,16 @@ location {path} {{
         side_effect.status_code = 404
         side_effect.text = "Not Found"
 
-        requests.get.side_effect = [response, side_effect]
+        requests.get.side_effect = [response, side_effect, response, side_effect]
         purged = nginx.purge_location('myhost', '/foo/bar')
         self.assertTrue(purged)
-        self.assertEqual(requests.get.call_count, 2)
-        headers = {'Accept-Encoding': ''}
-        requests.get.assert_has_calls([mock.call('http://myhost:8089/purge/http/foo/bar', headers=headers,
-                                                 timeout=2),
-                                       mock.call('http://myhost:8089/purge/https/foo/bar', headers=headers,
-                                                 timeout=2)])
+        self.assertEqual(requests.get.call_count, 4)
+        expected_responses = []
+        for scheme in ['http', 'https']:
+            for header in self.cache_headers:
+                expected_responses.append(mock.call('http://myhost:8089/purge/{}/foo/bar'.format(scheme),
+                                          headers=header, timeout=2))
+        requests.get.assert_has_calls(expected_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_purge_location_preserve_path_successfully(self, requests):
@@ -84,10 +88,12 @@ location {path} {{
         requests.get.side_effect = [response]
         purged = nginx.purge_location('myhost', 'http://example.com/foo/bar', True)
         self.assertTrue(purged)
-        self.assertEqual(requests.get.call_count, 1)
-        headers = {'Accept-Encoding': ''}
-        requests.get.assert_has_calls([mock.call('http://myhost:8089/purge/http://example.com/foo/bar',
-                                                 headers=headers, timeout=2)])
+        self.assertEqual(requests.get.call_count, 2)
+        expected_responses = []
+        for header in self.cache_headers:
+            expected_responses.append(mock.call('http://myhost:8089/purge/http://example.com/foo/bar',
+                                      headers=header, timeout=2))
+        requests.get.assert_has_calls(expected_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_purge_location_not_found(self, requests):
@@ -97,15 +103,16 @@ location {path} {{
         response.status_code = 404
         response.text = 'Not Found'
 
-        requests.get.side_effect = [response, response]
+        requests.get.side_effect = [response, response, response, response]
         purged = nginx.purge_location('myhost', '/foo/bar')
         self.assertFalse(purged)
-        self.assertEqual(requests.get.call_count, 2)
-        headers = {'Accept-Encoding': ''}
-        requests.get.assert_has_calls([mock.call('http://myhost:8089/purge/http/foo/bar', headers=headers,
-                                                 timeout=2),
-                                       mock.call('http://myhost:8089/purge/https/foo/bar', headers=headers,
-                                                 timeout=2)])
+        self.assertEqual(requests.get.call_count, 4)
+        expected_responses = []
+        for scheme in ['http', 'https']:
+            for header in self.cache_headers:
+                expected_responses.append(mock.call('http://myhost:8089/purge/{}/foo/bar'.format(scheme),
+                                          headers=header, timeout=2))
+        requests.get.assert_has_calls(expected_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck(self, requests):

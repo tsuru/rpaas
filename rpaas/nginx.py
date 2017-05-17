@@ -69,20 +69,22 @@ class Nginx(object):
         purge_path = self.nginx_purge_path.lstrip('/')
         purged = False
         if preserve_path:
-            try:
-                self._nginx_request(host, "{}/{}".format(purge_path, path),
-                                    {'Accept-Encoding': ''})
-                purged = True
-            except:
-                pass
+            for encoding in ['gzip', 'identity']:
+                try:
+                    self._nginx_request(host, "{}/{}".format(purge_path, path),
+                                        {'Accept-Encoding': encoding})
+                    purged = True
+                except:
+                    pass
             return purged
         for scheme in ['http', 'https']:
-            try:
-                self._nginx_request(host, "{}/{}{}".format(purge_path, scheme, path),
-                                    {'Accept-Encoding': ''})
-                purged = True
-            except:
-                pass
+            for encoding in ['gzip', 'identity']:
+                try:
+                    self._nginx_request(host, "{}/{}{}".format(purge_path, scheme, path),
+                                        {'Accept-Encoding': encoding})
+                    purged = True
+                except:
+                    pass
         return purged
 
     def wait_healthcheck(self, host, timeout=30, manage_healthcheck=True):
