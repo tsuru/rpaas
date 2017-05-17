@@ -12,7 +12,7 @@ from rpaas.nginx import Nginx, NginxError
 class NginxTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.cache_headers = [ {'Accept-Encoding': 'gzip'}, {'Accept-Encoding': 'identity'} ]
+        self.cache_headers = [{'Accept-Encoding': 'gzip'}, {'Accept-Encoding': 'identity'}]
 
     def test_init_default(self):
         nginx = Nginx()
