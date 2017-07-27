@@ -90,7 +90,7 @@ class ConsulManager(object):
         self.client.kv.put(self._block_key(instance_name, block_name), content)
 
     def remove_block(self, instance_name, block_name):
-        self.write_block(instance_name, block_name, "")
+        self.write_block(instance_name, block_name, None)
 
     def list_blocks(self, instance_name, block_name=None):
         blocks = self.client.kv.get(self._block_key(instance_name, block_name),
@@ -109,9 +109,12 @@ class ConsulManager(object):
         if remove:
             content = content.replace(begin_block, "")
             content = content.replace(end_block, "")
-            return content
-        content_block = begin_block + content.strip() + '\n' + end_block
-        return content_block
+            return content.strip()
+        if content:
+            content = begin_block + content.strip() + '\n' + end_block
+        else:
+            content = begin_block + end_block
+        return content
 
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]

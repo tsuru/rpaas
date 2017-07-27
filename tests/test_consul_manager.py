@@ -184,14 +184,14 @@ class ConsulManagerTestCase(unittest.TestCase):
                                  "something nice in server")
         self.manager.remove_block("myrpaas", "server")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/server/ROOT")
-        empty_block_value = '## Begin custom RpaaS server block ##\n\n## End custom RpaaS server block ##'
+        empty_block_value = '## Begin custom RpaaS server block ##\n## End custom RpaaS server block ##'
         self.assertEqual(item[1]['Value'], empty_block_value)
 
     def test_remove_block_http_root(self):
         self.manager.write_block("myrpaas", "http", "something nice in http")
         self.manager.remove_block("myrpaas", "http")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/blocks/http/ROOT")
-        empty_block_value = '## Begin custom RpaaS http block ##\n\n## End custom RpaaS http block ##'
+        empty_block_value = '## Begin custom RpaaS http block ##\n## End custom RpaaS http block ##'
         self.assertEqual(item[1]['Value'], empty_block_value)
 
     def test_list_no_block(self):
@@ -203,7 +203,7 @@ class ConsulManagerTestCase(unittest.TestCase):
                                  "something nice in server")
         items = self.manager.list_blocks("myrpaas")
         self.assertEqual(1, len(items))
-        self.assertEqual("something nice in server\n", items[0]["content"])
+        self.assertEqual("something nice in server", items[0]["content"])
 
     def test_list_block(self):
         self.manager.write_block("myrpaas", "server",
@@ -211,5 +211,5 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.write_block("myrpaas", "http", "something nice in http")
         items = self.manager.list_blocks("myrpaas")
         self.assertEqual(2, len(items))
-        self.assertEqual("something nice in http\n", items[0]["content"])
-        self.assertEqual("something nice in server\n", items[1]["content"])
+        self.assertEqual("something nice in http", items[0]["content"])
+        self.assertEqual("something nice in server", items[1]["content"])
