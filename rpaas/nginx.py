@@ -108,14 +108,26 @@ class Nginx(object):
                     raise
                 time.sleep(1)
 
-    def _nginx_request(self, host, path, headers=None, port=None, expected_response=None):
+    def add_session_ticket(self, host, data):
+        self._nginx_request(host, 'session_ticket', data=data, method='POST', secure=True,
+                            expected_response='ticket was succsessfully added')
+
+    def _nginx_request(self, host, path, headers=None, port=None,
+                       expected_response=None, secure=False, method='GET', data=None):
         if not port:
             port = self.nginx_manage_port
-        url = "http://{}:{}/{}".format(host, port, path)
+        protocol = 'http'
+        if secure:
+            protocol = 'https'
+        url = "{}://{}:{}/{}".format(protocol, host, port, path)
+        if method not in ['POST', 'PUT', 'GET']:
+            raise NginxError("Unsupported method {}".format(method))
+        params = {}
         if headers:
-            rsp = requests.get(url, timeout=2, headers=headers)
-        else:
-            rsp = requests.get(url, timeout=2)
+            params['headers'] = headers
+        if data:
+            params['data'] = data
+        rsp = getattr(requests, method.lower())(url, timeout=2, **params)
         if rsp.status_code != 200 or (expected_response and expected_response not in rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
