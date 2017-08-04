@@ -1025,3 +1025,17 @@ content = location /x {
         self.assertEqual(purged_hosts, 2)
         manager.nginx_manager.purge_location.assert_any_call(lb.hosts[0].dns_name, "/foo/bar", True)
         manager.nginx_manager.purge_location.assert_any_call(lb.hosts[1].dns_name, "/foo/bar", True)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_add_lua_with_content(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.add_lua("inst", "my_module", "server", "lua code")
+
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.write_lua.assert_called_with(
+            "inst", "my_module", "server", "lua code"
+        )

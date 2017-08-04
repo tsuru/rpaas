@@ -15,6 +15,7 @@ class FakeInstance(object):
         self.bound = []
         self.routes = {}
         self.blocks = {}
+        self.lua_modules = {}
         self.node_status = {}
 
     def bind(self, app_host):
@@ -152,3 +153,7 @@ class FakeManager(object):
             yield "host {} restored".format(machine)
         if name in "error":
             yield "host c failed to restore"
+
+    def add_lua(self, name, lua_module_name, lua_module_type, content):
+        _, instance = self.find_instance(name)
+        instance.lua_modules[lua_module_name] = {lua_module_type: {'content': content}}

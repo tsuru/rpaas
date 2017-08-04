@@ -213,3 +213,16 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual(2, len(items))
         self.assertEqual("something nice in http", items[0]["content"])
         self.assertEqual("something nice in server", items[1]["content"])
+
+    def test_write_lua_content(self):
+        self.manager.write_lua(
+            "myrpaas", "some_module", "server",
+            content=" something nice in lua         \n"
+        )
+        expected_lua = (
+            "-- Begin custom RpaaS some_module lua module --\n"
+            "something nice in lua"
+            "\n-- End custom RpaaS some_module lua module --"
+        )
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/lua_module/server/some_module")
+        self.assertEqual(expected_lua, item[1]["Value"])

@@ -624,3 +624,43 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(405, resp.status_code)
         self.assertEqual("New instance disabled. Use rpaas_test_new_service service instead", resp.data)
         del os.environ["RPAAS_NEW_SERVICE"]
+
+    def test_add_lua(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resources/someapp/lua', data={
+            'content': 'something',
+            'lua_module_name': 'somelua',
+            'lua_module_type': 'server',
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance('someapp')
+        self.assertDictEqual(instance.lua_modules.get('somelua').get("server"), {
+            'content': u'something',
+        })
+
+    def test_add_lua_without_content(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resources/someapp/lua', data={
+            'content': None,
+            'lua_module_name': 'somelua',
+            'lua_module_type': 'worker',
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_add_lua_without_lua_name(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resources/someapp/lua', data={
+            'content': 'something',
+            'lua_module_name': None,
+            'lua_module_type': 'server',
+        })
+        self.assertEqual(400, resp.status_code)
+
+    def test_add_lua_not_server_worker(self):
+        self.manager.new_instance('someapp')
+        resp = self.api.post('/resources/someapp/lua', data={
+            'content': 'something',
+            'lua_module_name': 'somelua',
+            'lua_module_type': 'test',
+        })
+        self.assertEqual(400, resp.status_code)

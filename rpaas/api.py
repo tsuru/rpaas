@@ -389,6 +389,25 @@ def add_https(name):
     return "", 200
 
 
+@api.route("/resources/<name>/lua", methods=["POST"])
+@auth.required
+def add_lua(name):
+    content = request.form.get('content')
+    lua_module = request.form.get('lua_module_name')
+    lua_module_type = request.form.get('lua_module_type')
+    if lua_module_type not in ("server", "worker"):
+        return 'Lua module type should be server or worker.', 400
+    if not lua_module:
+        return 'You should provide a lua module name.', 400
+    if not content:
+        return 'missing content', 400
+    try:
+        get_manager().add_lua(name, lua_module, lua_module_type, content)
+    except tasks.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "", 201
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)
