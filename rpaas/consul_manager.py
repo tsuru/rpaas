@@ -116,21 +116,25 @@ class ConsulManager(object):
             content = begin_block + end_block
         return content
 
-    def get_certificate(self, instance_name):
-        cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
-        key = self.client.kv.get(self._ssl_key_key(instance_name))[1]
+    def get_certificate(self, instance_name, host_id=None):
+        cert = self.client.kv.get(self._ssl_cert_key(instance_name, host_id))[1]
+        key = self.client.kv.get(self._ssl_key_key(instance_name, host_id))[1]
         if not cert or not key:
             raise ValueError("certificate not defined")
         return cert["Value"], key["Value"]
 
-    def set_certificate(self, instance_name, cert_data, key_data):
-        self.client.kv.put(self._ssl_cert_key(instance_name), cert_data.replace("\r\n", "\n"))
-        self.client.kv.put(self._ssl_key_key(instance_name), key_data.replace("\r\n", "\n"))
+    def set_certificate(self, instance_name, cert_data, key_data, host_id=None):
+        self.client.kv.put(self._ssl_cert_key(instance_name, host_id), cert_data.replace("\r\n", "\n"))
+        self.client.kv.put(self._ssl_key_key(instance_name, host_id), key_data.replace("\r\n", "\n"))
 
-    def _ssl_cert_key(self, instance_name):
+    def _ssl_cert_key(self, instance_name, host_id):
+        if host_id:
+            return self._key(instance_name, "ssl/{}/cert".format(host_id))
         return self._key(instance_name, "ssl/cert")
 
-    def _ssl_key_key(self, instance_name):
+    def _ssl_key_key(self, instance_name, host_id):
+        if host_id:
+            return self._key(instance_name, "ssl/{}/key".format(host_id))
         return self._key(instance_name, "ssl/key")
 
     def _location_key(self, instance_name, path):

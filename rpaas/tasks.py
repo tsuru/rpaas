@@ -386,3 +386,26 @@ class RenewCertsTask(BaseManagerTask):
         csr = ssl.generate_csr(key, cert["domain"])
         DownloadCertTask().delay(config=config, name=cert["name"], plugin="le",
                                  csr=csr, key=key, domain=cert["domain"])
+
+
+class SessionResumptionTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        lb_data = LoadBalancer.list(conf=self.config)
+        for lb in lb_data:
+            self.rotate_session_ticket(lb.hosts)
+
+    def rotate_session_ticket(self, hosts):
+        session_ticket = ssl.generate_session_ticket()
+        for host in hosts:
+            self.add_session_ticket(host, session_ticket)
+
+    def add_session_ticket(self, host, session_ticket):
+        try:
+            _, _ = self.consul_manager.get_certificate(host.group, host.id)
+        except ValueError:
+            certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
+            self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
+        finally:
+            self.nginx_manager.add_session_ticket(host.dns_name, session_ticket)

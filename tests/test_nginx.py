@@ -185,13 +185,21 @@ location {path} {{
         self.assertGreaterEqual(requests.get.call_count, 2)
         requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
 
+    @mock.patch('os.path')
     @mock.patch('rpaas.nginx.requests')
-    def test_add_session_ticket_success(self, requests):
-        nginx = Nginx()
+    def test_add_session_ticket_success(self, requests, os_path):
+        nginx = Nginx({'CA_CERT': 'cert data'})
+        os_path.exists.return_value = True
         response = mock.Mock()
         response.status_code = 200
         response.text = '\n\nticket was succsessfully added'
         requests.post.return_value = response
         nginx.add_session_ticket('host-1', 'random data')
         requests.post.assert_called_once_with('https://host-1:8089/session_ticket', timeout=2,
-                                              data='random data')
+                                              data='random data', verify='/tmp/rpaas_ca.pem')
+
+    @mock.patch('rpaas.nginx.requests')
+    def test_missing_ca_cert(self, requests):
+        nginx = Nginx()
+        with self.assertRaises(NginxError):
+            nginx.add_session_ticket('host-1', 'random data')

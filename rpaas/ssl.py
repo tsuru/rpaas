@@ -4,6 +4,9 @@
 
 import json
 import os
+import datetime
+import ipaddress
+import base64
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -12,23 +15,27 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from hm.model.load_balancer import LoadBalancer
 
+
 from rpaas import consul_manager, ssl_plugins, storage
 
 
-def generate_key():
-    # Generate our key
+def generate_session_ticket(length=48):
+    return base64.b64encode(os.urandom(length))
+
+
+def generate_key(serialized=False):
     key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
         backend=default_backend()
     )
-
-    # Return serialized private key
-    return key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
+    if serialized:
+        return key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    return key
 
 
 def generate_csr(key, domainname):
@@ -82,3 +89,45 @@ def generate_crt(config, name, plugin, csr, key, domain):
         strg.store_le_certificate(name, domain)
     else:
         raise Exception('Could not download certificate')
+
+
+def generate_admin_crt(config, host):
+    private_key = generate_key()
+    public_key = private_key.public_key()
+    one_day = datetime.timedelta(1, 0, 0)
+    ca_cert = config.get("CA_CERT", None)
+    ca_key = config.get("CA_KEY", None)
+    cert_expiration = config.get("CERT_ADMIN_EXPIRE", 1825)
+    if not ca_cert or not ca_key:
+        raise Exception('CA_CERT or CA_KEY not defined')
+    ca_key = serialization.load_pem_private_key(ca_key, password=None, backend=default_backend())
+    ca_cert = x509.load_pem_x509_certificate(ca_cert, backend=default_backend())
+    builder = x509.CertificateBuilder()
+    builder = builder.subject_name(x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, host),
+    ]))
+    builder = builder.issuer_name(ca_cert.subject)
+    builder = builder.not_valid_before(datetime.datetime.today() - one_day)
+    builder = builder.not_valid_after(datetime.datetime.today() + datetime.timedelta(days=cert_expiration))
+    builder = builder.serial_number(x509.random_serial_number())
+    builder = builder.public_key(public_key)
+    builder = builder.add_extension(
+        x509.SubjectAlternativeName(
+            [x509.IPAddress(ipaddress.IPv4Address(host))]
+        ),
+        critical=False
+    )
+    builder = builder.add_extension(
+        x509.BasicConstraints(ca=False, path_length=None), critical=True,
+    )
+    certificate = builder.sign(
+        private_key=ca_key, algorithm=hashes.SHA256(),
+        backend=default_backend()
+    )
+    private_key = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    certificate = certificate.public_bytes(serialization.Encoding.PEM)
+    return private_key, certificate

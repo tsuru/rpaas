@@ -17,7 +17,7 @@ flower: deps
 	celery flower -A rpaas.tasks
 
 start-consul: stop-consul
-	consul agent -server -bind 127.0.0.1 -bootstrap-expect 1 -data-dir /tmp/consul -config-file etc/consul.conf -node=rpaas-test &
+	consul agent -ui -server -bind 127.0.0.1 -bootstrap-expect 1 -data-dir /tmp/consul -config-file etc/consul.conf -node=rpaas-test &
 	while ! consul info; do sleep 1; done
 
 stop-consul:

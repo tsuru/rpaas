@@ -45,6 +45,10 @@ if check_option_enable(os.environ.get("RUN_RESTORE_MACHINE")) and \
     from rpaas.healing import CheckMachine
     CheckMachine().start()
 
+if check_option_enable(os.environ.get("RUN_SESSION_RESUMPTION")):
+    from rpaas.session_resumption import SessionResumption
+    SessionResumption().start()
+
 
 @api.route("/resources/plans", methods=["GET"])
 @auth.required

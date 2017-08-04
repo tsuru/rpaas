@@ -4,6 +4,7 @@
 
 import time
 import datetime
+import os
 
 import requests
 
@@ -63,6 +64,8 @@ class Nginx(object):
         self.nginx_app_port = config.get_config('NGINX_APP_PORT', '8080', conf)
         self.nginx_app_expected_healthcheck = config.get_config('NGINX_HEALTHECK_APP_EXPECTED',
                                                                 'WORKING', conf)
+        self.ca_cert = config.get_config('CA_CERT', None, conf)
+        self.ca_path = "/tmp/rpaas_ca.pem"
         self.config_manager = ConfigManager(conf)
 
     def purge_location(self, host, path, preserve_path=False):
@@ -114,15 +117,17 @@ class Nginx(object):
 
     def _nginx_request(self, host, path, headers=None, port=None,
                        expected_response=None, secure=False, method='GET', data=None):
+        params = {}
         if not port:
             port = self.nginx_manage_port
         protocol = 'http'
         if secure:
             protocol = 'https'
+            self._ca_cert_file()
+            params['verify'] = self.ca_path
         url = "{}://{}:{}/{}".format(protocol, host, port, path)
         if method not in ['POST', 'PUT', 'GET']:
             raise NginxError("Unsupported method {}".format(method))
-        params = {}
         if headers:
             params['headers'] = headers
         if data:
@@ -131,3 +136,10 @@ class Nginx(object):
         if rsp.status_code != 200 or (expected_response and expected_response not in rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
+
+    def _ca_cert_file(self):
+        if not self.ca_cert:
+            raise NginxError("CA_CERT should be set for nginx https internal requests")
+        if not os.path.exists(self.ca_path):
+            with open(self.ca_path, "w") as ca_file:
+                ca_file.write(self.ca_cert)
