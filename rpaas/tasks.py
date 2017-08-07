@@ -18,7 +18,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel
+from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel, lock
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
 
@@ -126,7 +126,7 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.task_manager = TaskManager(config)
-        self.redis_client = app.backend.client
+        self.lock_manager = lock.Lock(app.backend.client)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
@@ -241,18 +241,18 @@ class RestoreMachineTask(BaseManagerTask):
         restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
         created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
         restore_query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
-        if self._redis_lock(lock_name, timeout=(healthcheck_timeout + 60)):
+        if self.lock_manager.lock(lock_name, timeout=(healthcheck_timeout + 60)):
             for task in self.storage.find_task(restore_query):
                 try:
                     start_time = datetime.datetime.utcnow()
                     self._restore_machine(task, config, healthcheck_timeout)
                     elapsed_time = datetime.datetime.utcnow() - start_time
-                    self._redis_extend_lock(extra_time=elapsed_time.seconds)
+                    self.lock_manager.extend_lock(extra_time=elapsed_time.seconds)
                 except Exception as e:
                     self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
-                    self._redis_unlock()
+                    self.lock_manager.unlock()
                     raise e
-            self._redis_unlock()
+            self.lock_manager.unlock()
 
     def _restore_machine(self, task, config, healthcheck_timeout):
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
@@ -281,17 +281,6 @@ class RestoreMachineTask(BaseManagerTask):
             if (retry_failure >= datetime.datetime.utcnow()):
                 failure_instances.add(task['instance'])
         return failure_instances
-
-    def _redis_lock(self, lock_name, timeout):
-        self.redis_lock = self.redis_client.lock(name=lock_name, timeout=timeout,
-                                                 blocking_timeout=1)
-        return self.redis_lock.acquire(blocking=False)
-
-    def _redis_unlock(self):
-        self.redis_lock.release()
-
-    def _redis_extend_lock(self, extra_time):
-        self.redis_lock.extend(extra_time)
 
 
 class CheckMachineTask(BaseManagerTask):
