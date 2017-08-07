@@ -23,7 +23,8 @@ tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
 class LoadBalancerFake(object):
 
-    def __init__(self):
+    def __init__(self, name):
+        self.name = name
         self.hosts = []
 
 
@@ -33,6 +34,19 @@ class HostFake(object):
         self.id = id
         self.group = group
         self.dns_name = dns_name
+        self.fail_property = None
+
+    def set_fail(self, name):
+        self.fail_property = name
+
+    def unset_fail(self, name):
+        self.fail_property = None
+
+    def __getattribute__(self, name):
+        fail_property = object.__getattribute__(self, "fail_property")
+        if fail_property and fail_property == name:
+            raise AttributeError("{} not defined".format(name))
+        return object.__getattribute__(self, name)
 
 
 @freeze_time("2016-02-03 12:00:00")
@@ -100,15 +114,15 @@ class SessionResumptionTestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
-        redis.StrictRedis().delete("session_resumption:last_run")
+        redis.StrictRedis().flushall()
 
     @patch("rpaas.tasks.ssl.generate_session_ticket")
     @patch("rpaas.tasks.LoadBalancer")
     @patch("rpaas.tasks.nginx")
     def test_renew_session_tickets(self, nginx, load_balancer, ticket):
         nginx_manager = nginx.Nginx.return_value
-        lb1 = LoadBalancerFake()
-        lb2 = LoadBalancerFake()
+        lb1 = LoadBalancerFake("instance-a")
+        lb2 = LoadBalancerFake("instance-b")
         lb1.hosts = [HostFake("xxx", "instance-a", "10.1.1.1"), HostFake("yyy", "instance-a", "10.1.1.2")]
         lb2.hosts = [HostFake("aaa", "instance-b", "10.2.2.2"), HostFake("bbb", "instance-b", "10.2.2.3")]
         load_balancer.list.return_value = [lb1, lb2]
@@ -123,13 +137,43 @@ class SessionResumptionTestCase(unittest.TestCase):
         cert_a, key_a = self.consul_manager.get_certificate("instance-a", "xxx")
         cert_b, key_b = self.consul_manager.get_certificate("instance-b", "bbb")
         redis.StrictRedis().delete("session_resumption:last_run")
+        redis.StrictRedis().delete("session_resumption:instance:instance-a")
         nginx_manager.reset_mock()
         session = session_resumption.SessionResumption(self.config)
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket3'), call('10.1.1.2', 'ticket3'),
-                                call('10.2.2.2', 'ticket4'), call('10.2.2.3', 'ticket4')]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3'), call('10.1.1.2', 'ticket3')]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         self.assertTupleEqual((cert_a, key_a), self.consul_manager.get_certificate("instance-a", "xxx"))
         self.assertTupleEqual((cert_b, key_b), self.consul_manager.get_certificate("instance-b", "bbb"))
+
+    @patch("rpaas.tasks.ssl.generate_session_ticket")
+    @patch("rpaas.tasks.LoadBalancer")
+    @patch("rpaas.tasks.nginx")
+    def test_renew_session_tickets_fail_and_unlock(self, nginx, load_balancer, ticket):
+        nginx_manager = nginx.Nginx.return_value
+        lb1_host2 = HostFake("yyy", "instance-a", "10.1.1.2")
+        lb1_host2.set_fail("dns_name")
+        lb1 = LoadBalancerFake("instance-a")
+        lb2 = LoadBalancerFake("instance-b")
+        lb1.hosts = [HostFake("xxx", "instance-a", "10.1.1.1"), lb1_host2]
+        lb2.hosts = [HostFake("aaa", "instance-b", "10.2.2.2"), HostFake("bbb", "instance-b", "10.2.2.3")]
+        load_balancer.list.return_value = [lb1, lb2]
+        ticket.side_effect = ["ticket1", "ticket2", "ticket3"]
+        session = session_resumption.SessionResumption(self.config)
+        session.start()
+        time.sleep(1)
+        session.stop()
+        nginx_expected_calls = [call('10.1.1.1', 'ticket1'), call('10.2.2.2', 'ticket2'),
+                                call('10.2.2.3', 'ticket2')]
+        self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
+        redis.StrictRedis().delete("session_resumption:last_run")
+        lb1_host2.unset_fail("dns_name")
+        nginx_manager.reset_mock()
+        session = session_resumption.SessionResumption(self.config)
+        session.start()
+        time.sleep(1)
+        session.stop()
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3'), call('10.1.1.2', 'ticket3')]
+        self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)

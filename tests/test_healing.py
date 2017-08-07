@@ -87,10 +87,9 @@ class RestoreMachineTestCase(unittest.TestCase):
             Host.create("fake", task['instance'], self.config)
             self.storage.store_task(task)
 
-        redis.StrictRedis().delete("restore_machine:last_run")
+        redis.StrictRedis().flushall()
 
     def tearDown(self):
-        redis.StrictRedis().delete("restore_lock")
         FakeManager.fail_ids = []
 
     @patch("rpaas.tasks.nginx")

@@ -381,9 +381,15 @@ class SessionResumptionTask(BaseManagerTask):
 
     def run(self, config):
         self.init_config(config)
+        session_resumption_rotate = self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600)
         lb_data = LoadBalancer.list(conf=self.config)
         for lb in lb_data:
-            self.rotate_session_ticket(lb.hosts)
+            lock_name = "session_resumption:instance:{}".format(lb.name)
+            if self.lock_manager.lock(lock_name, session_resumption_rotate):
+                try:
+                    self.rotate_session_ticket(lb.hosts)
+                except:
+                    self.lock_manager.unlock()
 
     def rotate_session_ticket(self, hosts):
         session_ticket = ssl.generate_session_ticket()
