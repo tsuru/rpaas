@@ -664,7 +664,7 @@ class APITestCase(unittest.TestCase):
             'lua_module_type': 'test',
         })
         self.assertEqual(400, resp.status_code)
-    
+
     def test_list_lua_modules(self):
         instance = self.manager.new_instance("someapp")
         instance.lua_modules = {"somemodule": {"server": "lua code"}, "anothermodule": {"worker": "lua code"}}
