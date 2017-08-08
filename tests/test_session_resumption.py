@@ -131,8 +131,8 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket1'), call('10.1.1.2', 'ticket1'),
-                                call('10.2.2.2', 'ticket2'), call('10.2.2.3', 'ticket2')]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket1', 30), call('10.1.1.2', 'ticket1', 30),
+                                call('10.2.2.2', 'ticket2', 30), call('10.2.2.3', 'ticket2', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         cert_a, key_a = self.consul_manager.get_certificate("instance-a", "xxx")
         cert_b, key_b = self.consul_manager.get_certificate("instance-b", "bbb")
@@ -143,7 +143,7 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket3'), call('10.1.1.2', 'ticket3')]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         self.assertTupleEqual((cert_a, key_a), self.consul_manager.get_certificate("instance-a", "xxx"))
         self.assertTupleEqual((cert_b, key_b), self.consul_manager.get_certificate("instance-b", "bbb"))
@@ -165,8 +165,8 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket1'), call('10.2.2.2', 'ticket2'),
-                                call('10.2.2.3', 'ticket2')]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket1', 30), call('10.2.2.2', 'ticket2', 30),
+                                call('10.2.2.3', 'ticket2', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         redis.StrictRedis().delete("session_resumption:last_run")
         lb1_host2.unset_fail("dns_name")
@@ -175,5 +175,5 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket3'), call('10.1.1.2', 'ticket3')]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)

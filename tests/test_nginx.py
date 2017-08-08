@@ -194,7 +194,7 @@ location {path} {{
         response.status_code = 200
         response.text = '\n\nticket was succsessfully added'
         requests.post.return_value = response
-        nginx.add_session_ticket('host-1', 'random data')
+        nginx.add_session_ticket('host-1', 'random data', timeout=2)
         requests.post.assert_called_once_with('https://host-1:8089/session_ticket', timeout=2,
                                               data='random data', verify='/tmp/rpaas_ca.pem')
 
@@ -202,4 +202,4 @@ location {path} {{
     def test_missing_ca_cert(self, requests):
         nginx = Nginx()
         with self.assertRaises(NginxError):
-            nginx.add_session_ticket('host-1', 'random data')
+            nginx.add_session_ticket('host-1', 'random data', timeout=2)

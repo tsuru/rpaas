@@ -397,10 +397,11 @@ class SessionResumptionTask(BaseManagerTask):
             self.add_session_ticket(host, session_ticket)
 
     def add_session_ticket(self, host, session_ticket):
+        ticket_timeout = self.config.get("SESSION_RESUMPTION_TICKET_TIMEOUT", 30)
         try:
             _, _ = self.consul_manager.get_certificate(host.group, host.id)
         except ValueError:
             certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
             self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
         finally:
-            self.nginx_manager.add_session_ticket(host.dns_name, session_ticket)
+            self.nginx_manager.add_session_ticket(host.dns_name, session_ticket, ticket_timeout)

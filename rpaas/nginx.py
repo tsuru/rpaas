@@ -15,6 +15,25 @@ class NginxError(Exception):
     pass
 
 
+def retry_request(f):
+    def f_retry(self, *args, **kwargs):
+        timeout = kwargs.get("timeout")
+        if not timeout:
+            timeout = 30
+        t0 = datetime.datetime.now()
+        timeout = datetime.timedelta(seconds=timeout)
+        while True:
+            try:
+                f(self, *args, **kwargs)
+                break
+            except:
+                now = datetime.datetime.now()
+            if now > t0 + timeout:
+                raise
+            time.sleep(1)
+    return f_retry
+
+
 class ConfigManager(object):
 
     def __init__(self, conf=None):
@@ -90,8 +109,8 @@ class Nginx(object):
                     pass
         return purged
 
+    @retry_request
     def wait_healthcheck(self, host, timeout=30, manage_healthcheck=True):
-        t0 = datetime.datetime.now()
         if manage_healthcheck:
             healthcheck_path = self.nginx_healthcheck_path.lstrip('/')
             expected_response = self.nginx_expected_healthcheck
@@ -100,18 +119,10 @@ class Nginx(object):
             healthcheck_path = self.nginx_healthcheck_app_path.lstrip('/')
             expected_response = self.nginx_app_expected_healthcheck
             port = self.nginx_app_port
-        timeout = datetime.timedelta(seconds=timeout)
-        while True:
-            try:
-                self._nginx_request(host, healthcheck_path, port=port, expected_response=expected_response)
-                break
-            except:
-                now = datetime.datetime.now()
-                if now > t0 + timeout:
-                    raise
-                time.sleep(1)
+        self._nginx_request(host, healthcheck_path, port=port, expected_response=expected_response)
 
-    def add_session_ticket(self, host, data):
+    @retry_request
+    def add_session_ticket(self, host, data, timeout=30):
         self._nginx_request(host, 'session_ticket', data=data, method='POST', secure=True,
                             expected_response='ticket was succsessfully added')
 
