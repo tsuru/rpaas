@@ -195,7 +195,7 @@ location {path} {{
         response.text = '\n\nticket was succsessfully added'
         requests.post.return_value = response
         nginx.add_session_ticket('host-1', 'random data', timeout=2)
-        requests.post.assert_called_once_with('https://host-1:8089/session_ticket', timeout=2,
+        requests.post.assert_called_once_with('https://host-1:8090/session_ticket', timeout=2,
                                               data='random data', verify='/tmp/rpaas_ca.pem')
 
     @mock.patch('rpaas.nginx.requests')

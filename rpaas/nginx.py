@@ -73,6 +73,7 @@ class Nginx(object):
 
     def __init__(self, conf=None):
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
+        self.nginx_manage_port_tls = config.get_config('NGINX_MANAGE_PORT_TLS', '8090', conf)
         self.nginx_purge_path = config.get_config('NGINX_PURGE_PATH', '/purge', conf)
         self.nginx_expected_healthcheck = config.get_config('NGINX_HEALTHECK_EXPECTED',
                                                             'WORKING', conf)
@@ -129,13 +130,16 @@ class Nginx(object):
     def _nginx_request(self, host, path, headers=None, port=None,
                        expected_response=None, secure=False, method='GET', data=None):
         params = {}
-        if not port:
-            port = self.nginx_manage_port
-        protocol = 'http'
         if secure:
+            if not port:
+                port = self.nginx_manage_port_tls
             protocol = 'https'
             self._ca_cert_file()
             params['verify'] = self.ca_path
+        else:
+            if not port:
+                port = self.nginx_manage_port
+            protocol = 'http'
         url = "{}://{}:{}/{}".format(protocol, host, port, path)
         if method not in ['POST', 'PUT', 'GET']:
             raise NginxError("Unsupported method {}".format(method))
