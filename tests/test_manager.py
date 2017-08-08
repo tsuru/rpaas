@@ -1039,3 +1039,17 @@ content = location /x {
         manager.consul_manager.write_lua.assert_called_with(
             "inst", "my_module", "server", "lua code"
         )
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_list_lua_modules(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.consul_manager.list_lua_modules.return_value = {"somelua": {"server": "lua code"}}
+        modules = manager.list_lua("inst")
+
+        self.assertDictEqual(modules, {"somelua": {"server": "lua code"}})
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.list_lua_modules.assert_called_with("inst")

@@ -664,3 +664,12 @@ class APITestCase(unittest.TestCase):
             'lua_module_type': 'test',
         })
         self.assertEqual(400, resp.status_code)
+    
+    def test_list_lua_modules(self):
+        instance = self.manager.new_instance("someapp")
+        instance.lua_modules = {"somemodule": {"server": "lua code"}, "anothermodule": {"worker": "lua code"}}
+        resp = self.api.get("/resources/someapp/lua")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("application/json", resp.mimetype)
+        data = json.loads(resp.data)
+        self.assertDictEqual({"modules": instance.lua_modules}, data)

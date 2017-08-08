@@ -408,6 +408,16 @@ def add_lua(name):
     return "", 201
 
 
+@api.route("/resources/<name>/lua", methods=["GET"])
+@auth.required
+def list_lua(name):
+    try:
+        modules = get_manager().list_lua(name)
+        return Response(json.dumps({"modules": modules}), status=200, mimetype="application/json")
+    except tasks.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

@@ -117,11 +117,21 @@ class ConsulManager(object):
         return content
 
     def write_lua(self, instance_name, lua_module_name, lua_module_type, content):
-        content_block = self._lua_block_escope(lua_module_name, content)
+        content_block = self._lua_module_escope(lua_module_name, content)
         key = self._lua_key(instance_name, lua_module_name, lua_module_type)
         return self.client.kv.put(key, content_block)
 
-    def _lua_block_escope(self, lua_module_name, content=""):
+    def list_lua_modules(self, instance_name):
+        modules = self.client.kv.get(self._lua_key(instance_name), recurse=True)
+        module_list = []
+        if modules[1]:
+            for module in modules[1]:
+                module_name = module['Key'].split('/')[-2]
+                module_value = module['Value']
+                module_list.append({'module_name': module_name, 'content': module_value})
+        return module_list
+
+    def _lua_module_escope(self, lua_module_name, content=""):
         begin_escope = "-- Begin custom RpaaS {} lua module --".format(lua_module_name)
         end_escope = "-- End custom RpaaS {} lua module --".format(lua_module_name)
         escope = "{0}\n{1}\n{2}".format(begin_escope, content.strip(), end_escope)
@@ -165,8 +175,11 @@ class ConsulManager(object):
             return self._key(instance_name, "status/%s" % server_name)
         return self._key(instance_name, "status")
 
-    def _lua_key(self, instance_name, lua_module_name, lua_module_type):
-        return self._key(instance_name, "lua_module/{0}/{1}".format(lua_module_type, lua_module_name))
+    def _lua_key(self, instance_name, lua_module_name="", lua_module_type=""):
+        base_key = "lua_module"
+        if lua_module_name and lua_module_type:
+            base_key = "lua_module/{0}/{1}".format(lua_module_type, lua_module_name)
+        return self._key(instance_name, base_key)
 
     def _key(self, instance_name, suffix=None):
         key = "{}/{}".format(self.service_name, instance_name)

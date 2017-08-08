@@ -157,3 +157,7 @@ class FakeManager(object):
     def add_lua(self, name, lua_module_name, lua_module_type, content):
         _, instance = self.find_instance(name)
         instance.lua_modules[lua_module_name] = {lua_module_type: {'content': content}}
+
+    def list_lua(self, name):
+        _, instance = self.find_instance(name)
+        return instance.lua_modules
