@@ -59,6 +59,7 @@ class ConsulManager(object):
 
     def remove_node(self, instance_name, server_name):
         self.client.kv.delete(self._server_status_key(instance_name, server_name))
+        self.client.kv.delete(self._ssl_cert_path(instance_name, "", server_name), recurse=True)
         self.client.agent.force_leave(server_name)
 
     def node_hostname(self, host):
