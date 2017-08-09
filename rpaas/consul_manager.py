@@ -3,6 +3,7 @@
 # license that can be found in the LICENSE file.
 
 import consul
+import os
 
 from . import nginx
 
@@ -117,25 +118,22 @@ class ConsulManager(object):
         return content
 
     def get_certificate(self, instance_name, host_id=None):
-        cert = self.client.kv.get(self._ssl_cert_key(instance_name, host_id))[1]
-        key = self.client.kv.get(self._ssl_key_key(instance_name, host_id))[1]
+        cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
+        key = self.client.kv.get(self._ssl_cert_path(instance_name, "key", host_id))[1]
         if not cert or not key:
             raise ValueError("certificate not defined")
         return cert["Value"], key["Value"]
 
     def set_certificate(self, instance_name, cert_data, key_data, host_id=None):
-        self.client.kv.put(self._ssl_cert_key(instance_name, host_id), cert_data.replace("\r\n", "\n"))
-        self.client.kv.put(self._ssl_key_key(instance_name, host_id), key_data.replace("\r\n", "\n"))
+        self.client.kv.put(self._ssl_cert_path(instance_name, "cert", host_id),
+                           cert_data.replace("\r\n", "\n"))
+        self.client.kv.put(self._ssl_cert_path(instance_name, "key", host_id),
+                           key_data.replace("\r\n", "\n"))
 
-    def _ssl_cert_key(self, instance_name, host_id):
+    def _ssl_cert_path(self, instance_name, key_type, host_id=None):
         if host_id:
-            return self._key(instance_name, "ssl/{}/cert".format(host_id))
-        return self._key(instance_name, "ssl/cert")
-
-    def _ssl_key_key(self, instance_name, host_id):
-        if host_id:
-            return self._key(instance_name, "ssl/{}/key".format(host_id))
-        return self._key(instance_name, "ssl/key")
+            return os.path.join(self._key(instance_name, "ssl/{}".format(host_id)), key_type)
+        return os.path.join(self._key(instance_name, "ssl"), key_type)
 
     def _location_key(self, instance_name, path):
         location_key = "ROOT"
