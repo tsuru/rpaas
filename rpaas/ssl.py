@@ -100,8 +100,8 @@ def generate_admin_crt(config, host):
     cert_expiration = config.get("CERT_ADMIN_EXPIRE", 1825)
     if not ca_cert or not ca_key:
         raise Exception('CA_CERT or CA_KEY not defined')
-    ca_key = serialization.load_pem_private_key(ca_key, password=None, backend=default_backend())
-    ca_cert = x509.load_pem_x509_certificate(ca_cert, backend=default_backend())
+    ca_key = serialization.load_pem_private_key(str(ca_key), password=None, backend=default_backend())
+    ca_cert = x509.load_pem_x509_certificate(str(ca_cert), backend=default_backend())
     builder = x509.CertificateBuilder()
     builder = builder.subject_name(x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, host),

@@ -104,8 +104,8 @@ class SessionResumptionTestCase(unittest.TestCase):
             "RPAAS_SERVICE_NAME": "test_rpaas_session_resumption",
             "HOST_MANAGER": "fake",
             "SESSION_RESUMPTION_RUN_INTERVAL": 2,
-            "CA_CERT": self.ca_cert,
-            "CA_KEY": self.ca_key
+            u"CA_CERT": unicode(self.ca_cert),
+            u"CA_KEY": unicode(self.ca_key)
         }
         self.consul = consul.Consul(token=self.master_token)
         self.consul.kv.delete("test_rpaas_session_resumption", recurse=True)
