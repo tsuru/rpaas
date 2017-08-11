@@ -381,7 +381,7 @@ class SessionResumptionTask(BaseManagerTask):
 
     def run(self, config):
         self.init_config(config)
-        session_resumption_rotate = self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600)
+        session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
         lb_data = LoadBalancer.list(conf=self.config)
         for lb in lb_data:
             lock_name = "session_resumption:instance:{}".format(lb.name)
@@ -398,7 +398,7 @@ class SessionResumptionTask(BaseManagerTask):
             self.add_session_ticket(host, session_ticket)
 
     def add_session_ticket(self, host, session_ticket):
-        ticket_timeout = self.config.get("SESSION_RESUMPTION_TICKET_TIMEOUT", 30)
+        ticket_timeout = int(self.config.get("SESSION_RESUMPTION_TICKET_TIMEOUT", 30))
         exc_info = None
         try:
             self.consul_manager.get_certificate(host.group, host.id)
