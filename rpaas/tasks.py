@@ -388,8 +388,9 @@ class SessionResumptionTask(BaseManagerTask):
             if self.lock_manager.lock(lock_name, session_resumption_rotate):
                 try:
                     self.rotate_session_ticket(lb.hosts)
-                except:
+                except Exception as e:
                     self.lock_manager.unlock()
+                    logging.error("Error renewing session ticket for {}: {}".format(lb.name, repr(e)))
 
     def rotate_session_ticket(self, hosts):
         session_ticket = ssl.generate_session_ticket()
@@ -398,10 +399,16 @@ class SessionResumptionTask(BaseManagerTask):
 
     def add_session_ticket(self, host, session_ticket):
         ticket_timeout = self.config.get("SESSION_RESUMPTION_TICKET_TIMEOUT", 30)
+        exc_info = None
         try:
-            _, _ = self.consul_manager.get_certificate(host.group, host.id)
+            self.consul_manager.get_certificate(host.group, host.id)
         except ValueError:
-            certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
-            self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
+            try:
+                certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
+                self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
+            except:
+                exc_info = sys.exc_info()
         finally:
+            if isinstance(exc_info, tuple) and exc_info[0]:
+                raise exc_info[0], exc_info[1], exc_info[2]
             self.nginx_manager.add_session_ticket(host.dns_name, session_ticket, ticket_timeout)

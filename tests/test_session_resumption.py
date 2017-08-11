@@ -148,10 +148,11 @@ class SessionResumptionTestCase(unittest.TestCase):
         self.assertTupleEqual((cert_a, key_a), self.consul_manager.get_certificate("instance-a", "xxx"))
         self.assertTupleEqual((cert_b, key_b), self.consul_manager.get_certificate("instance-b", "bbb"))
 
+    @patch("rpaas.tasks.logging")
     @patch("rpaas.tasks.ssl.generate_session_ticket")
     @patch("rpaas.tasks.LoadBalancer")
     @patch("rpaas.tasks.nginx")
-    def test_renew_session_tickets_fail_and_unlock(self, nginx, load_balancer, ticket):
+    def test_renew_session_tickets_fail_and_unlock(self, nginx, load_balancer, ticket, logging):
         nginx_manager = nginx.Nginx.return_value
         lb1_host2 = HostFake("yyy", "instance-a", "10.1.1.2")
         lb1_host2.set_fail("dns_name")
@@ -177,3 +178,25 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.stop()
         nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
+        error_msg = "Error renewing session ticket for instance-a: AttributeError('dns_name not defined',)"
+        logging.error.assert_called_with(error_msg)
+
+    @patch("rpaas.tasks.logging")
+    @patch("rpaas.tasks.ssl.generate_admin_crt")
+    @patch("rpaas.tasks.LoadBalancer")
+    @patch("rpaas.tasks.nginx")
+    def test_renew_session_tickets_return_first_error(self, nginx, load_balancer, generate_cert, logging):
+        nginx_manager = nginx.Nginx.return_value
+        lb1 = LoadBalancerFake("instance-a")
+        lb1.hosts = [HostFake("xxx", "instance-a", "10.1.1.1")]
+        load_balancer.list.return_value = [lb1]
+        generate_cert.side_effect = Exception("could not generate certificate")
+        nginx_manager.add_session_ticket.side_effect = Exception("nginx error connecting to host")
+        session = session_resumption.SessionResumption(self.config)
+        session.start()
+        time.sleep(1)
+        session.stop()
+        error_msg = "Error renewing session ticket for instance-a: " \
+                    "Exception('could not generate certificate',)"
+        logging.error.assert_called_with(error_msg)
+        nginx_manager.add_session_ticket.assert_not_called()
