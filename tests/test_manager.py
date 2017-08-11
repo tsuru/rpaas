@@ -638,6 +638,7 @@ content = location /x {
         lb = self.LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
         lb.hosts[0].dns_name = '10.2.2.2'
+        lb.hosts[0].id = '1234'
         self.storage.store_instance_metadata("x", consul_token="abc-123")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         consul.node_hostname.return_value = 'rpaas-2'
@@ -647,7 +648,7 @@ content = location /x {
         manager.scale_instance("x", 1)
         lb.hosts[0].destroy.assert_called_once
         lb.remove_host.assert_called_once_with(lb.hosts[0])
-        consul.remove_node.assert_called_once_with('x', 'rpaas-2')
+        consul.remove_node.assert_called_once_with('x', 'rpaas-2', '1234')
 
     def test_scale_instance_error(self):
         lb = self.LoadBalancer.find.return_value
