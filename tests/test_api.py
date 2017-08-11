@@ -673,3 +673,17 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)
         self.assertDictEqual({"modules": instance.lua_modules}, data)
+
+    def test_delete_lua_module(self):
+        instance = self.manager.new_instance("someapp")
+        instance.lua_modules['server'] = {"somelua": "content"}
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        resp = self.api.delete("/resources/someapp/lua", headers=headers, data={
+            'lua_module_name': 'somelua',
+            'lua_module_type': 'server',
+        })
+        self.assertEqual(200, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertEquals(instance.lua_modules.get('server'), {})

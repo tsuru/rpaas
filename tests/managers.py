@@ -161,3 +161,7 @@ class FakeManager(object):
     def list_lua(self, name):
         _, instance = self.find_instance(name)
         return instance.lua_modules
+
+    def delete_lua(self, name, lua_module_name, lua_module_type):
+        _, instance = self.find_instance(name)
+        del instance.lua_modules[lua_module_type][lua_module_name]

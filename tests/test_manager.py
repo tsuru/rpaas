@@ -1053,3 +1053,15 @@ content = location /x {
         self.assertDictEqual(modules, {"somelua": {"server": "lua code"}})
         LoadBalancer.find.assert_called_with("inst")
         manager.consul_manager.list_lua_modules.assert_called_with("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_delete_lua(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.delete_lua("inst", "server", "module")
+
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.remove_lua.assert_called_with("inst", "server", "module")

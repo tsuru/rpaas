@@ -418,6 +418,22 @@ def list_lua(name):
         return "Instance not ready: {}".format(e), 412
 
 
+@api.route("/resources/<name>/lua", methods=["DELETE"])
+@auth.required
+def delete_lua(name):
+    try:
+        lua_module = request.form.get('lua_module_name')
+        lua_module_type = request.form.get('lua_module_type')
+        if lua_module_type not in ("server", "worker"):
+            return 'Lua module type should be server or worker.', 400
+        if not lua_module:
+            return 'You should provide a lua module name.', 400
+        get_manager().delete_lua(name, lua_module, lua_module_type)
+    except tasks.NotReadyError as e:
+        return "Instance not ready: {}".format(e), 412
+    return "", 200
+
+
 @api.route("/plugin", methods=["GET"])
 def get_plugin():
     return inspect.getsource(plugin)

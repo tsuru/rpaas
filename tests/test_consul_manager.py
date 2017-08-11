@@ -226,3 +226,11 @@ class ConsulManagerTestCase(unittest.TestCase):
         )
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/lua_module/server/some_module")
         self.assertEqual(expected_lua, item[1]["Value"])
+
+    def test_remove_lua_module(self):
+        self.manager.write_lua("myrpaas", "some_module", "server", "something nice in server")
+        self.manager.remove_lua("myrpaas", "some_module", "server")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/lua_module/server/some_module")
+        empty_block_value = """-- Begin custom RpaaS some_module lua module --
+\n-- End custom RpaaS some_module lua module --"""
+        self.assertEqual(item[1]['Value'], empty_block_value)

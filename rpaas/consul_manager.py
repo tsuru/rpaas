@@ -121,6 +121,15 @@ class ConsulManager(object):
         key = self._lua_key(instance_name, lua_module_name, lua_module_type)
         return self.client.kv.put(key, content_block)
 
+    def _lua_module_escope(self, lua_module_name, content=""):
+        begin_escope = "-- Begin custom RpaaS {} lua module --".format(lua_module_name)
+        end_escope = "-- End custom RpaaS {} lua module --".format(lua_module_name)
+        content_stripped = ""
+        if content:
+            content_stripped = content.strip()
+        escope = "{0}\n{1}\n{2}".format(begin_escope, content_stripped, end_escope)
+        return escope
+
     def list_lua_modules(self, instance_name):
         modules = self.client.kv.get(self._lua_key(instance_name), recurse=True)
         module_list = []
@@ -131,11 +140,8 @@ class ConsulManager(object):
                 module_list.append({'module_name': module_name, 'content': module_value})
         return module_list
 
-    def _lua_module_escope(self, lua_module_name, content=""):
-        begin_escope = "-- Begin custom RpaaS {} lua module --".format(lua_module_name)
-        end_escope = "-- End custom RpaaS {} lua module --".format(lua_module_name)
-        escope = "{0}\n{1}\n{2}".format(begin_escope, content.strip(), end_escope)
-        return escope
+    def remove_lua(self, instance_name, lua_module_name, lua_module_type):
+        self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
     def get_certificate(self, instance_name):
         cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
