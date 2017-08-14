@@ -382,8 +382,13 @@ class SessionResumptionTask(BaseManagerTask):
     def run(self, config):
         self.init_config(config)
         session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
+        instances_to_rotate = self.config.get("SESSION_RESUMPTION_INSTANCES", None)
+        if instances_to_rotate:
+            instances_to_rotate = instances_to_rotate.split(",")
         lb_data = LoadBalancer.list(conf=self.config)
         for lb in lb_data:
+            if instances_to_rotate and lb.name not in instances_to_rotate:
+                continue
             lock_name = "session_resumption:instance:{}".format(lb.name)
             if self.lock_manager.lock(lock_name, session_resumption_rotate):
                 try:

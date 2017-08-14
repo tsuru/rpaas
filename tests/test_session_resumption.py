@@ -148,6 +148,25 @@ class SessionResumptionTestCase(unittest.TestCase):
         self.assertTupleEqual((cert_a, key_a), self.consul_manager.get_certificate("instance-a", "xxx"))
         self.assertTupleEqual((cert_b, key_b), self.consul_manager.get_certificate("instance-b", "bbb"))
 
+    @patch.object(tasks.SessionResumptionTask, "rotate_session_ticket", return_value=None)
+    @patch("rpaas.tasks.LoadBalancer")
+    def test_renew_session_tickets_only_on_selected_instances(self, load_balancer, rotate_session):
+        self.config["SESSION_RESUMPTION_INSTANCES"] = "instance-a,instance-c"
+        lb1 = LoadBalancerFake("instance-a")
+        lb2 = LoadBalancerFake("instance-b")
+        lb3 = LoadBalancerFake("instance-c")
+        lb4 = LoadBalancerFake("instance-d")
+        lb1.hosts = [HostFake("xxx", "instance-a", "10.1.1.1")]
+        lb2.hosts = [HostFake("yyy", "instance-b", "10.2.1.1")]
+        lb3.hosts = [HostFake("aaa", "instance-c", "10.3.2.2")]
+        lb4.hosts = [HostFake("bbb", "instance-d", "10.4.2.2")]
+        load_balancer.list.return_value = [lb1, lb2, lb3, lb4]
+        session = session_resumption.SessionResumption(self.config)
+        session.start()
+        time.sleep(1)
+        session.stop()
+        self.assertEqual(rotate_session.call_args_list, [call(lb1.hosts), call(lb3.hosts)])
+
     @patch("rpaas.tasks.logging")
     @patch("rpaas.tasks.ssl.generate_session_ticket")
     @patch("rpaas.tasks.LoadBalancer")
