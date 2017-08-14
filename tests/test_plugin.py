@@ -611,3 +611,118 @@ vm-3: Reload Ok - *
         self.assertEqual(request.get_method(), 'GET')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("path = /a\ncontent = desta\npath = /b\ncontent = destb\n")
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
+    def test_lua_add_file_content(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        path = os.path.join(os.path.dirname(__file__), "testdata", "lua_module")
+        plugin.lua(['add', '-s', 'myservice', '-i', 'myinst', '-t', 'server', '-n', 'module', '-c', '@'+path])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/lua")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with(
+            "content=%27init+globo_ab%27&lua_module_name=module&lua_module_type=server")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("lua module successfully added\n")
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
+    def test_lua_add(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.lua(['add', '-s', 'myservice', '-i', 'myinst', '-t', 'server', '-n', 'module', '-c', 'lalala'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/lua")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        request.add_data.assert_called_with("content=lalala&lua_module_name=module&lua_module_type=server")
+        self.assertEqual(request.get_method(), 'POST')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("lua module successfully added\n")
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
+    def test_lua_remove(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.lua(['remove', '-s', 'myservice', '-i', 'myinst', '-t', 'server', '-n', 'module_name'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/lua")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
+        self.assertEqual(request.get_method(), 'DELETE')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with('lua module successfully removed\n')
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
+    def test_lua_list(self, stdout, Request, urlopen):
+        request = Request.return_value
+        urlopen.return_value.getcode.return_value = 200
+        urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
+            '"modules": [{"lua_name": "server", "content": "server content"}]}'
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        plugin.lua(['list', '-s', 'myservice', '-i', 'myinst'])
+        Request.assert_called_with(self.target +
+                                   "services/myservice/proxy/myinst?" +
+                                   "callback=/resources/myinst/lua")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual(request.get_method(), 'GET')
+        urlopen.assert_called_with(request)
+        stdout.write.assert_called_with("""module_name: content
+
+server: server content
+""")
+
+    @mock.patch("sys.stderr")
+    def test_lua_args(self, stderr):
+        parsed = plugin.get_lua_args(
+            ['add', '-s', 'myservice', '-i', 'myinst', '-t', 'server', '-n', 'my_module', '-c', 'my lua'])
+        self.assertEqual(parsed.action, 'add')
+        self.assertEqual(parsed.type, 'server')
+        self.assertEqual(parsed.module_name, 'my_module')
+        self.assertEqual(parsed.content, 'my lua')
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_lua_args(['add', '-s', 'myservice', '-i', 'myinst', '-t', 'server'])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_lua_args([
+                'add', '-s', 'myservice', '-i', 'myinst', '-t', 'worker', '-c', 'my content',
+            ])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_lua_args(
+                ['remove', '-s', 'myservice', '-i', 'myinst', '-t', 'xxx', '-n', 'lua_module']
+            )
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with(
+            'lua: error: argument -t/--type: Type must be "server" or "worker"\n'
+        )
+        with self.assertRaises(SystemExit) as cm:
+            plugin.get_lua_args(
+                ['-s', 'myservice', '-i', 'myinst', '-n', 'http']
+            )
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with('lua: error: too few arguments\n')

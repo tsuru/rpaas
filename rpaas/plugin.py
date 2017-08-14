@@ -200,6 +200,76 @@ def block(args):
         sys.exit(1)
 
 
+def nginx_lua_block(value):
+    if value in ('server', 'worker'):
+        return value
+    raise argparse.ArgumentTypeError('Type must be "server" or "worker"')
+
+
+def get_lua_args(args):
+    parser = argparse.ArgumentParser("lua")
+    parser.add_argument("action", choices=["add", "list", "remove"],
+                        help="Action, add or remove blocks from nginx config")
+    parser.add_argument("-s", "--service", required=True, help="Service name")
+    parser.add_argument("-i", "--instance", required=True, help="Instance name")
+    parser.add_argument("-t", "--type", required=False,
+                        help="Lua module type. Should be server or worker.", type=nginx_lua_block)
+    parser.add_argument("-n", "--module-name", required=False, help="Lua module name.")
+    parser.add_argument("-c", "--content", required=False,
+                        help="Raw lua module content")
+    parsed = parser.parse_args(args)
+    if parsed.action == 'add' and (not parsed.module_name):
+        sys.stderr.write("block_name and content are required\n")
+        sys.exit(2)
+    return parsed
+
+
+def lua(args):
+    args = get_lua_args(args)
+    req_path = "/resources/{}/lua".format(args.instance)
+    params = {}
+    method = "GET"
+
+    if args.content and args.content.startswith('@'):
+        with open(args.content[1:]) as f:
+            args.content = f.read()
+
+    if args.action == 'add':
+        params['lua_module_name'] = args.module_name
+        params['lua_module_type'] = args.type
+        params['content'] = args.content
+        method = "POST"
+        message = "added"
+    elif args.action == 'remove':
+        params['lua_module_name'] = args.module_name
+        params['lua_module_type'] = args.type
+        method = "DELETE"
+        message = "removed"
+
+    try:
+        body = urllib.urlencode(params)
+    except AttributeError:
+        body = urllib.parse.urlencode(params)
+    result = proxy_request(args.service, args.instance, req_path,
+                           body=body,
+                           method=method,
+                           headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    content = result.read().decode('utf-8').rstrip("\n")
+    if result.getcode() in [200, 201]:
+        if args.action == 'list':
+            parsed = json.loads(content)
+            luas = parsed.get('modules') or []
+            out = ["module_name: content", ""]
+            for lua in luas:
+                out.append("{}: {}".format(lua.get('lua_name'), lua.get('content')))
+            sys.stdout.write('\n'.join(out) + '\n')
+        else:
+            sys.stdout.write("lua module successfully {}\n".format(message))
+    else:
+        sys.stderr.write("ERROR: " + content + "\n")
+        sys.exit(1)
+
+
 def purge(args):
     service, instance, path, preserve_path = get_purge_args(args)
     req_path = "/resources/{}/purge".format(instance)
