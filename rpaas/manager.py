@@ -342,6 +342,27 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         return self.consul_manager.list_blocks(name)
 
+    def add_lua(self, name, lua_module_name, lua_module_type, content):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            storage.InstanceNotFoundError()
+        self.consul_manager.write_lua(name, lua_module_name, lua_module_type, content)
+
+    def list_lua(self, name):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        return self.consul_manager.list_lua_modules(name)
+
+    def delete_lua(self, name, lua_module_name, lua_module_type):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.remove_lua(name, lua_module_name, lua_module_type)
+
     def _check_dns(self, name, domain):
         ''' Check if the DNS name is registered for the rpaas VIP
         @param domain Domain name
