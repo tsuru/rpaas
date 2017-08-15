@@ -4,6 +4,7 @@
 
 import time
 import datetime
+import os
 
 import requests
 
@@ -12,6 +13,25 @@ from hm import config
 
 class NginxError(Exception):
     pass
+
+
+def retry_request(f):
+    def f_retry(self, *args, **kwargs):
+        timeout = kwargs.get("timeout")
+        if not timeout:
+            timeout = 30
+        t0 = datetime.datetime.now()
+        timeout = datetime.timedelta(seconds=timeout)
+        while True:
+            try:
+                f(self, *args, **kwargs)
+                break
+            except:
+                now = datetime.datetime.now()
+            if now > t0 + timeout:
+                raise
+            time.sleep(1)
+    return f_retry
 
 
 class ConfigManager(object):
@@ -53,6 +73,7 @@ class Nginx(object):
 
     def __init__(self, conf=None):
         self.nginx_manage_port = config.get_config('NGINX_MANAGE_PORT', '8089', conf)
+        self.nginx_manage_port_tls = config.get_config('NGINX_MANAGE_PORT_TLS', '8090', conf)
         self.nginx_purge_path = config.get_config('NGINX_PURGE_PATH', '/purge', conf)
         self.nginx_expected_healthcheck = config.get_config('NGINX_HEALTHECK_EXPECTED',
                                                             'WORKING', conf)
@@ -63,6 +84,8 @@ class Nginx(object):
         self.nginx_app_port = config.get_config('NGINX_APP_PORT', '8080', conf)
         self.nginx_app_expected_healthcheck = config.get_config('NGINX_HEALTHECK_APP_EXPECTED',
                                                                 'WORKING', conf)
+        self.ca_cert = config.get_config('CA_CERT', None, conf)
+        self.ca_path = "/tmp/rpaas_ca.pem"
         self.config_manager = ConfigManager(conf)
 
     def purge_location(self, host, path, preserve_path=False):
@@ -87,8 +110,8 @@ class Nginx(object):
                     pass
         return purged
 
+    @retry_request
     def wait_healthcheck(self, host, timeout=30, manage_healthcheck=True):
-        t0 = datetime.datetime.now()
         if manage_healthcheck:
             healthcheck_path = self.nginx_healthcheck_path.lstrip('/')
             expected_response = self.nginx_expected_healthcheck
@@ -97,25 +120,41 @@ class Nginx(object):
             healthcheck_path = self.nginx_healthcheck_app_path.lstrip('/')
             expected_response = self.nginx_app_expected_healthcheck
             port = self.nginx_app_port
-        timeout = datetime.timedelta(seconds=timeout)
-        while True:
-            try:
-                self._nginx_request(host, healthcheck_path, port=port, expected_response=expected_response)
-                break
-            except:
-                now = datetime.datetime.now()
-                if now > t0 + timeout:
-                    raise
-                time.sleep(1)
+        self._nginx_request(host, healthcheck_path, port=port, expected_response=expected_response)
 
-    def _nginx_request(self, host, path, headers=None, port=None, expected_response=None):
-        if not port:
-            port = self.nginx_manage_port
-        url = "http://{}:{}/{}".format(host, port, path)
-        if headers:
-            rsp = requests.get(url, timeout=2, headers=headers)
+    @retry_request
+    def add_session_ticket(self, host, data, timeout=30):
+        self._nginx_request(host, 'session_ticket', data=data, method='POST', secure=True,
+                            expected_response='ticket was succsessfully added')
+
+    def _nginx_request(self, host, path, headers=None, port=None,
+                       expected_response=None, secure=False, method='GET', data=None):
+        params = {}
+        if secure:
+            if not port:
+                port = self.nginx_manage_port_tls
+            protocol = 'https'
+            self._ensure_ca_cert_file()
+            params['verify'] = self.ca_path
         else:
-            rsp = requests.get(url, timeout=2)
+            if not port:
+                port = self.nginx_manage_port
+            protocol = 'http'
+        url = "{}://{}:{}/{}".format(protocol, host, port, path)
+        if method not in ['POST', 'PUT', 'GET']:
+            raise NginxError("Unsupported method {}".format(method))
+        if headers:
+            params['headers'] = headers
+        if data:
+            params['data'] = data
+        rsp = requests.request(method.lower(), url, timeout=2, **params)
         if rsp.status_code != 200 or (expected_response and expected_response not in rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
+
+    def _ensure_ca_cert_file(self):
+        if not self.ca_cert:
+            raise NginxError("CA_CERT should be set for nginx https internal requests")
+        if not os.path.exists(self.ca_path):
+            with open(self.ca_path, "w") as ca_file:
+                ca_file.write(self.ca_cert)

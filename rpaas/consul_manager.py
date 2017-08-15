@@ -3,6 +3,7 @@
 # license that can be found in the LICENSE file.
 
 import consul
+import os
 
 from . import nginx
 
@@ -56,8 +57,9 @@ class ConsulManager(object):
         _, nodes = self.client.catalog.nodes()
         return nodes
 
-    def remove_node(self, instance_name, server_name):
+    def remove_node(self, instance_name, server_name, host_id):
         self.client.kv.delete(self._server_status_key(instance_name, server_name))
+        self.client.kv.delete(self._ssl_cert_path(instance_name, "", host_id), recurse=True)
         self.client.agent.force_leave(server_name)
 
     def node_hostname(self, host):
@@ -143,22 +145,23 @@ class ConsulManager(object):
     def remove_lua(self, instance_name, lua_module_name, lua_module_type):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
-    def get_certificate(self, instance_name):
-        cert = self.client.kv.get(self._ssl_cert_key(instance_name))[1]
-        key = self.client.kv.get(self._ssl_key_key(instance_name))[1]
+    def get_certificate(self, instance_name, host_id=None):
+        cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
+        key = self.client.kv.get(self._ssl_cert_path(instance_name, "key", host_id))[1]
         if not cert or not key:
             raise ValueError("certificate not defined")
         return cert["Value"], key["Value"]
 
-    def set_certificate(self, instance_name, cert_data, key_data):
-        self.client.kv.put(self._ssl_cert_key(instance_name), cert_data.replace("\r\n", "\n"))
-        self.client.kv.put(self._ssl_key_key(instance_name), key_data.replace("\r\n", "\n"))
+    def set_certificate(self, instance_name, cert_data, key_data, host_id=None):
+        self.client.kv.put(self._ssl_cert_path(instance_name, "cert", host_id),
+                           cert_data.replace("\r\n", "\n"))
+        self.client.kv.put(self._ssl_cert_path(instance_name, "key", host_id),
+                           key_data.replace("\r\n", "\n"))
 
-    def _ssl_cert_key(self, instance_name):
-        return self._key(instance_name, "ssl/cert")
-
-    def _ssl_key_key(self, instance_name):
-        return self._key(instance_name, "ssl/key")
+    def _ssl_cert_path(self, instance_name, key_type, host_id=None):
+        if host_id:
+            return os.path.join(self._key(instance_name, "ssl/{}".format(host_id)), key_type)
+        return os.path.join(self._key(instance_name, "ssl"), key_type)
 
     def _location_key(self, instance_name, path):
         location_key = "ROOT"

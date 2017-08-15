@@ -87,10 +87,9 @@ class RestoreMachineTestCase(unittest.TestCase):
             Host.create("fake", task['instance'], self.config)
             self.storage.store_task(task)
 
-        redis.StrictRedis().delete("restore_machine:last_run")
+        redis.StrictRedis().flushall()
 
     def tearDown(self):
-        redis.StrictRedis().delete("restore_lock")
         FakeManager.fail_ids = []
 
     @patch("rpaas.tasks.nginx")
@@ -226,7 +225,7 @@ class RestoreMachineTestCase(unittest.TestCase):
 
     @patch.object(storage.MongoDBStorage, "store_healing")
     @patch.object(storage.MongoDBStorage, "update_healing")
-    @patch.object(tasks.RestoreMachineTask, "_redis_extend_lock")
+    @patch.object(tasks.lock.Lock, "extend_lock")
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
     def test_restore_machine_extending_time_btw_restores(self, log, nginx, extend_lock, update_healing,
@@ -252,7 +251,7 @@ class RestoreMachineTestCase(unittest.TestCase):
                 tasks_restore.append(task['_id'])
             self.assertListEqual(tasks_restore, ['restore_10.2.2.2'])
 
-    @patch.object(tasks.RestoreMachineTask, "_redis_extend_lock")
+    @patch.object(tasks.lock.Lock, "extend_lock")
     @patch("rpaas.tasks.nginx")
     @patch("hm.log.logging")
     def test_restore_machine_store_healing_events(self, log, nginx, extend_lock):

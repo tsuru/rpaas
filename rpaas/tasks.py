@@ -18,7 +18,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel
+from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel, lock
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
 
@@ -126,7 +126,7 @@ class BaseManagerTask(Task):
         self.host_manager_name = self._get_conf("HOST_MANAGER", "cloudstack")
         self.lb_manager_name = self._get_conf("LB_MANAGER", "networkapi_cloudstack")
         self.task_manager = TaskManager(config)
-        self.redis_client = app.backend.client
+        self.lock_manager = lock.Lock(app.backend.client)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         hc_url = self._get_conf("HCAPI_URL", None)
@@ -184,7 +184,7 @@ class BaseManagerTask(Task):
             if lb is not None:
                 lb.remove_host(host)
             if node_name is not None:
-                self.consul_manager.remove_node(name, node_name)
+                self.consul_manager.remove_node(name, node_name, host.id)
             self.hc.remove_url(name, host.dns_name)
         finally:
             self.storage.remove_task(name)
@@ -241,18 +241,18 @@ class RestoreMachineTask(BaseManagerTask):
         restore_delay = int(self.config.get("RESTORE_MACHINE_DELAY", 5))
         created_in = datetime.datetime.utcnow() - datetime.timedelta(minutes=restore_delay)
         restore_query = {"_id": {"$regex": "restore_.+"}, "created": {"$lte": created_in}}
-        if self._redis_lock(lock_name, timeout=(healthcheck_timeout + 60)):
+        if self.lock_manager.lock(lock_name, timeout=(healthcheck_timeout + 60)):
             for task in self.storage.find_task(restore_query):
                 try:
                     start_time = datetime.datetime.utcnow()
                     self._restore_machine(task, config, healthcheck_timeout)
                     elapsed_time = datetime.datetime.utcnow() - start_time
-                    self._redis_extend_lock(extra_time=elapsed_time.seconds)
+                    self.lock_manager.extend_lock(extra_time=elapsed_time.seconds)
                 except Exception as e:
                     self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
-                    self._redis_unlock()
+                    self.lock_manager.unlock()
                     raise e
-            self._redis_unlock()
+            self.lock_manager.unlock()
 
     def _restore_machine(self, task, config, healthcheck_timeout):
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
@@ -281,17 +281,6 @@ class RestoreMachineTask(BaseManagerTask):
             if (retry_failure >= datetime.datetime.utcnow()):
                 failure_instances.add(task['instance'])
         return failure_instances
-
-    def _redis_lock(self, lock_name, timeout):
-        self.redis_lock = self.redis_client.lock(name=lock_name, timeout=timeout,
-                                                 blocking_timeout=1)
-        return self.redis_lock.acquire(blocking=False)
-
-    def _redis_unlock(self):
-        self.redis_lock.release()
-
-    def _redis_extend_lock(self, extra_time):
-        self.redis_lock.extend(extra_time)
 
 
 class CheckMachineTask(BaseManagerTask):
@@ -386,3 +375,45 @@ class RenewCertsTask(BaseManagerTask):
         csr = ssl.generate_csr(key, cert["domain"])
         DownloadCertTask().delay(config=config, name=cert["name"], plugin="le",
                                  csr=csr, key=key, domain=cert["domain"])
+
+
+class SessionResumptionTask(BaseManagerTask):
+
+    def run(self, config):
+        self.init_config(config)
+        session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
+        instances_to_rotate = self.config.get("SESSION_RESUMPTION_INSTANCES", None)
+        if instances_to_rotate:
+            instances_to_rotate = instances_to_rotate.split(",")
+        lb_data = LoadBalancer.list(conf=self.config)
+        for lb in lb_data:
+            if instances_to_rotate and lb.name not in instances_to_rotate:
+                continue
+            lock_name = "session_resumption:instance:{}".format(lb.name)
+            if self.lock_manager.lock(lock_name, session_resumption_rotate):
+                try:
+                    self.rotate_session_ticket(lb.hosts)
+                except Exception as e:
+                    self.lock_manager.unlock()
+                    logging.error("Error renewing session ticket for {}: {}".format(lb.name, repr(e)))
+
+    def rotate_session_ticket(self, hosts):
+        session_ticket = ssl.generate_session_ticket()
+        for host in hosts:
+            self.add_session_ticket(host, session_ticket)
+
+    def add_session_ticket(self, host, session_ticket):
+        ticket_timeout = int(self.config.get("SESSION_RESUMPTION_TICKET_TIMEOUT", 30))
+        exc_info = None
+        try:
+            self.consul_manager.get_certificate(host.group, host.id)
+        except ValueError:
+            try:
+                certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
+                self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
+            except:
+                exc_info = sys.exc_info()
+        finally:
+            if isinstance(exc_info, tuple) and exc_info[0]:
+                raise exc_info[0], exc_info[1], exc_info[2]
+            self.nginx_manager.add_session_ticket(host.dns_name, session_ticket, ticket_timeout)

@@ -54,11 +54,20 @@ class ConsulManagerTestCase(unittest.TestCase):
     def test_remove_node(self):
         self.consul.kv.put("test-suite-rpaas/myrpaas/status/test-server", "service OK")
         self.consul.kv.put("test-suite-rpaas/myrpaas/status/test-server-2", "service OK")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/cert", "cert")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/test-server-id/cert", "cert")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/test-server-2-id/cert", "cert")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server")
         self.assertEqual(item[1]["Value"], "service OK")
-        self.manager.remove_node("myrpaas", "test-server")
+        self.manager.remove_node("myrpaas", "test-server", "test-server-id")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server")
         self.assertIsNone(item[1])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/test-server-id/cert")
+        self.assertIsNone(item[1])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/test-server-2-id/cert")
+        self.assertEqual(item[1]["Value"], "cert")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/cert")
+        self.assertEqual(item[1]["Value"], "cert")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/status/test-server-2")
         self.assertEqual(item[1]["Value"], "service OK")
 
@@ -145,6 +154,14 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual(origin_cert, cert)
         self.assertEqual(origin_key, key)
 
+    def test_get_host_certificate(self):
+        origin_cert, origin_key = "cert", "key"
+        self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/host-a/cert", origin_cert)
+        self.consul.kv.put("test-suite-rpaas/myrpaas/ssl/host-a/key", origin_key)
+        cert, key = self.manager.get_certificate("myrpaas", "host-a")
+        self.assertEqual(origin_cert, cert)
+        self.assertEqual(origin_key, key)
+
     def test_get_certificate_undefined(self):
         with self.assertRaises(ValueError):
             self.manager.get_certificate("myrpaas")
@@ -154,6 +171,13 @@ class ConsulManagerTestCase(unittest.TestCase):
         cert_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/cert")
         self.assertEqual("certificate", cert_item[1]["Value"])
         key_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/key")
+        self.assertEqual("key", key_item[1]["Value"])
+
+    def test_set_host_certificate(self):
+        self.manager.set_certificate("myrpaas", "certificate", "key", "host-b")
+        cert_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/host-b/cert")
+        self.assertEqual("certificate", cert_item[1]["Value"])
+        key_item = self.consul.kv.get("test-suite-rpaas/myrpaas/ssl/host-b/key")
         self.assertEqual("key", key_item[1]["Value"])
 
     def test_set_certificate_crlf(self):

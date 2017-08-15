@@ -23,7 +23,7 @@ setup(
     include_package_data=True,
     install_requires=[
         "cffi==1.8.3",
-        "cryptography==1.5.2",
+        "cryptography==1.6",
         "setuptools==18.4",
         "Flask==0.9",
         "requests==2.4.3",
