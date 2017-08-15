@@ -134,7 +134,7 @@ class Nginx(object):
             if not port:
                 port = self.nginx_manage_port_tls
             protocol = 'https'
-            self._ca_cert_file()
+            self._ensure_ca_cert_file()
             params['verify'] = self.ca_path
         else:
             if not port:
@@ -147,12 +147,12 @@ class Nginx(object):
             params['headers'] = headers
         if data:
             params['data'] = data
-        rsp = getattr(requests, method.lower())(url, timeout=2, **params)
+        rsp = requests.request(method.lower(), url, timeout=2, **params)
         if rsp.status_code != 200 or (expected_response and expected_response not in rsp.text):
             raise NginxError(
                 "Error trying to access admin path in nginx: {}: {}".format(url, rsp.text))
 
-    def _ca_cert_file(self):
+    def _ensure_ca_cert_file(self):
         if not self.ca_cert:
             raise NginxError("CA_CERT should be set for nginx https internal requests")
         if not os.path.exists(self.ca_path):

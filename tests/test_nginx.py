@@ -66,16 +66,16 @@ location {path} {{
         side_effect.status_code = 404
         side_effect.text = "Not Found"
 
-        requests.get.side_effect = [response, side_effect, response, side_effect]
+        requests.request.side_effect = [response, side_effect, response, side_effect]
         purged = nginx.purge_location('myhost', '/foo/bar')
         self.assertTrue(purged)
-        self.assertEqual(requests.get.call_count, 4)
-        expected_responses = []
+        self.assertEqual(requests.request.call_count, 4)
+        expec_responses = []
         for scheme in ['http', 'https']:
             for header in self.cache_headers:
-                expected_responses.append(mock.call('http://myhost:8089/purge/{}/foo/bar'.format(scheme),
-                                          headers=header, timeout=2))
-        requests.get.assert_has_calls(expected_responses)
+                expec_responses.append(mock.call('get', 'http://myhost:8089/purge/{}/foo/bar'.format(scheme),
+                                       headers=header, timeout=2))
+        requests.request.assert_has_calls(expec_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_purge_location_preserve_path_successfully(self, requests):
@@ -85,15 +85,15 @@ location {path} {{
         response.status_code = 200
         response.text = 'purged'
 
-        requests.get.side_effect = [response]
+        requests.request.side_effect = [response]
         purged = nginx.purge_location('myhost', 'http://example.com/foo/bar', True)
         self.assertTrue(purged)
-        self.assertEqual(requests.get.call_count, 2)
+        self.assertEqual(requests.request.call_count, 2)
         expected_responses = []
         for header in self.cache_headers:
-            expected_responses.append(mock.call('http://myhost:8089/purge/http://example.com/foo/bar',
+            expected_responses.append(mock.call('get', 'http://myhost:8089/purge/http://example.com/foo/bar',
                                       headers=header, timeout=2))
-        requests.get.assert_has_calls(expected_responses)
+        requests.request.assert_has_calls(expected_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_purge_location_not_found(self, requests):
@@ -103,16 +103,16 @@ location {path} {{
         response.status_code = 404
         response.text = 'Not Found'
 
-        requests.get.side_effect = [response, response, response, response]
+        requests.request.side_effect = [response, response, response, response]
         purged = nginx.purge_location('myhost', '/foo/bar')
         self.assertFalse(purged)
-        self.assertEqual(requests.get.call_count, 4)
-        expected_responses = []
+        self.assertEqual(requests.request.call_count, 4)
+        expec_responses = []
         for scheme in ['http', 'https']:
             for header in self.cache_headers:
-                expected_responses.append(mock.call('http://myhost:8089/purge/{}/foo/bar'.format(scheme),
-                                          headers=header, timeout=2))
-        requests.get.assert_has_calls(expected_responses)
+                expec_responses.append(mock.call('get', 'http://myhost:8089/purge/{}/foo/bar'.format(scheme),
+                                       headers=header, timeout=2))
+        requests.request.assert_has_calls(expec_responses)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck(self, requests):
@@ -122,16 +122,16 @@ location {path} {{
         response.status_code = 200
         response.text = 'WORKING'
 
-        def side_effect(url, timeout):
+        def side_effect(method, url, timeout, **params):
             count[0] += 1
             if count[0] < 2:
                 raise Exception('some error')
             return response
 
-        requests.get.side_effect = side_effect
+        requests.request.side_effect = side_effect
         nginx.wait_healthcheck('myhost.com', timeout=5)
-        self.assertEqual(requests.get.call_count, 2)
-        requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
+        self.assertEqual(requests.request.call_count, 2)
+        requests.request.assert_called_with('get', 'http://myhost.com:8089/healthcheck', timeout=2)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_app_healthcheck(self, requests):
@@ -141,16 +141,16 @@ location {path} {{
         response.status_code = 200
         response.text = '\n\nWORKING'
 
-        def side_effect(url, timeout):
+        def side_effect(method, url, timeout, **params):
             count[0] += 1
             if count[0] < 2:
                 raise Exception('some error')
             return response
 
-        requests.get.side_effect = side_effect
+        requests.request.side_effect = side_effect
         nginx.wait_healthcheck('myhost.com', timeout=5, manage_healthcheck=False)
-        self.assertEqual(requests.get.call_count, 2)
-        requests.get.assert_called_with('http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
+        self.assertEqual(requests.request.call_count, 2)
+        requests.request.assert_called_with('get', 'http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_app_healthcheck_invalid_response(self, requests):
@@ -160,30 +160,30 @@ location {path} {{
         response.status_code = 200
         response.text = '\nFAIL\n'
 
-        def side_effect(url, timeout):
+        def side_effect(method, url, timeout, **params):
             count[0] += 1
             if count[0] < 2:
                 raise Exception('some error')
             return response
 
-        requests.get.side_effect = side_effect
+        requests.request.side_effect = side_effect
         with self.assertRaises(NginxError):
             nginx.wait_healthcheck('myhost.com', timeout=5, manage_healthcheck=False)
-        self.assertEqual(requests.get.call_count, 6)
-        requests.get.assert_called_with('http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
+        self.assertEqual(requests.request.call_count, 6)
+        requests.request.assert_called_with('get', 'http://myhost.com:8080/_nginx_healthcheck/', timeout=2)
 
     @mock.patch('rpaas.nginx.requests')
     def test_wait_healthcheck_timeout(self, requests):
         nginx = Nginx()
 
-        def side_effect(url, timeout):
+        def side_effect(method, url, timeout, **params):
             raise Exception('some error')
 
-        requests.get.side_effect = side_effect
+        requests.request.side_effect = side_effect
         with self.assertRaises(Exception):
             nginx.wait_healthcheck('myhost.com', timeout=2)
-        self.assertGreaterEqual(requests.get.call_count, 2)
-        requests.get.assert_called_with('http://myhost.com:8089/healthcheck', timeout=2)
+        self.assertGreaterEqual(requests.request.call_count, 2)
+        requests.request.assert_called_with('get', 'http://myhost.com:8089/healthcheck', timeout=2)
 
     @mock.patch('os.path')
     @mock.patch('rpaas.nginx.requests')
@@ -193,10 +193,10 @@ location {path} {{
         response = mock.Mock()
         response.status_code = 200
         response.text = '\n\nticket was succsessfully added'
-        requests.post.return_value = response
+        requests.request.return_value = response
         nginx.add_session_ticket('host-1', 'random data', timeout=2)
-        requests.post.assert_called_once_with('https://host-1:8090/session_ticket', timeout=2,
-                                              data='random data', verify='/tmp/rpaas_ca.pem')
+        requests.request.assert_called_once_with('post', 'https://host-1:8090/session_ticket', timeout=2,
+                                                 data='random data', verify='/tmp/rpaas_ca.pem')
 
     @mock.patch('rpaas.nginx.requests')
     def test_missing_ca_cert(self, requests):
