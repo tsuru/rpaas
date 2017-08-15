@@ -490,7 +490,8 @@ def available_commands():
         "ssl": ssl,
         "block": block,
         "status": status,
-        "update": update
+        "update": update,
+        "lua": lua,
     }
 
 
