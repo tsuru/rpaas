@@ -102,6 +102,8 @@ class ConsulManager(object):
             for block in blocks[1]:
                 block_name = block['Key'].split('/')[-2]
                 block_value = self._block_header_footer(block['Value'], block_name,  True)
+                if not block_value:
+                    continue
                 block_list.append({'block_name': block_name, 'content': block_value})
         return block_list
 

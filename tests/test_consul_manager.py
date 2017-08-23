@@ -238,6 +238,18 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual("something nice in http", items[0]["content"])
         self.assertEqual("something nice in server", items[1]["content"])
 
+    def test_add_and_remove_block_return_empty(self):
+        items = self.manager.list_blocks("myrpaas")
+        self.assertEqual(items, [])
+        self.manager.write_block("myrpaas", "server",
+                                 "something nice in server")
+        items = self.manager.list_blocks("myrpaas")
+        self.assertEqual(1, len(items))
+        self.assertEqual("something nice in server", items[0]["content"])
+        self.manager.remove_block("myrpaas", "server")
+        items = self.manager.list_blocks("myrpaas")
+        self.assertEqual(items, [])
+
     def test_write_lua_content(self):
         self.manager.write_lua(
             "myrpaas", "some_module", "server",
