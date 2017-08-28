@@ -371,7 +371,7 @@ class RenewCertsTask(BaseManagerTask):
             self.renew(cert, config)
 
     def renew(self, cert, config):
-        key = ssl.generate_key()
+        key = ssl.generate_key(True)
         csr = ssl.generate_csr(key, cert["domain"])
         DownloadCertTask().delay(config=config, name=cert["name"], plugin="le",
                                  csr=csr, key=key, domain=cert["domain"])

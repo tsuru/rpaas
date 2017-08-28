@@ -394,7 +394,7 @@ class Manager(object):
         if not self._check_dns(name, domain):
             raise SslError('rpaas IP is not registered for this DNS name')
 
-        key = ssl.generate_key()
+        key = ssl.generate_key(True)
         csr = ssl.generate_csr(key, domain)
 
         if plugin == 'le':

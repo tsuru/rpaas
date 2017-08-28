@@ -64,7 +64,7 @@ class LeRenewerTestCase(unittest.TestCase):
         renewer.start()
         time.sleep(1)
         renewer.stop()
-        self.assertEqual([mock.call()] * 5, generate_key.mock_calls)
+        self.assertEqual([mock.call(True)] * 5, generate_key.mock_calls)
         expected_csr_calls = [mock.call("secret-key", "i0.tsuru.io"),
                               mock.call("secret-key", "i1.tsuru.io"),
                               mock.call("secret-key", "i4.tsuru.io"),
