@@ -162,7 +162,7 @@ class APITestCase(unittest.TestCase):
         )
         self.manager.new_instance("someapp", plan_name="small")
         resp = self.api.put("/resources/someapp", data={"plan_name": ""})
-        self.assertEqual(400, resp.status_code)
+        self.assertEqual(404, resp.status_code)
         self.assertEqual("Plan is required", resp.data)
 
     def test_update_invalid_plan(self):

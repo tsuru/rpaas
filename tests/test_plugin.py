@@ -187,7 +187,7 @@ class TsuruPluginTestCase(unittest.TestCase):
         Request.return_value = request
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        urlopen.return_value = HTTPError(None, 400, None, None, StringIO(u"Invalid plan name"))
+        urlopen.return_value = HTTPError(None, 404, None, None, StringIO(u"Invalid plan name"))
         with self.assertRaises(SystemExit) as cm:
             plugin.update(["-s", "myservice", "-i", "myinstance", "-p", "weird_plan"])
         exc = cm.exception

@@ -88,7 +88,7 @@ def add_instance():
 def update_instance(name):
     plan = request.form.get("plan_name")
     if not plan:
-        return "Plan is required", 400
+        return "Plan is required", 404
     try:
         get_manager().update_instance(name, plan)
     except tasks.NotReadyError as e:
