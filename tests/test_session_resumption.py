@@ -136,8 +136,8 @@ class SessionResumptionTestCase(unittest.TestCase):
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         cert_a, key_a = self.consul_manager.get_certificate("instance-a", "xxx")
         cert_b, key_b = self.consul_manager.get_certificate("instance-b", "bbb")
-        redis.StrictRedis().delete("session_resumption:last_run")
-        redis.StrictRedis().delete("session_resumption:instance:instance-a")
+        redis.StrictRedis().delete("session_resumption:test_rpaas_session_resumption:last_run")
+        redis.StrictRedis().delete("session_resumption:test_rpaas_session_resumption:instance:instance-a")
         nginx_manager.reset_mock()
         session = session_resumption.SessionResumption(self.config)
         session.start()
@@ -188,7 +188,7 @@ class SessionResumptionTestCase(unittest.TestCase):
         nginx_expected_calls = [call('10.1.1.1', 'ticket1', 30), call('10.2.2.2', 'ticket2', 30),
                                 call('10.2.2.3', 'ticket2', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
-        redis.StrictRedis().delete("session_resumption:last_run")
+        redis.StrictRedis().delete("session_resumption:test_rpaas_session_resumption:last_run")
         lb1_host2.unset_fail("dns_name")
         nginx_manager.reset_mock()
         session = session_resumption.SessionResumption(self.config)

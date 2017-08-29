@@ -138,7 +138,7 @@ class RestoreMachineTestCase(unittest.TestCase):
         self.assertEqual(nginx_manager.wait_healthcheck.call_args_list, [call('10.1.1.1', timeout=600)])
         log.reset_mock()
         nginx.reset_mock()
-        redis.StrictRedis().delete("restore_machine:last_run")
+        redis.StrictRedis().delete("restore_machine:test_rpaas_machine_restore:last_run")
         restorer = healing.RestoreMachine(self.config)
         restorer.start()
         time.sleep(1)
@@ -149,7 +149,7 @@ class RestoreMachineTestCase(unittest.TestCase):
         self.assertListEqual(['restore_10.2.2.2', 'restore_10.3.3.3', 'restore_10.4.4.4'], tasks)
         log.reset_mock()
         nginx.reset_mock()
-        redis.StrictRedis().delete("restore_machine:last_run")
+        redis.StrictRedis().delete("restore_machine:test_rpaas_machine_restore:last_run")
         FakeManager.fail_ids = []
         with freeze_time("2016-02-03 12:06:00"):
             restorer = healing.RestoreMachine(self.config)
@@ -320,7 +320,7 @@ class CheckMachineTestCase(unittest.TestCase):
         FakeManager.host_id = 0
         FakeManager.hosts = ['10.1.1.1', '10.2.2.2', '10.3.3.3']
 
-        redis.StrictRedis().delete("check_machine:last_run")
+        redis.StrictRedis().delete("check_machine:test_rpaas_check_machine:last_run")
 
     def tearDown(self):
         self.storage.db[self.storage.tasks_collection].remove()
