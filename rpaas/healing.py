@@ -14,10 +14,10 @@ class RestoreMachine(scheduler.JobScheduler):
     """
 
     def __init__(self, config=None, *args, **kwargs):
-        super(RestoreMachine, self).__init__(*args, **kwargs)
+        super(RestoreMachine, self).__init__(config, *args, **kwargs)
         self.config = config or dict(os.environ)
         self.interval = int(self.config.get("RESTORE_MACHINE_RUN_INTERVAL", 30))
-        self.last_run_key = self.config.get("RESTORE_MACHINE_LAST_RUN_KEY", "restore_machine:last_run")
+        self.last_run_key = self.get_last_run_key("RESTORE_MACHINE")
 
     def run(self):
         self.running = True
@@ -35,10 +35,10 @@ class CheckMachine(scheduler.JobScheduler):
     """
 
     def __init__(self, config=None, *args, **kwargs):
-        super(CheckMachine, self).__init__(*args, **kwargs)
+        super(CheckMachine, self).__init__(config, *args, **kwargs)
         self.config = config or dict(os.environ)
         self.interval = int(self.config.get("CHECK_MACHINE_RUN_INTERVAL", 30))
-        self.last_run_key = self.config.get("CHECK_MACHINE_LAST_RUN_KEY", "check_machine:last_run")
+        self.last_run_key = self.get_last_run_key("CHECK_MACHINE")
 
     def run(self):
         self.running = True

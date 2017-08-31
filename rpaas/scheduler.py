@@ -25,9 +25,14 @@ class JobScheduler(threading.Thread):
         super(JobScheduler, self).__init__(*args, **kwargs)
         self.daemon = True
         self.config = config or dict(os.environ)
+        self.service_name = self.config.get("RPAAS_SERVICE_NAME", "rpaas")
         self.interval = int(self.config.get("JOB_SCHEDULER_RUN_INTERVAL", 30))
-        self.last_run_key = self.config.get("JOB_SCHEDULER_LAST_RUN_KEY", "job_scheduler:last_run")
+        self.last_run_key = self.get_last_run_key("JOB_SCHEDULER")
         self.conn = tasks.app.broker_connection().channel().client
+
+    def get_last_run_key(self, key):
+        last_run_key = "{}_LAST_RUN_KEY".format(key)
+        return self.config.get(last_run_key, "{}:{}:last_run".format(key.lower(), self.service_name))
 
     def try_lock(self):
         interval_delta = datetime.timedelta(seconds=self.interval)

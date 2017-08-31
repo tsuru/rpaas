@@ -383,13 +383,16 @@ class SessionResumptionTask(BaseManagerTask):
         self.init_config(config)
         session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
         instances_to_rotate = self.config.get("SESSION_RESUMPTION_INSTANCES", None)
+        service_name = self.config.get("RPAAS_SERVICE_NAME", "rpaas")
+        service_instance_lock = "session_resumption:{}:instance".format(service_name)
+        instance_lock = self.config.get("SESSION_RESUMPTION_INSTANCE_LOCK_PREFIX", service_instance_lock)
         if instances_to_rotate:
             instances_to_rotate = instances_to_rotate.split(",")
         lb_data = LoadBalancer.list(conf=self.config)
         for lb in lb_data:
             if instances_to_rotate and lb.name not in instances_to_rotate:
                 continue
-            lock_name = "session_resumption:instance:{}".format(lb.name)
+            lock_name = "{}:{}".format(instance_lock, lb.name)
             if self.lock_manager.lock(lock_name, session_resumption_rotate):
                 try:
                     self.rotate_session_ticket(lb.hosts)

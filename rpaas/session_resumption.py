@@ -14,10 +14,10 @@ class SessionResumption(scheduler.JobScheduler):
     """
 
     def __init__(self, config=None, *args, **kwargs):
-        super(SessionResumption, self).__init__(*args, **kwargs)
+        super(SessionResumption, self).__init__(config, *args, **kwargs)
         self.config = config or dict(os.environ)
         self.interval = int(self.config.get("SESSION_RESUMPTION_RUN_INTERVAL", 300))
-        self.last_run_key = self.config.get("SESSION_RESUMPTION_LAST_RUN_KEY", "session_resumption:last_run")
+        self.last_run_key = self.get_last_run_key("SESSION_RESUMPTION")
 
     def run(self):
         self.running = True

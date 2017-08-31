@@ -18,10 +18,10 @@ class LeRenewer(scheduler.JobScheduler):
     """
 
     def __init__(self, config=None, *args, **kwargs):
-        super(LeRenewer, self).__init__(*args, **kwargs)
+        super(LeRenewer, self).__init__(config, *args, **kwargs)
         self.config = config or dict(os.environ)
         self.interval = int(self.config.get("LE_RENEWER_RUN_INTERVAL", 86400))
-        self.last_run_key = self.config.get("LE_RENEWER_LAST_RUN_KEY", "le_renewer:last_run")
+        self.last_run_key = self.get_last_run_key("LE_RENEWER")
 
     def run(self):
         self.running = True
