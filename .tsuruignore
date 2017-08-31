@@ -1,1 +1,9 @@
 .git
+build/
+dist/
+*.pyc
+*.egg-info/
+*.env
+.coverage
+dump.rdb
+tests
