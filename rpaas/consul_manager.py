@@ -147,6 +147,28 @@ class ConsulManager(object):
     def remove_lua(self, instance_name, lua_module_name, lua_module_type):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
+    def add_server_upstream(self, instance_name, upstream_name, server):
+        servers = self._list_upstream(instance_name, upstream_name)
+        servers.add(server)
+        self._save_upstream(instance_name, upstream_name, servers)
+
+    def remove_server_upstream(self, instance_name, upstream_name, server):
+        servers = self._list_upstream(instance_name, upstream_name)
+        try:
+            servers.remove(server)
+        except KeyError:
+            pass
+        self._save_upstream(instance_name, upstream_name, servers)
+
+    def _list_upstream(self, instance_name, upstream_name):
+        servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
+        if servers:
+            return set(servers["Value"].split(","))
+        return set()
+
+    def _save_upstream(self, instance_name, upstream_name, servers):
+        self.client.kv.put(self._upstream_key(instance_name, upstream_name), ",".join(servers))
+
     def get_certificate(self, instance_name, host_id=None):
         cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
         key = self.client.kv.get(self._ssl_cert_path(instance_name, "key", host_id))[1]
@@ -190,6 +212,10 @@ class ConsulManager(object):
         base_key = "lua_module"
         if lua_module_name and lua_module_type:
             base_key = "lua_module/{0}/{1}".format(lua_module_type, lua_module_name)
+        return self._key(instance_name, base_key)
+
+    def _upstream_key(self, instance_name, upstream_name):
+        base_key = "upstream/{}".format(upstream_name)
         return self._key(instance_name, base_key)
 
     def _key(self, instance_name, suffix=None):

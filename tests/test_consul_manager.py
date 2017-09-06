@@ -270,3 +270,28 @@ class ConsulManagerTestCase(unittest.TestCase):
         empty_block_value = """-- Begin custom RpaaS some_module lua module --
 \n-- End custom RpaaS some_module lua module --"""
         self.assertEqual(item[1]['Value'], empty_block_value)
+
+    def test_upstream_add_to_empty_upstrem(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1", item[1]["Value"])
+
+    def test_upstream_add_existing_server_to_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1", item[1]["Value"])
+
+    def test_upstream_remove_server_from_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server2")
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server3")
+        self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1,server3", item[1]["Value"])
+
+    def test_upstream_remove_server_not_found_on_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1", item[1]["Value"])
