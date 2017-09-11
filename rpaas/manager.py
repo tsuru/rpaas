@@ -298,18 +298,17 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         routes = self.list_routes(name)
-        destination = None
         destination_count = 0
         if not routes:
             raise storage.InstanceNotFoundError()
+        destination = [ p['destination'] for p in routes['paths'] if p['path'] == path ]
+        if len(destination) > 0:
+            destination = destination.pop()
+        else:
+            destination = None
         for p in routes['paths']:
-            if p['path'] == path:
-                destination = p['destination']
+            if destination and p['destination'] == destination:
                 destination_count += 1
-                continue
-            if destination:
-                if p['destination'] == destination:
-                    destination_count += 1
         if destination_count == 0:
             raise storage.InstanceNotFoundError()
         if destination_count < 2:

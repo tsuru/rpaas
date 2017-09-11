@@ -925,6 +925,27 @@ content = location /x {
         manager.consul_manager.remove_location.assert_called_with("inst", "/arrakis")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_delete_route_also_point_to_root(self, LoadBalancer):
+        self.storage.store_binding("inst", "app.host.com")
+        self.storage.replace_binding_path("inst", "/arrakis", "app.host.com")
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.delete_route("inst", "/arrakis")
+
+        LoadBalancer.find.assert_called_with("inst")
+        binding_data = self.storage.find_binding("inst")
+        self.assertDictEqual(binding_data, {
+            "_id": "inst",
+            "app_host": "app.host.com",
+            "paths": [{"path": "/", "destination": "app.host.com"}]
+        })
+        manager.consul_manager.remove_server_upstream.assert_not_called()
+        manager.consul_manager.remove_location.assert_called_with("inst", "/arrakis")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_delete_route_only_remove_upstream_on_last_reference(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/arrakis", "dune.com")
