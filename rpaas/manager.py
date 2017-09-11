@@ -297,6 +297,23 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        routes = self.list_routes(name)
+        destination = None
+        destination_count = 0
+        if not routes:
+            raise storage.InstanceNotFoundError()
+        for p in routes['paths']:
+            if p['path'] == path:
+                destination = p['destination']
+                destination_count += 1
+                continue
+            if destination:
+                if p['destination'] == destination:
+                    destination_count += 1
+        if destination_count == 0:
+            raise storage.InstanceNotFoundError()
+        if destination_count < 2:
+            self.consul_manager.remove_server_upstream(name, destination, destination)
         self.storage.delete_binding_path(name, path)
         self.consul_manager.remove_location(name, path)
 

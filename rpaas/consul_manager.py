@@ -4,6 +4,7 @@
 
 import consul
 import os
+import urlparse
 
 from . import nginx
 
@@ -81,7 +82,9 @@ class ConsulManager(object):
         if content:
             content = content.strip()
         else:
-            content = self.config_manager.generate_host_config(path, destination)
+            upstream = self._host_from_destination(destination)
+            content = self.config_manager.generate_host_config(path, destination, upstream)
+            self.add_server_upstream(instance_name, upstream, upstream)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
     def remove_location(self, instance_name, path):
@@ -147,6 +150,41 @@ class ConsulManager(object):
     def remove_lua(self, instance_name, lua_module_name, lua_module_type):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
+    def add_server_upstream(self, instance_name, upstream_name, server):
+        upstream_name = self._host_from_destination(upstream_name)
+        server = self._host_from_destination(server)
+        servers = self._list_upstream(instance_name, upstream_name)
+        servers.add(server)
+        self._save_upstream(instance_name, upstream_name, servers)
+
+    def remove_server_upstream(self, instance_name, upstream_name, server):
+        upstream_name = self._host_from_destination(upstream_name)
+        server = self._host_from_destination(server)
+        servers = self._list_upstream(instance_name, upstream_name)
+        if server in servers:
+            servers.remove(server)
+        if len(servers) < 1:
+            self._remove_upstream(instance_name, upstream_name)
+        else:
+            self._save_upstream(instance_name, upstream_name, servers)
+
+    def _host_from_destination(self, destination):
+        if '//' not in destination:
+            destination = '%s%s' % ('http://', destination)
+        return urlparse.urlparse(destination).hostname
+
+    def _remove_upstream(self, instance_name, upstream_name):
+        self.client.kv.delete(self._upstream_key(instance_name, upstream_name))
+
+    def _list_upstream(self, instance_name, upstream_name):
+        servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
+        if servers:
+            return set(servers["Value"].split(","))
+        return set()
+
+    def _save_upstream(self, instance_name, upstream_name, servers):
+        self.client.kv.put(self._upstream_key(instance_name, upstream_name), ",".join(servers))
+
     def get_certificate(self, instance_name, host_id=None):
         cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
         key = self.client.kv.get(self._ssl_cert_path(instance_name, "key", host_id))[1]
@@ -190,6 +228,10 @@ class ConsulManager(object):
         base_key = "lua_module"
         if lua_module_name and lua_module_type:
             base_key = "lua_module/{0}/{1}".format(lua_module_type, lua_module_name)
+        return self._key(instance_name, base_key)
+
+    def _upstream_key(self, instance_name, upstream_name):
+        base_key = "upstream/{}".format(upstream_name)
         return self._key(instance_name, base_key)
 
     def _key(self, instance_name, suffix=None):
