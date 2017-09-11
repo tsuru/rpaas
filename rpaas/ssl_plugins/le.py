@@ -9,10 +9,10 @@ import os
 
 import acme.client as acme_client
 
-from letsencrypt.client import Client, register
-from letsencrypt.configuration import NamespaceConfig
-from letsencrypt.account import AccountMemoryStorage
-from letsencrypt import crypto_util
+from certbot.client import Client, register
+from certbot.configuration import NamespaceConfig
+from certbot.account import AccountMemoryStorage
+from certbot import crypto_util
 from acme import jose
 from acme.jose.jwk import JWKRSA
 from cryptography.hazmat.primitives import serialization

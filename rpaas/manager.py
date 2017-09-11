@@ -16,7 +16,7 @@ import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 from celery.utils import uuid
 
-from rpaas import consul_manager, nginx, ssl, ssl_plugins, storage, tasks
+from rpaas import consul_manager, nginx, sslutils, ssl_plugins, storage, tasks
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -410,8 +410,8 @@ class Manager(object):
         if not self._check_dns(name, domain):
             raise SslError('rpaas IP is not registered for this DNS name')
 
-        key = ssl.generate_key(True)
-        csr = ssl.generate_csr(key, domain)
+        key = sslutils.generate_key(True)
+        csr = sslutils.generate_csr(key, domain)
 
         if plugin == 'le':
             try:

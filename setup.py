@@ -23,10 +23,9 @@ setup(
     include_package_data=True,
     install_requires=[
         "cffi==1.8.3",
-        "cryptography==1.6",
-        "setuptools==18.4",
-        "Flask==0.9",
-        "requests==2.4.3",
+        "cryptography==2.0.3",
+        "Flask==0.12",
+        "requests==2.18.4",
         "gevent==1.1b6",
         "gunicorn==0.17.2",
         "tsuru-hm==0.6.10",
@@ -36,13 +35,13 @@ setup(
         "python-consul==0.6.1",
         "raven==4.2.3",
         "blinker==1.4",
-        "acme==0.9.3",
-        "letsencrypt==0.7.0",
-        "certbot==0.9.3",
+        "acme==0.18.1",
+        "certbot==0.18.1",
         "certifi==2016.9.26",
-        "pbr==1.10.0",
+        "pbr==3.1.1",
         "Babel==2.3.4",
-        "zope.interface==4.3.3"
+        "zope.interface==4.4.2",
+        "parsedatetime==2.1",
     ],
     extras_require={
         'tests': [

@@ -18,7 +18,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, ssl, ssl_plugins, storage, celery_sentinel, lock
+from rpaas import consul_manager, hc, nginx, sslutils, ssl_plugins, storage, celery_sentinel, lock
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
 
@@ -329,7 +329,7 @@ class DownloadCertTask(BaseManagerTask):
     def run(self, config, name, plugin, csr, key, domain):
         try:
             self.init_config(config)
-            ssl.generate_crt(self.config, name, plugin, csr, key, domain)
+            sslutils.generate_crt(self.config, name, plugin, csr, key, domain)
         finally:
             self.storage.remove_task(name)
 
@@ -371,8 +371,8 @@ class RenewCertsTask(BaseManagerTask):
             self.renew(cert, config)
 
     def renew(self, cert, config):
-        key = ssl.generate_key(True)
-        csr = ssl.generate_csr(key, cert["domain"])
+        key = sslutils.generate_key(True)
+        csr = sslutils.generate_csr(key, cert["domain"])
         DownloadCertTask().delay(config=config, name=cert["name"], plugin="le",
                                  csr=csr, key=key, domain=cert["domain"])
 
@@ -401,7 +401,7 @@ class SessionResumptionTask(BaseManagerTask):
                     logging.error("Error renewing session ticket for {}: {}".format(lb.name, repr(e)))
 
     def rotate_session_ticket(self, hosts):
-        session_ticket = ssl.generate_session_ticket()
+        session_ticket = sslutils.generate_session_ticket()
         for host in hosts:
             self.add_session_ticket(host, session_ticket)
 
@@ -412,7 +412,7 @@ class SessionResumptionTask(BaseManagerTask):
             self.consul_manager.get_certificate(host.group, host.id)
         except ValueError:
             try:
-                certificate_key, certificate_crt = ssl.generate_admin_crt(self.config, unicode(host.dns_name))
+                certificate_key, certificate_crt = sslutils.generate_admin_crt(self.config, unicode(host.dns_name))
                 self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)
             except:
                 exc_info = sys.exc_info()

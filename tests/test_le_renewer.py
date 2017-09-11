@@ -54,9 +54,9 @@ class LeRenewerTestCase(unittest.TestCase):
     def tearDown(self):
         self.storage.db[self.storage.le_certificates_collection].remove()
 
-    @mock.patch("rpaas.ssl.generate_crt")
-    @mock.patch("rpaas.ssl.generate_csr")
-    @mock.patch("rpaas.ssl.generate_key")
+    @mock.patch("rpaas.sslutils.generate_crt")
+    @mock.patch("rpaas.sslutils.generate_csr")
+    @mock.patch("rpaas.sslutils.generate_key")
     def test_renew_certificates(self, generate_key, generate_csr, generate_crt):
         generate_key.return_value = "secret-key"
         generate_csr.return_value = "domain-csr"
