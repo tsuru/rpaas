@@ -161,10 +161,8 @@ class ConsulManager(object):
         upstream_name = self._host_from_destination(upstream_name)
         server = self._host_from_destination(server)
         servers = self._list_upstream(instance_name, upstream_name)
-        try:
+        if server in servers:
             servers.remove(server)
-        except KeyError:
-            pass
         if len(servers) < 1:
             self._remove_upstream(instance_name, upstream_name)
         else:

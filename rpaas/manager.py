@@ -310,6 +310,8 @@ class Manager(object):
             if destination:
                 if p['destination'] == destination:
                     destination_count += 1
+        if destination_count == 0:
+            raise storage.InstanceNotFoundError()
         if destination_count < 2:
             self.consul_manager.remove_server_upstream(name, destination, destination)
         self.storage.delete_binding_path(name, path)
