@@ -103,7 +103,9 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = self.manager.config_manager.generate_host_config(path="/",
-                                                                    destination="http://myapp.tsuru.io")
+                                                                    destination="http://myapp.tsuru.io",
+                                                                    upstream="myapp.tsuru.io"
+                                                                    )
         self.assertEqual(expected, item[1]["Value"])
 
     def test_write_location_non_root(self):
@@ -111,7 +113,9 @@ class ConsulManagerTestCase(unittest.TestCase):
                                     destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         expected = self.manager.config_manager.generate_host_config(path="/admin/app_sites/",
-                                                                    destination="http://myapp.tsuru.io")
+                                                                    destination="http://myapp.tsuru.io",
+                                                                    upstream="myapp.tsuru.io"
+                                                                    )
         self.assertEqual(expected, item[1]["Value"])
 
     def test_write_location_content(self):

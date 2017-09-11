@@ -4,6 +4,7 @@
 
 import consul
 import os
+import urlparse
 
 from . import nginx
 
@@ -81,7 +82,9 @@ class ConsulManager(object):
         if content:
             content = content.strip()
         else:
-            content = self.config_manager.generate_host_config(path, destination)
+            upstream = self._host_from_destination(destination)
+            content = self.config_manager.generate_host_config(path, destination, upstream)
+            self.add_server_upstream(instance_name, upstream, upstream)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
     def remove_location(self, instance_name, path):
@@ -148,17 +151,32 @@ class ConsulManager(object):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
     def add_server_upstream(self, instance_name, upstream_name, server):
+        upstream_name = self._host_from_destination(upstream_name)
+        server = self._host_from_destination(server)
         servers = self._list_upstream(instance_name, upstream_name)
         servers.add(server)
         self._save_upstream(instance_name, upstream_name, servers)
 
     def remove_server_upstream(self, instance_name, upstream_name, server):
+        upstream_name = self._host_from_destination(upstream_name)
+        server = self._host_from_destination(server)
         servers = self._list_upstream(instance_name, upstream_name)
         try:
             servers.remove(server)
         except KeyError:
             pass
-        self._save_upstream(instance_name, upstream_name, servers)
+        if len(servers) < 1:
+            self._remove_upstream(instance_name, upstream_name)
+        else:
+            self._save_upstream(instance_name, upstream_name, servers)
+
+    def _host_from_destination(self, destination):
+        if '//' not in destination:
+            destination = '%s%s' % ('http://', destination)
+        return urlparse.urlparse(destination).hostname
+
+    def _remove_upstream(self, instance_name, upstream_name):
+        self.client.kv.delete(self._upstream_key(instance_name, upstream_name))
 
     def _list_upstream(self, instance_name, upstream_name):
         servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
