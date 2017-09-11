@@ -301,7 +301,7 @@ class Manager(object):
         destination_count = 0
         if not routes:
             raise storage.InstanceNotFoundError()
-        destination = [ p['destination'] for p in routes['paths'] if p['path'] == path ]
+        destination = [p['destination'] for p in routes['paths'] if p['path'] == path]
         if len(destination) > 0:
             destination = destination.pop()
         else:
