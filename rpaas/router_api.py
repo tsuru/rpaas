@@ -53,7 +53,6 @@ def add_backend(name):
     try:
         get_manager().new_instance(name, team=team,
                                    plan_name=plan)
-        # TODO: add location for / inside task
     except storage.PlanNotFoundError:
         return "invalid plan", 400
     except storage.DuplicateError:
@@ -117,6 +116,7 @@ def add_routes(name):
         return "Addresses cannot be empty", 400
     m = get_manager()
     try:
+        m.bind(name, name)
         m.add_upstream(name, name, addresses)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
