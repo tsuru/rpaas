@@ -286,6 +286,12 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
         self.assertEqual("server1", item[1]["Value"])
 
+    def test_upstream_add_bulk_to_existing_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        self.manager.add_server_upstream("myrpaas", "upstream1", ["server1", "server2", "server3"])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1,server2,server3", item[1]["Value"])
+
     def test_upstream_remove_server_from_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.add_server_upstream("myrpaas", "upstream1", "server2")
@@ -297,5 +303,11 @@ class ConsulManagerTestCase(unittest.TestCase):
     def test_upstream_remove_server_not_found_on_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1", item[1]["Value"])
+
+    def test_upstream_remove_bulk_to_existing_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", ["server1", "server2", "server3"])
+        self.manager.remove_server_upstream("myrpaas", "upstream1", ["server2", "server3", "server4"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
         self.assertEqual("server1", item[1]["Value"])

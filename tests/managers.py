@@ -171,13 +171,19 @@ class FakeManager(object):
 
     def add_upstream(self, name, upstream_name, server):
         _, instance = self.find_instance(name)
-        instance.upstreams[upstream_name].add(server)
+        if isinstance(server, list):
+            instance.upstreams[upstream_name] |= set(server)
+        else:
+            instance.upstreams[upstream_name].add(server)
 
     def remove_upstream(self, name, upstream_name, server):
         _, instance = self.find_instance(name)
         servers = instance.upstreams[upstream_name]
-        if server in servers:
-            servers.remove(server)
+        if isinstance(server, list):
+            servers -= set(server)
+        else:
+            if server in servers:
+                servers.remove(server)
         instance.upstreams[upstream_name] = servers
 
     def list_upstreams(self, name, upstream_name):
