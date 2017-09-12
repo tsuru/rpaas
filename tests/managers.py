@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+from collections import defaultdict
+
 from rpaas import storage, manager
 
 
@@ -17,6 +19,7 @@ class FakeInstance(object):
         self.blocks = {}
         self.lua_modules = {}
         self.node_status = {}
+        self.upstreams = defaultdict(set)
 
     def bind(self, app_host):
         self.bound.append(app_host)
@@ -165,3 +168,18 @@ class FakeManager(object):
     def delete_lua(self, name, lua_module_name, lua_module_type):
         _, instance = self.find_instance(name)
         del instance.lua_modules[lua_module_type][lua_module_name]
+
+    def add_upstream(self, name, upstream_name, server):
+        _, instance = self.find_instance(name)
+        instance.upstreams[upstream_name].add(server)
+
+    def remove_upstream(self, name, upstream_name, server):
+        _, instance = self.find_instance(name)
+        servers = instance.upstreams[upstream_name]
+        if server in servers:
+            servers.remove(server)
+        instance.upstreams[upstream_name] = servers
+
+    def list_upstreams(self, name, upstream_name):
+        _, instance = self.find_instance(name)
+        return instance.upstreams[upstream_name]

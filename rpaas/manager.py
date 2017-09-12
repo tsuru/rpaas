@@ -16,7 +16,7 @@ import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 from celery.utils import uuid
 
-from rpaas import consul_manager, nginx, ssl, ssl_plugins, storage, tasks
+from rpaas import consul_manager, nginx, sslutils, ssl_plugins, storage, tasks
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -249,6 +249,27 @@ class Manager(object):
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
+    def add_upstream(self, name, upstream_name, server):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.add_server_upstream(name, upstream_name, server)
+
+    def remove_upstream(self, name, upstream_name, server):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.remove_server_upstream(name, upstream_name, server)
+
+    def list_upstreams(self, name, upstream_name):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        return self.consul_manager.list_upstream(name, upstream_name)
+
     def _get_address(self, name):
         task = self.storage.find_task(name)
         if task.count() >= 1:
@@ -410,8 +431,8 @@ class Manager(object):
         if not self._check_dns(name, domain):
             raise SslError('rpaas IP is not registered for this DNS name')
 
-        key = ssl.generate_key(True)
-        csr = ssl.generate_csr(key, domain)
+        key = sslutils.generate_key(True)
+        csr = sslutils.generate_csr(key, domain)
 
         if plugin == 'le':
             try:

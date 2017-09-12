@@ -28,7 +28,7 @@ test: start-consul ci-test
 
 ci-test: clean_pycs deps redis-sentinel-test
 	@python -m unittest discover
-	@flake8 --max-line-length=110 .
+	@flake8 --max-line-length=120 .
 
 deps:
 	pip install -e .[tests]

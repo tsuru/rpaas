@@ -116,7 +116,7 @@ class SessionResumptionTestCase(unittest.TestCase):
             self.storage.db.drop_collection(coll)
         redis.StrictRedis().flushall()
 
-    @patch("rpaas.tasks.ssl.generate_session_ticket")
+    @patch("rpaas.tasks.sslutils.generate_session_ticket")
     @patch("rpaas.tasks.LoadBalancer")
     @patch("rpaas.tasks.nginx")
     def test_renew_session_tickets(self, nginx, load_balancer, ticket):
@@ -168,7 +168,7 @@ class SessionResumptionTestCase(unittest.TestCase):
         self.assertEqual(rotate_session.call_args_list, [call(lb1.hosts), call(lb3.hosts)])
 
     @patch("rpaas.tasks.logging")
-    @patch("rpaas.tasks.ssl.generate_session_ticket")
+    @patch("rpaas.tasks.sslutils.generate_session_ticket")
     @patch("rpaas.tasks.LoadBalancer")
     @patch("rpaas.tasks.nginx")
     def test_renew_session_tickets_fail_and_unlock(self, nginx, load_balancer, ticket, logging):
@@ -201,7 +201,7 @@ class SessionResumptionTestCase(unittest.TestCase):
         logging.error.assert_called_with(error_msg)
 
     @patch("rpaas.tasks.logging")
-    @patch("rpaas.tasks.ssl.generate_admin_crt")
+    @patch("rpaas.tasks.sslutils.generate_admin_crt")
     @patch("rpaas.tasks.LoadBalancer")
     @patch("rpaas.tasks.nginx")
     def test_renew_session_tickets_return_first_error(self, nginx, load_balancer, generate_cert, logging):
