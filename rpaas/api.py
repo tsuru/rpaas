@@ -6,17 +6,18 @@ import inspect
 import json
 import os
 import logging
-import re
 from socket import gaierror
 
 from flask import Flask, Response, request
 from raven.contrib.flask import Sentry
 import hm.log
 
-from rpaas import (admin_api, admin_plugin, auth, get_manager, manager,
-                   plugin, storage, tasks, check_option_enable)
+from rpaas import (admin_api, router_api, admin_plugin, auth, get_manager, manager,
+                   plugin, storage, tasks, check_option_enable, validate_name, ValidationError,
+                   require_plan)
 
 api = Flask(__name__)
+api.register_blueprint(router_api.router)
 api.debug = check_option_enable(os.environ.get("API_DEBUG"))
 handler = logging.StreamHandler()
 if api.debug:
@@ -63,8 +64,10 @@ def add_instance():
     if "RPAAS_NEW_SERVICE" in os.environ:
         return "New instance disabled. Use {} service instead".format(os.environ["RPAAS_NEW_SERVICE"]), 405
     name = request.form.get("name")
-    if not name or re.search("^[0-9a-z-]+$", name) is None or len(name) > 25:
-        return "instance name must match [0-9a-z-] and length up to 25 chars", 400
+    try:
+        validate_name(name)
+    except ValidationError as e:
+        return str(e), 400
     team = request.form.get("team")
     if not team:
         return "team name is required", 400
@@ -447,9 +450,6 @@ def get_plugin():
 def get_admin_plugin():
     return inspect.getsource(admin_plugin)
 
-
-def require_plan():
-    return "RPAAS_REQUIRE_PLAN" in os.environ
 
 admin_api.register_views(api, plans)
 

@@ -151,16 +151,14 @@ class ConsulManager(object):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
     def add_server_upstream(self, instance_name, upstream_name, server):
-        upstream_name = self._host_from_destination(upstream_name)
         server = self._host_from_destination(server)
-        servers = self._list_upstream(instance_name, upstream_name)
+        servers = self.list_upstream(instance_name, upstream_name)
         servers.add(server)
         self._save_upstream(instance_name, upstream_name, servers)
 
     def remove_server_upstream(self, instance_name, upstream_name, server):
-        upstream_name = self._host_from_destination(upstream_name)
         server = self._host_from_destination(server)
-        servers = self._list_upstream(instance_name, upstream_name)
+        servers = self.list_upstream(instance_name, upstream_name)
         if server in servers:
             servers.remove(server)
         if len(servers) < 1:
@@ -176,7 +174,7 @@ class ConsulManager(object):
     def _remove_upstream(self, instance_name, upstream_name):
         self.client.kv.delete(self._upstream_key(instance_name, upstream_name))
 
-    def _list_upstream(self, instance_name, upstream_name):
+    def list_upstream(self, instance_name, upstream_name):
         servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
         if servers:
             return set(servers["Value"].split(","))

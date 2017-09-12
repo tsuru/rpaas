@@ -249,6 +249,27 @@ class Manager(object):
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
+    def add_upstream(self, name, upstream_name, server):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.add_server_upstream(name, upstream_name, server)
+
+    def remove_upstream(self, name, upstream_name, server):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.remove_server_upstream(name, upstream_name, server)
+
+    def list_upstreams(self, name, upstream_name):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        return self.consul_manager.list_upstream(name, upstream_name)
+
     def _get_address(self, name):
         task = self.storage.find_task(name)
         if task.count() >= 1:
