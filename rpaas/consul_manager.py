@@ -78,13 +78,16 @@ class ConsulManager(object):
                 node_status_list[node_server_name] = node['Value']
         return node_status_list
 
-    def write_location(self, instance_name, path, destination=None, content=None):
+    def write_location(self, instance_name, path, destination=None, content=None, empty_uptream=False):
         if content:
             content = content.strip()
         else:
             upstream = self._host_from_destination(destination)
+            upstream_server = upstream
             content = self.config_manager.generate_host_config(path, destination, upstream)
-            self.add_server_upstream(instance_name, upstream, upstream)
+            if empty_uptream:
+                upstream_server = None
+            self.add_server_upstream(instance_name, upstream, upstream_server)
         self.client.kv.put(self._location_key(instance_name, path), content)
 
     def remove_location(self, instance_name, path):
@@ -152,6 +155,8 @@ class ConsulManager(object):
 
     def add_server_upstream(self, instance_name, upstream_name, server):
         servers = self.list_upstream(instance_name, upstream_name)
+        if not server:
+            return
         if isinstance(server, list):
             servers |= set(server)
         else:

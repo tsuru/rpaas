@@ -673,7 +673,8 @@ content = location /x {
             "paths": [{"path": "/", "destination": "apphost.com"}]
         })
         LoadBalancer.find.assert_called_with("x")
-        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com")
+        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
+                                                                 empty_upstream=False)
 
     def test_bind_instance_error_task_running(self):
         self.storage.store_task("x")
@@ -695,7 +696,8 @@ content = location /x {
             "paths": [{"path": "/", "destination": "apphost.com"}]
         })
         LoadBalancer.find.assert_called_with("x")
-        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com")
+        manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
+                                                                 empty_upstream=False)
         manager.consul_manager.reset_mock()
         manager.bind("x", "apphost.com")
         self.assertEqual(0, len(manager.consul_manager.mock_calls))
@@ -725,7 +727,7 @@ content = location /x {
         LoadBalancer.find.assert_called_with("x")
         manager.consul_manager.write_location.assert_any_call("x", "/somewhere", destination="my.other.host",
                                                               content=None)
-        manager.consul_manager.write_location.assert_any_call("x", "/", destination="apphost.com")
+        manager.consul_manager.write_location.assert_any_call("x", "/", destination="apphost.com", empty_upstream=False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_instance(self, LoadBalancer):
@@ -783,7 +785,8 @@ content = location /x {
         })
         LoadBalancer.find.assert_called_with("inst")
         manager.consul_manager.remove_location.assert_called_with("inst", "/")
-        manager.consul_manager.write_location.assert_called_with("inst", "/", destination="app2.host.com")
+        manager.consul_manager.write_location.assert_called_with("inst", "/", destination="app2.host.com",
+                                                                 empty_upstream=False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_certificate(self, LoadBalancer):
