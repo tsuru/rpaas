@@ -82,7 +82,7 @@ class ConsulManager(object):
         if content:
             content = content.strip()
         else:
-            upstream = self._host_from_destination(destination)
+            upstream, _ = self._host_from_destination(destination)
             upstream_server = upstream
             content = self.config_manager.generate_host_config(path, destination, upstream)
             if empty_uptream:
@@ -158,17 +158,22 @@ class ConsulManager(object):
         if not server:
             return
         if isinstance(server, list):
+            for idx, _ in enumerate(server):
+                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
             servers |= set(server)
         else:
-            server = self._host_from_destination(server)
+            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
             servers.add(server)
         self._save_upstream(instance_name, upstream_name, servers)
 
     def remove_server_upstream(self, instance_name, upstream_name, server):
         servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
+            for idx, _ in enumerate(server):
+                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
             servers -= set(server)
         else:
+            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
             if server in servers:
                 servers.remove(server)
         if len(servers) < 1:
@@ -179,7 +184,7 @@ class ConsulManager(object):
     def _host_from_destination(self, destination):
         if '//' not in destination:
             destination = '%s%s' % ('http://', destination)
-        return urlparse.urlparse(destination).hostname
+        return urlparse.urlparse(destination).hostname, urlparse.urlparse(destination).port
 
     def _remove_upstream(self, instance_name, upstream_name):
         self.client.kv.delete(self._upstream_key(instance_name, upstream_name))

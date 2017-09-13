@@ -305,6 +305,13 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
         self.assertEqual("server1,server2,server3", item[1]["Value"])
 
+    def test_upstream_add_bulk_urls_to_existing_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "http://server1:123")
+        self.manager.add_server_upstream("myrpaas", "upstream1", ["http://server1:123", "http://server2:456",
+                                                                  "http://server3:789"])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server3:789,server2:456,server1:123", item[1]["Value"])
+
     def test_upstream_remove_server_from_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.add_server_upstream("myrpaas", "upstream1", "server2")
@@ -324,3 +331,11 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.remove_server_upstream("myrpaas", "upstream1", ["server2", "server3", "server4"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
         self.assertEqual("server1", item[1]["Value"])
+
+    def test_upstream_remove_bulk_urls_on_existing_upstream(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", ["http://server1:123", "http://server2:456",
+                                                                  "http://server3:789"])
+        self.manager.remove_server_upstream("myrpaas", "upstream1", ["http://server2:456", "http://server3:789",
+                                                                     "http://server4:333"])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual("server1:123", item[1]["Value"])
