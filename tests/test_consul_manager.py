@@ -111,7 +111,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual("myapp.tsuru.io", item[1]["Value"])
 
     def test_write_location_root_router_mode(self):
-        self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", empty_uptream=True)
+        self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", empty_upstream=True)
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/locations/ROOT")
         expected = self.manager.config_manager.generate_host_config(path="/",
                                                                     destination="router-myrpaas",
