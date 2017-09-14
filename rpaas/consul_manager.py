@@ -154,9 +154,9 @@ class ConsulManager(object):
         self.write_lua(instance_name, lua_module_name, lua_module_type, None)
 
     def add_server_upstream(self, instance_name, upstream_name, server):
-        servers = self.list_upstream(instance_name, upstream_name)
         if not server:
             return
+        servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
             for idx, _ in enumerate(server):
                 server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))

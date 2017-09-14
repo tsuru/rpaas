@@ -171,10 +171,7 @@ class Manager(object):
                 return
             if bound_host is not None:
                 raise BindError("This service can only be bound to one application.")
-        empty_upstream = False
-        if router_mode:
-            empty_upstream = True
-        self.consul_manager.write_location(name, "/", destination=app_host, empty_upstream=empty_upstream)
+        self.consul_manager.write_location(name, "/", destination=app_host, empty_upstream=router_mode)
         self.storage.store_binding(name, app_host)
 
     def unbind(self, name, app_host):
