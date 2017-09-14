@@ -116,7 +116,7 @@ def add_routes(name):
         return "Addresses cannot be empty", 400
     m = get_manager()
     try:
-        m.bind(name, name)
+        m.bind(name, name, router_mode=True)
         m.add_upstream(name, name, addresses)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412

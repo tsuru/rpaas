@@ -41,7 +41,7 @@ class FakeManager(object):
         self.instances.append(instance)
         return instance
 
-    def bind(self, name, app_host):
+    def bind(self, name, app_host, router_mode=False):
         index, instance = self.find_instance(name)
         if index < 0:
             raise storage.InstanceNotFoundError()
