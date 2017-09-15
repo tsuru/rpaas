@@ -183,12 +183,7 @@ class Manager(object):
         if not binding_data:
             return
         self.storage.remove_root_binding(name)
-        content_instance_not_bound = '''
-        location / {
-            return 404 "Instance not bound";
-        }
-        '''
-        self.consul_manager.write_location(name, "/", content=content_instance_not_bound)
+        self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
 
     def info(self, name):
         addr = self._get_address(name)

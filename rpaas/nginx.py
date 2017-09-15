@@ -10,6 +10,26 @@ import requests
 
 from hm import config
 
+NGINX_LOCATION_INSTANCE_NOT_BOUND = '''
+location / {
+    return 404 "Instance not bound";
+}
+'''
+
+NGIX_LOCATION_TEMPLATE_DEFAULT = '''
+location {path} {{
+    proxy_set_header Host {host};
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header Connection "";
+    proxy_http_version 1.1;
+    proxy_pass http://{upstream};
+    proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
+}}
+'''
+
 
 class NginxError(Exception):
     pass
@@ -57,19 +77,7 @@ class ConfigManager(object):
                 raise NginxError("Error trying to load location template: {} - {}".
                                  format(rsp.status_code, rsp.text))
             return rsp.text
-        return """
-location {path} {{
-    proxy_set_header Host {host};
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header Connection "";
-    proxy_http_version 1.1;
-    proxy_pass http://{upstream};
-    proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
-}}
-"""
+        return NGIX_LOCATION_TEMPLATE_DEFAULT
 
 
 class Nginx(object):

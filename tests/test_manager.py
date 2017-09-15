@@ -10,7 +10,7 @@ import mock
 
 import rpaas.manager
 from rpaas.manager import Manager, ScaleError, QuotaExceededError
-from rpaas import tasks, storage
+from rpaas import tasks, storage, nginx
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
@@ -743,11 +743,7 @@ content = location /x {
             "paths": []
         })
         LoadBalancer.find.assert_called_with("inst")
-        content_instance_not_bound = '''
-        location / {
-            return 404 "Instance not bound";
-        }
-        '''
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -767,11 +763,7 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        content_instance_not_bound = '''
-        location / {
-            return 404 "Instance not bound";
-        }
-        '''
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -794,11 +786,7 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        content_instance_not_bound = '''
-        location / {
-            return 404 "Instance not bound";
-        }
-        '''
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         expected_calls = [mock.call("inst", "/", content=content_instance_not_bound),
                           mock.call("inst", "/", destination="app2.host.com", empty_upstream=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
