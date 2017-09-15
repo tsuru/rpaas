@@ -104,18 +104,20 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = self.manager.config_manager.generate_host_config(path="/",
                                                                     destination="http://myapp.tsuru.io",
-                                                                    upstream="myapp.tsuru.io"
+                                                                    upstream="myapp.tsuru.io",
+                                                                    router_mode=False
                                                                     )
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/myapp.tsuru.io")
         self.assertEqual("myapp.tsuru.io", item[1]["Value"])
 
     def test_write_location_root_router_mode(self):
-        self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", empty_upstream=True)
+        self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", router_mode=True)
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/locations/ROOT")
         expected = self.manager.config_manager.generate_host_config(path="/",
                                                                     destination="router-myrpaas",
-                                                                    upstream="router-myrpaas"
+                                                                    upstream="router-myrpaas",
+                                                                    router_mode=True
                                                                     )
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/upstream/router-myrpaas")
@@ -127,7 +129,8 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         expected = self.manager.config_manager.generate_host_config(path="/admin/app_sites/",
                                                                     destination="http://myapp.tsuru.io",
-                                                                    upstream="myapp.tsuru.io"
+                                                                    upstream="myapp.tsuru.io",
+                                                                    router_mode=False
                                                                     )
         self.assertEqual(expected, item[1]["Value"])
 

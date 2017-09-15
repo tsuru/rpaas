@@ -19,42 +19,43 @@ class NginxTestCase(unittest.TestCase):
         self.assertEqual(nginx.nginx_manage_port, '8089')
         self.assertEqual(nginx.nginx_purge_path, '/purge')
         self.assertEqual(nginx.nginx_healthcheck_path, '/healthcheck')
-        self.assertEqual(nginx.config_manager.location_template, """
-location {path} {{
-    proxy_set_header Host {host};
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
-    proxy_set_header Connection "";
-    proxy_http_version 1.1;
-    proxy_pass http://{upstream};
-    proxy_redirect ~^http://{host}(:\d+)?/(.*)$ {path}$2;
-}}
-""")
 
     def test_init_config(self):
         nginx = Nginx({
             'NGINX_PURGE_PATH': '/2',
             'NGINX_MANAGE_PORT': '4',
-            'NGINX_LOCATION_TEMPLATE_TXT': '5',
-            'NGINX_HEALTHCHECK_PATH': '6',
+            'NGINX_LOCATION_TEMPLATE_DEFAULT_TXT': '5',
+            'NGINX_LOCATION_TEMPLATE_ROUTER_TXT': '6',
+            'NGINX_HEALTHCHECK_PATH': '7',
         })
         self.assertEqual(nginx.nginx_purge_path, '/2')
         self.assertEqual(nginx.nginx_manage_port, '4')
-        self.assertEqual(nginx.config_manager.location_template, '5')
-        self.assertEqual(nginx.nginx_healthcheck_path, '6')
+        self.assertEqual(nginx.config_manager.location_template_default, '5')
+        self.assertEqual(nginx.config_manager.location_template_router, '6')
+        self.assertEqual(nginx.nginx_healthcheck_path, '7')
 
     @mock.patch('rpaas.nginx.requests')
     def test_init_config_location_url(self, requests):
-        rsp_get = requests.get.return_value
-        rsp_get.status_code = 200
-        rsp_get.text = 'my result'
-        nginx = Nginx({
-            'NGINX_LOCATION_TEMPLATE_URL': 'http://my.com/x',
-        })
-        self.assertEqual(nginx.config_manager.location_template, 'my result')
-        requests.get.assert_called_once_with('http://my.com/x')
+        def mocked_requests_get(*args, **kwargs):
+            class MockResponse:
+                def __init__(self, text, status_code):
+                    self.text = text
+                    self.status_code = status_code
+            if args[0] == 'http://my.com/default':
+                return MockResponse("my result default", 200)
+            elif args[0] == 'http://my.com/router':
+                return MockResponse("my result router", 200)
+
+        with mock.patch('rpaas.nginx.requests.get', side_effect=mocked_requests_get) as requests_get:
+            nginx = Nginx({
+                'NGINX_LOCATION_TEMPLATE_DEFAULT_URL': 'http://my.com/default',
+                'NGINX_LOCATION_TEMPLATE_ROUTER_URL': 'http://my.com/router',
+            })
+        self.assertEqual(nginx.config_manager.location_template_default, 'my result default')
+        self.assertEqual(nginx.config_manager.location_template_router, 'my result router')
+        expected_calls = [mock.call('http://my.com/default'),
+                          mock.call('http://my.com/router')]
+        requests_get.assert_has_calls(expected_calls)
 
     @mock.patch('rpaas.nginx.requests')
     def test_purge_location_successfully(self, requests):

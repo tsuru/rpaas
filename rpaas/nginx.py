@@ -30,6 +30,18 @@ location {path} {{
 }}
 '''
 
+NGIX_LOCATION_TEMPLATE_ROUTER = '''
+location {path} {{
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header Connection "";
+    proxy_http_version 1.1;
+    proxy_pass http://{upstream};
+}}
+'''
+
 
 class NginxError(Exception):
     pass
@@ -57,27 +69,37 @@ def retry_request(f):
 class ConfigManager(object):
 
     def __init__(self, conf=None):
-        self.location_template = self._load_location_template(conf)
+        self.location_template_default = self._load_location_template(conf, "default")
+        self.location_template_router = self._load_location_template(conf, "router")
 
-    def generate_host_config(self, path, destination, upstream):
-        return self.location_template.format(
+    def generate_host_config(self, path, destination, upstream, router_mode=False):
+        if router_mode:
+            return self.location_template_router.format(
+                path=path.rstrip('/') + '/',
+                host=destination,
+                upstream=upstream
+            )
+        return self.location_template_default.format(
             path=path.rstrip('/') + '/',
             host=destination,
             upstream=upstream
         )
 
-    def _load_location_template(self, conf):
-        template_txt = config.get_config('NGINX_LOCATION_TEMPLATE_TXT', None, conf)
+    def _load_location_template(self, conf, mode):
+        mode = mode.upper()
+        template_txt = config.get_config('NGINX_LOCATION_TEMPLATE_{}_TXT'.format(mode), None, conf)
         if template_txt:
             return template_txt
-        template_url = config.get_config('NGINX_LOCATION_TEMPLATE_URL', None, conf)
+        template_url = config.get_config('NGINX_LOCATION_TEMPLATE_{}_URL'.format(mode), None, conf)
         if template_url:
             rsp = requests.get(template_url)
             if rsp.status_code > 299:
                 raise NginxError("Error trying to load location template: {} - {}".
                                  format(rsp.status_code, rsp.text))
             return rsp.text
-        return NGIX_LOCATION_TEMPLATE_DEFAULT
+        if mode == "default":
+            return NGIX_LOCATION_TEMPLATE_DEFAULT
+        return NGIX_LOCATION_TEMPLATE_ROUTER
 
 
 class Nginx(object):
