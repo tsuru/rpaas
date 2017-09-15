@@ -138,6 +138,9 @@ def delete_routes(name):
     m = get_manager()
     try:
         m.remove_upstream(name, name, addresses)
+        routes = m.list_upstreams(name, name)
+        if len(routes) < 1:
+            m.unbind(name)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:

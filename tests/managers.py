@@ -14,18 +14,12 @@ class FakeInstance(object):
         self.state = state
         self.units = 1
         self.plan = plan
-        self.bound = []
+        self.bound = False
         self.routes = {}
         self.blocks = {}
         self.lua_modules = {}
         self.node_status = {}
         self.upstreams = defaultdict(set)
-
-    def bind(self, app_host):
-        self.bound.append(app_host)
-
-    def unbind(self, app_host):
-        self.bound.remove(app_host)
 
 
 class FakeManager(object):
@@ -45,13 +39,19 @@ class FakeManager(object):
         index, instance = self.find_instance(name)
         if index < 0:
             raise storage.InstanceNotFoundError()
-        instance.bind(app_host)
+        instance.bound = True
 
-    def unbind(self, name, app_host):
+    def unbind(self, name):
         index, instance = self.find_instance(name)
         if index < 0:
             raise storage.InstanceNotFoundError()
-        instance.unbind(app_host)
+        instance.bound = False
+
+    def check_bound(self, name):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        return instance.bound
 
     def remove_instance(self, name):
         index, _ = self.find_instance(name)

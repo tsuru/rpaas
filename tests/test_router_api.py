@@ -185,3 +185,21 @@ class RouterAPITestCase(unittest.TestCase):
         routes = self.manager.list_upstreams(
             "router-someapp", "router-someapp")
         self.assertEqual(["10.0.0.1:123"], sorted(list(routes)))
+
+    def test_remove_all_routes(self):
+        self.manager.new_instance("router-someapp")
+        self.manager.add_upstream(
+            "router-someapp", "router-someapp", "10.0.0.1:123")
+        self.manager.add_upstream(
+            "router-someapp", "router-someapp", "10.0.0.2:123")
+        self.manager.bind("router-someapp", "router-someapp")
+        self.assertTrue(self.manager.check_bound("router-someapp"))
+        resp = self.api.post("/router/backend/someapp/routes/remove", data=json.dumps({'addresses': ["10.0.0.2:123",
+                                                                                                     "10.0.0.1:123"]}),
+                             content_type="application/json")
+        self.assertEqual(200, resp.status_code)
+        routes = self.manager.list_upstreams(
+            "router-someapp", "router-someapp")
+        self.assertEqual(set([]), routes)
+        routes = self.manager.list_routes("router-someapp")
+        self.assertFalse(self.manager.check_bound("router-someapp"))
