@@ -174,7 +174,7 @@ class Manager(object):
         self.consul_manager.write_location(name, "/", destination=app_host, empty_upstream=router_mode)
         self.storage.store_binding(name, app_host)
 
-    def unbind(self, name, app_host):
+    def unbind(self, name):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
@@ -183,7 +183,7 @@ class Manager(object):
         if not binding_data:
             return
         self.storage.remove_root_binding(name)
-        self.consul_manager.remove_location(name, "/")
+        self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
 
     def info(self, name):
         addr = self._get_address(name)

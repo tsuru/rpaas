@@ -136,7 +136,7 @@ def unbind(name):
     if not app_host:
         return "app-host is required", 400
     try:
-        get_manager().unbind(name, app_host)
+        get_manager().unbind(name)
     except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:

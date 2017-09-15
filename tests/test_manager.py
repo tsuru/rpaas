@@ -10,7 +10,7 @@ import mock
 
 import rpaas.manager
 from rpaas.manager import Manager, ScaleError, QuotaExceededError
-from rpaas import tasks, storage
+from rpaas import tasks, storage, nginx
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
@@ -736,14 +736,15 @@ content = location /x {
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.unbind("inst", "app.host.com")
+        manager.unbind("inst")
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
             "_id": "inst",
             "paths": []
         })
         LoadBalancer.find.assert_called_with("inst")
-        manager.consul_manager.remove_location.assert_called_with("inst", "/")
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
+        manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_instance_with_extra_path(self, LoadBalancer):
@@ -753,7 +754,7 @@ content = location /x {
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.unbind("inst", "app.host.com")
+        manager.unbind("inst")
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
             "_id": "inst",
@@ -762,7 +763,8 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        manager.consul_manager.remove_location.assert_called_with("inst", "/")
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
+        manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_and_bind_instance_with_extra_path(self, LoadBalancer):
@@ -772,7 +774,7 @@ content = location /x {
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.unbind("inst", "app.host.com")
+        manager.unbind("inst")
         manager.bind("inst", "app2.host.com")
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
@@ -784,9 +786,10 @@ content = location /x {
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
-        manager.consul_manager.remove_location.assert_called_with("inst", "/")
-        manager.consul_manager.write_location.assert_called_with("inst", "/", destination="app2.host.com",
-                                                                 empty_upstream=False)
+        content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
+        expected_calls = [mock.call("inst", "/", content=content_instance_not_bound),
+                          mock.call("inst", "/", destination="app2.host.com", empty_upstream=False)]
+        manager.consul_manager.write_location.assert_has_calls(expected_calls)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_certificate(self, LoadBalancer):

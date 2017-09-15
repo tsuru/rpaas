@@ -209,8 +209,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(201, resp.status_code)
         self.assertEqual("null", resp.data)
         self.assertEqual("application/json", resp.mimetype)
-        bind = self.manager.instances[0].bound[0]
-        self.assertEqual("someapp.cloud.tsuru.io", bind)
+        self.assertTrue(self.manager.instances[0].bound)
 
     def test_bind_without_app_host(self):
         resp = self.api.post("/resources/someapp/bind-app",
@@ -242,7 +241,7 @@ class APITestCase(unittest.TestCase):
                                         'application/x-www-form-urlencoded'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual("", resp.data)
-        self.assertEqual([], self.manager.instances[0].bound)
+        self.assertFalse(self.manager.instances[0].bound)
 
     def test_unbind_instance_not_found(self):
         resp = self.api.delete("/resources/someapp/bind-app", data={"app-host":
