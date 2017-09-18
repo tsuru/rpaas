@@ -8,7 +8,7 @@ import mock
 
 import consul
 
-from rpaas import consul_manager
+from rpaas import consul_manager, nginx
 
 
 class ConsulManagerTestCase(unittest.TestCase):
@@ -102,11 +102,9 @@ class ConsulManagerTestCase(unittest.TestCase):
     def test_write_location_root(self):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
-        expected = self.manager.config_manager.generate_host_config(path="/",
-                                                                    destination="http://myapp.tsuru.io",
-                                                                    upstream="myapp.tsuru.io",
-                                                                    router_mode=False
-                                                                    )
+        expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/",
+                                                                host="http://myapp.tsuru.io",
+                                                                upstream="myapp.tsuru.io")
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/myapp.tsuru.io")
         self.assertEqual("myapp.tsuru.io", item[1]["Value"])
@@ -114,11 +112,9 @@ class ConsulManagerTestCase(unittest.TestCase):
     def test_write_location_root_router_mode(self):
         self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", router_mode=True)
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/locations/ROOT")
-        expected = self.manager.config_manager.generate_host_config(path="/",
-                                                                    destination="router-myrpaas",
-                                                                    upstream="router-myrpaas",
-                                                                    router_mode=True
-                                                                    )
+        expected = nginx.NGINX_LOCATION_TEMPLATE_ROUTER.format(path="/",
+                                                               host="router-myrpaas",
+                                                               upstream="router-myrpaas")
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/upstream/router-myrpaas")
         self.assertEqual(None, item[1])
@@ -127,11 +123,9 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.write_location("myrpaas", "/admin/app_sites/",
                                     destination="http://myapp.tsuru.io")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
-        expected = self.manager.config_manager.generate_host_config(path="/admin/app_sites/",
-                                                                    destination="http://myapp.tsuru.io",
-                                                                    upstream="myapp.tsuru.io",
-                                                                    router_mode=False
-                                                                    )
+        expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/admin/app_sites/",
+                                                                host="http://myapp.tsuru.io",
+                                                                upstream="myapp.tsuru.io")
         self.assertEqual(expected, item[1]["Value"])
 
     def test_write_location_content(self):

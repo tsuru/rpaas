@@ -16,7 +16,7 @@ location / {
 }
 '''
 
-NGIX_LOCATION_TEMPLATE_DEFAULT = '''
+NGINX_LOCATION_TEMPLATE_DEFAULT = '''
 location {path} {{
     proxy_set_header Host {host};
     proxy_set_header X-Real-IP $remote_addr;
@@ -30,7 +30,7 @@ location {path} {{
 }}
 '''
 
-NGIX_LOCATION_TEMPLATE_ROUTER = '''
+NGINX_LOCATION_TEMPLATE_ROUTER = '''
 location {path} {{
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -97,9 +97,9 @@ class ConfigManager(object):
                 raise NginxError("Error trying to load location template: {} - {}".
                                  format(rsp.status_code, rsp.text))
             return rsp.text
-        if mode == "default":
-            return NGIX_LOCATION_TEMPLATE_DEFAULT
-        return NGIX_LOCATION_TEMPLATE_ROUTER
+        if mode == "DEFAULT":
+            return NGINX_LOCATION_TEMPLATE_DEFAULT
+        return NGINX_LOCATION_TEMPLATE_ROUTER
 
 
 class Nginx(object):
