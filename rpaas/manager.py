@@ -182,8 +182,10 @@ class Manager(object):
         binding_data = self.storage.find_binding(name)
         if not binding_data:
             return
+        bound_host = binding_data.get("app_host")
         self.storage.remove_root_binding(name)
         self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
+        self.consul_manager.remove_server_upstream(name, bound_host, bound_host)
 
     def info(self, name):
         addr = self._get_address(name)

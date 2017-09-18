@@ -745,6 +745,7 @@ content = location /x {
         LoadBalancer.find.assert_called_with("inst")
         content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
+        manager.consul_manager.remove_server_upstream.assert_called_once_with("inst", "app.host.com", "app.host.com")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_instance_with_extra_path(self, LoadBalancer):
@@ -765,6 +766,7 @@ content = location /x {
         LoadBalancer.find.assert_called_with("inst")
         content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         manager.consul_manager.write_location.assert_called_with("inst", "/", content=content_instance_not_bound)
+        manager.consul_manager.remove_server_upstream.assert_called_once_with("inst", "app.host.com", "app.host.com")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_and_bind_instance_with_extra_path(self, LoadBalancer):
@@ -790,6 +792,7 @@ content = location /x {
         expected_calls = [mock.call("inst", "/", content=content_instance_not_bound),
                           mock.call("inst", "/", destination="app2.host.com", router_mode=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
+        manager.consul_manager.remove_server_upstream.assert_called_once_with("inst", "app.host.com", "app.host.com")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_certificate(self, LoadBalancer):
