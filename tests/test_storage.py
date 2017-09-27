@@ -161,6 +161,47 @@ class MongoDBStorageTestCase(unittest.TestCase):
         self.assertEqual(certs_name, certs_domain)
         self.assertEqual("myinstance", certs_name[0]["name"])
 
+    def test_store_acl_rule(self):
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.0.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.1.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.2", "192.168.1.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.2", "192.168.1.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.2", "192.168.2.0/24")
+        acl_rules = self.storage.find_acl_network({"name": "myinstance"})
+        expected_instance_acl = {'_id': 'myinstance',
+                                 'acls': [{'source': '10.0.0.1',
+                                           'destination': ['192.168.0.0/24', '192.168.1.0/24']
+                                          },
+                                          {'source': '10.0.0.2',
+                                           'destination': ['192.168.1.0/24', '192.168.2.0/24']}]}
+        self.assertEqual(acl_rules, expected_instance_acl)
+
+    def test_remove_acl_rule(self):
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.0.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.2", "192.168.1.0/24")
+        self.storage.remove_acl_network("myinstance", "10.0.0.2")
+        acl_rules = self.storage.find_acl_network({"name": "myinstance"})
+        expected_instance_acl = {'_id': 'myinstance',
+                                 'acls': [{'source': '10.0.0.1',
+                                           'destination': ['192.168.0.0/24']}]}
+        self.assertEqual(acl_rules, expected_instance_acl)
+
+    def test_remove_acl_rule_invalid(self):
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.0.0/24")
+        self.storage.remove_acl_network("myinstance", "10.0.0.2")
+        acl_rules = self.storage.find_acl_network({"name": "myinstance"})
+        expected_instance_acl = {'_id': 'myinstance',
+                                 'acls': [{'source': '10.0.0.1',
+                                           'destination': ['192.168.0.0/24']}]}
+        self.assertEqual(acl_rules, expected_instance_acl)
+
+    def test_remove_acl_rule_remove_instance_when_empty(self):
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.0.0/24")
+        self.storage.store_acl_network("myinstance", "10.0.0.1", "192.168.1.0/24")
+        self.storage.remove_acl_network("myinstance", "10.0.0.1")
+        acl_rules = self.storage.find_acl_network({"name": "myinstance"})
+        self.assertEqual(acl_rules, None)
+
     @freezegun.freeze_time("2016-08-02 10:53:00", tz_offset=2)
     def test_store_update_retrieve_healing(self):
         healing_id = self.storage.store_healing("myinstance", "10.10.1.1")
