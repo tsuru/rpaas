@@ -170,8 +170,7 @@ class MongoDBStorageTestCase(unittest.TestCase):
         acl_rules = self.storage.find_acl_network({"name": "myinstance"})
         expected_instance_acl = {'_id': 'myinstance',
                                  'acls': [{'source': '10.0.0.1',
-                                           'destination': ['192.168.0.0/24', '192.168.1.0/24']
-                                          },
+                                           'destination': ['192.168.0.0/24', '192.168.1.0/24']},
                                           {'source': '10.0.0.2',
                                            'destination': ['192.168.1.0/24', '192.168.2.0/24']}]}
         self.assertEqual(acl_rules, expected_instance_acl)
