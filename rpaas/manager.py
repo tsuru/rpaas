@@ -34,7 +34,7 @@ class Manager(object):
         self.task_manager = tasks.TaskManager(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
         self.acl_manager = acl.Dumb(self.storage)
-        if check_option_enable("CHECK_ACL_API"):
+        if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
             self.acl_manager = acl.AclManager(config, self.storage)
 
     def new_instance(self, name, team=None, plan_name=None):

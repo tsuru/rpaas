@@ -131,7 +131,7 @@ class BaseManagerTask(Task):
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         self.acl_manager = acl.Dumb(self.storage)
-        if check_option_enable("CHECK_ACL_API"):
+        if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
             self.acl_manager = acl.AclManager(config, self.storage)
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:

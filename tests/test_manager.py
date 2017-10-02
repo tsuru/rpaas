@@ -46,6 +46,7 @@ class ManagerTestCase(unittest.TestCase):
     def tearDown(self):
         self.lb_patcher.stop()
         self.host_patcher.stop()
+        os.environ['CHECK_ACL_API'] = "0"
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance(self, nginx):
@@ -1025,6 +1026,21 @@ content = location /x {
                                   {'destination': ['192.168.0.1'],
                                    'source': '10.0.0.2'}]}
         self.assertEqual(acls, expected_acls)
+        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
+
+    @mock.patch("rpaas.acl.AclManager")
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_add_upstream_using_acl_manager(self, LoadBalancer, AclManager):
+        lb = LoadBalancer.find.return_value
+        host1 = mock.Mock()
+        host1.dns_name = '10.0.0.1'
+        lb.hosts = [host1]
+
+        os.environ['CHECK_ACL_API'] = "1"
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.add_upstream("inst", "my_upstream", '192.168.0.1', True)
+        manager.acl_manager.add_acl.assert_called_once_with('inst', '10.0.0.1', '192.168.0.1')
         manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
 
     def test_delete_route_error_task_running(self):
