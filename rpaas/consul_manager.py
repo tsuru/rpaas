@@ -4,9 +4,9 @@
 
 import consul
 import os
-import urlparse
 
 from . import nginx
+from misc import host_from_destination
 
 ACL_TEMPLATE = """key "{service_name}/{instance_name}" {{
     policy = "read"
@@ -82,7 +82,7 @@ class ConsulManager(object):
         if content:
             content = content.strip()
         else:
-            upstream, _ = self._host_from_destination(destination)
+            upstream, _ = host_from_destination(destination)
             upstream_server = upstream
             if bind_mode:
                 upstream = "rpaas_default_upstream"
@@ -161,10 +161,10 @@ class ConsulManager(object):
         servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
             for idx, _ in enumerate(server):
-                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
+                server[idx] = ":".join(map(str, filter(None, host_from_destination(server[idx]))))
             servers |= set(server)
         else:
-            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
+            server = ":".join(map(str, filter(None, host_from_destination(server))))
             servers.add(server)
         self._save_upstream(instance_name, upstream_name, servers)
 
@@ -172,21 +172,16 @@ class ConsulManager(object):
         servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
             for idx, _ in enumerate(server):
-                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
+                server[idx] = ":".join(map(str, filter(None, host_from_destination(server[idx]))))
             servers -= set(server)
         else:
-            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
+            server = ":".join(map(str, filter(None, host_from_destination(server))))
             if server in servers:
                 servers.remove(server)
         if len(servers) < 1:
             self._remove_upstream(instance_name, upstream_name)
         else:
             self._save_upstream(instance_name, upstream_name, servers)
-
-    def _host_from_destination(self, destination):
-        if '//' not in destination:
-            destination = '%s%s' % ('http://', destination)
-        return urlparse.urlparse(destination).hostname, urlparse.urlparse(destination).port
 
     def _remove_upstream(self, instance_name, upstream_name):
         content = self._set_header_footer(None, upstream_name)

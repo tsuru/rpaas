@@ -17,8 +17,8 @@ class Dumb(object):
     def add_acl(self, name, src, dst):
         self.storage.store_acl_network(name, src, dst)
 
-    def remove_acl(self, name, src, dst):
-        self.storage.remove_acl_network(name, src, dst)
+    def remove_acl(self, name, src):
+        self.storage.remove_acl_network(name, src)
 
 
 class AclApiError(Exception):

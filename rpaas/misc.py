@@ -4,6 +4,7 @@
 
 import os
 import re
+import urlparse
 
 
 class ValidationError(Exception):
@@ -24,3 +25,9 @@ def validate_name(name):
 
 def require_plan():
     return "RPAAS_REQUIRE_PLAN" in os.environ
+
+
+def host_from_destination(destination):
+    if '//' not in destination:
+        destination = '%s%s' % ('http://', destination)
+    return urlparse.urlparse(destination).hostname, urlparse.urlparse(destination).port

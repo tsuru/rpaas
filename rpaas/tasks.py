@@ -18,7 +18,7 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, sslutils, ssl_plugins, storage, celery_sentinel, lock
+from rpaas import consul_manager, hc, nginx, sslutils, ssl_plugins, storage, celery_sentinel, lock, acl
 from rpaas.misc import check_option_enable
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']

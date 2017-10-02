@@ -18,7 +18,7 @@ from celery.utils import uuid
 
 from rpaas import (consul_manager, nginx, sslutils, ssl_plugins,
                    storage, tasks, acl)
-from rpaas.misc import check_option_enable
+from rpaas.misc import check_option_enable, host_from_destination
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -265,7 +265,13 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         if acl:
             for host in lb.hosts:
-                self.acl_manager.add_acl(name, host.dns_name, server)
+                if isinstance(server, list):
+                    for hostname in server:
+                        dst_host, _ = host_from_destination(hostname)
+                        self.acl_manager.add_acl(name, host.dns_name, dst_host)
+                else:
+                    dst_host, _ = host_from_destination(hostname)
+                    self.acl_manager.add_acl(name, host.dns_name, dst_host)
         self.consul_manager.add_server_upstream(name, upstream_name, server)
 
     def remove_upstream(self, name, upstream_name, server):

@@ -269,7 +269,9 @@ class ManagerTestCase(unittest.TestCase):
         self.storage.store_le_certificate("x", "example.com")
         self.storage.store_le_certificate("y", "test.com")
         lb = self.LoadBalancer.find.return_value
-        lb.hosts = [mock.Mock()]
+        host = mock.Mock()
+        host.dns_name = "10.0.0.1"
+        lb.hosts = [host]
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
@@ -289,7 +291,9 @@ class ManagerTestCase(unittest.TestCase):
     def test_remove_instance_no_token(self):
         self.storage.store_instance_metadata("x", plan_name="small")
         lb = self.LoadBalancer.find.return_value
-        lb.hosts = [mock.Mock()]
+        host = mock.Mock()
+        host.dns_name = "10.0.0.1"
+        lb.hosts = [host]
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.remove_instance("x")

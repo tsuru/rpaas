@@ -151,19 +151,19 @@ class AclManagerTestCase(unittest.TestCase):
 }
 ''', '{"job":4}', '{"job":5}', '''
 {
-	"envs": [{
-		"environment": "123",
-		"vlans": [{
-			"kind": "object#acl",
-			"environment": "139",
-			"num_vlan": 250,
-			"rules": [{
-				"id": "854",
-				"source": "10.0.0.1/32",
-				"destination": "192.168.1.0/24"
-			}]
-		}]
-	}]
+    "envs": [{
+        "environment": "123",
+        "vlans": [{
+            "kind": "object#acl",
+            "environment": "139",
+            "num_vlan": 250,
+            "rules": [{
+                "id": "854",
+                "source": "10.0.0.1/32",
+                "destination": "192.168.1.0/24"
+            }]
+        }]
+    }]
 }
 ''', '{"job":6}']
         response_texts.reverse()
@@ -205,6 +205,7 @@ class AclManagerTestCase(unittest.TestCase):
                                            'source': '10.0.0.1/32',
                                            'action': 'permit'}],
                                 'kind': 'object#acl'}, timeout=30),
-                mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/250/854', auth='acluser/aclpassword', timeout=30)
+                mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/250/854', auth='acluser/aclpassword',
+                          timeout=30)
                 ]
         requests.request.assert_has_calls(reqs)
