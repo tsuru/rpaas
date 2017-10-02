@@ -270,7 +270,7 @@ class Manager(object):
                         dst_host, _ = host_from_destination(hostname)
                         self.acl_manager.add_acl(name, host.dns_name, dst_host)
                 else:
-                    dst_host, _ = host_from_destination(hostname)
+                    dst_host, _ = host_from_destination(server)
                     self.acl_manager.add_acl(name, host.dns_name, dst_host)
         self.consul_manager.add_server_upstream(name, upstream_name, server)
 

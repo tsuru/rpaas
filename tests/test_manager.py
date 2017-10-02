@@ -984,6 +984,49 @@ content = location /x {
         manager.consul_manager.remove_server_upstream.assert_not_called()
         manager.consul_manager.remove_location.assert_called_with("inst", "/arrakis")
 
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_add_upstream_multiple_hosts(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        host1 = mock.Mock()
+        host1.dns_name = '10.0.0.1'
+        host2 = mock.Mock()
+        host2.dns_name = '10.0.0.2'
+        lb.hosts = [host1, host2]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.add_upstream("inst", "my_upstream", ['192.168.0.1', '192.168.0.2'], True)
+        acls = self.storage.find_acl_network({"name": "inst" })
+        expected_acls =  {'_id': 'inst',
+                          'acls': [{'destination': ['192.168.0.1', '192.168.0.2'],
+                                    'source': '10.0.0.1'},
+                                   {'destination': ['192.168.0.1', '192.168.0.2'],
+                                    'source': '10.0.0.2'}]}
+        self.assertEqual(acls, expected_acls)
+        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream',
+                                                                           ['192.168.0.1', '192.168.0.2'])
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_add_upstream_single_host(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        host1 = mock.Mock()
+        host1.dns_name = '10.0.0.1'
+        host2 = mock.Mock()
+        host2.dns_name = '10.0.0.2'
+        lb.hosts = [host1, host2]
+
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.add_upstream("inst", "my_upstream", '192.168.0.1', True)
+        acls = self.storage.find_acl_network({"name": "inst" })
+        expected_acls =  {'_id': 'inst',
+                          'acls': [{'destination': ['192.168.0.1'],
+                                    'source': '10.0.0.1'},
+                                   {'destination': ['192.168.0.1'],
+                                    'source': '10.0.0.2'}]}
+        self.assertEqual(acls, expected_acls)
+        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
+
     def test_delete_route_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
