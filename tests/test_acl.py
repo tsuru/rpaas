@@ -67,10 +67,15 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager = AclManager(config, self.storage)
         acl_manager.ip_client = mock.Mock()
         acl_manager.ip_client.get_ipv4_or_ipv6.side_effect = [{'ips': {'networkipv4': '153806'}},
+                                                              {'ips': {'networkipv4': '153806'}},
+                                                              {'ips': {'networkipv4': '153806'}},
                                                               {'ips': {'networkipv4': '153806'}}]
         acl_manager.network_client = mock.Mock()
-        acl_manager.network_client.get_network_ipv4.side_effect = [{'network': {'block': '24'}},
-                                                                   {'network': {'block': '24'}}]
+        acl_manager.network_client.get_network_ipv4.side_effect = [{'network': {'block': '27'}},
+                                                                   {'network': {'block': '24'}},
+                                                                   {'network': {'block': '27'}},
+                                                                   {'network': {'block': '24'}}
+                                                                   ]
         acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
                                                     acl_manager.acl_auth_basic.password)
         acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1")
@@ -84,7 +89,7 @@ class AclManagerTestCase(unittest.TestCase):
                                     'destination': '192.168.0.0/24',
                                     'source': '10.0.0.1/32',
                                     'action': 'permit'}]}
-        requests.request.assert_called_once_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.1/32',
+        requests.request.assert_called_once_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.0/27',
                                                  auth="acluser/aclpassword", data=expected_data, timeout=30)
         data = self.storage.find_acl_network({"name": "myrpaas"})
         expected_storage = {'_id': 'myrpaas', 'acls': [{'destination': ['192.168.0.0/24'],

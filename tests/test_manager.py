@@ -996,12 +996,12 @@ content = location /x {
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.add_upstream("inst", "my_upstream", ['192.168.0.1', '192.168.0.2'], True)
-        acls = self.storage.find_acl_network({"name": "inst" })
-        expected_acls =  {'_id': 'inst',
-                          'acls': [{'destination': ['192.168.0.1', '192.168.0.2'],
-                                    'source': '10.0.0.1'},
-                                   {'destination': ['192.168.0.1', '192.168.0.2'],
-                                    'source': '10.0.0.2'}]}
+        acls = self.storage.find_acl_network({"name": "inst"})
+        expected_acls = {'_id': 'inst',
+                         'acls': [{'destination': ['192.168.0.1', '192.168.0.2'],
+                                   'source': '10.0.0.1'},
+                                  {'destination': ['192.168.0.1', '192.168.0.2'],
+                                   'source': '10.0.0.2'}]}
         self.assertEqual(acls, expected_acls)
         manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream',
                                                                            ['192.168.0.1', '192.168.0.2'])
@@ -1018,12 +1018,12 @@ content = location /x {
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.add_upstream("inst", "my_upstream", '192.168.0.1', True)
-        acls = self.storage.find_acl_network({"name": "inst" })
-        expected_acls =  {'_id': 'inst',
-                          'acls': [{'destination': ['192.168.0.1'],
-                                    'source': '10.0.0.1'},
-                                   {'destination': ['192.168.0.1'],
-                                    'source': '10.0.0.2'}]}
+        acls = self.storage.find_acl_network({"name": "inst"})
+        expected_acls = {'_id': 'inst',
+                         'acls': [{'destination': ['192.168.0.1'],
+                                   'source': '10.0.0.1'},
+                                  {'destination': ['192.168.0.1'],
+                                   'source': '10.0.0.2'}]}
         self.assertEqual(acls, expected_acls)
         manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
 

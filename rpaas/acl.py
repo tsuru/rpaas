@@ -46,12 +46,15 @@ class AclManager(object):
                                                   self.network_api_password)
 
     def add_acl(self, name, src, dst):
+        src_network = self._get_network_from_ip(src)
+        if src_network == src:
+            src_network = str(ipaddress.ip_network(unicode(src_network)))
         src = str(ipaddress.ip_network(unicode(src)))
         dst = self._get_network_from_ip(dst)
         if self._check_acl_exists(name, src, dst):
             return
         request_data = self._request_data("permit", name, src, dst)
-        response = self._make_request("PUT", "api/ipv4/acl/{}".format(src), request_data)
+        response = self._make_request("PUT", "api/ipv4/acl/{}".format(src_network), request_data)
         try:
             response = json.loads(response)
             if not response.get("jobs"):
