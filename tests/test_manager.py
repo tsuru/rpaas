@@ -269,6 +269,7 @@ class ManagerTestCase(unittest.TestCase):
         self.storage.store_le_certificate("x", "foobar.com")
         self.storage.store_le_certificate("x", "example.com")
         self.storage.store_le_certificate("y", "test.com")
+        self.storage.store_acl_network("x", "10.0.0.1", "192.168.1.1")
         lb = self.LoadBalancer.find.return_value
         host = mock.Mock()
         host.dns_name = "10.0.0.1"
@@ -288,6 +289,8 @@ class ManagerTestCase(unittest.TestCase):
         self.assertEquals([cert['name'] for cert in self.storage.find_le_certificates({"name": "y"})][0], "y")
         manager.consul_manager.destroy_token.assert_called_with("abc-123")
         manager.consul_manager.destroy_instance.assert_called_with("x")
+        acls = self.storage.find_acl_network({"name": "x"})
+        self.assertEqual(None, acls)
 
     def test_remove_instance_no_token(self):
         self.storage.store_instance_metadata("x", plan_name="small")
