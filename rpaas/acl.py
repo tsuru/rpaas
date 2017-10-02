@@ -60,21 +60,25 @@ class AclManager(object):
             raise AclApiError("no valid json with 'jobs' returned")
         self.storage.store_acl_network(name, src, dst)
 
-    def remove_acl(self, name, src, dst):
+    def remove_acl(self, name, src):
         src = str(ipaddress.ip_network(unicode(src)))
-        dst = self._get_network_from_ip(dst)
-        if not self._check_acl_exists(name, src, dst):
-            return
-        request_data = self._request_data("permit", name, src, dst)
-        for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
-            response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
-            try:
-                response = json.loads(response)
-                if not response.get("job"):
-                    raise AclApiError
-            except:
-                raise AclApiError("no valid json with 'job' returned")
-        self.storage.remove_acl_network(name, src)
+        acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})
+        if acl_data and 'acls' in acl_data and acl_data['acls']:
+            destinations = []
+            for acl in acl_data['acls']:
+                if src == acl['source']:
+                    destinations += acl['destination']
+            for dst in destinations:
+                request_data = self._request_data("permit", name, src, dst)
+                for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
+                    response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
+                    try:
+                        response = json.loads(response)
+                        if not response.get("job"):
+                            raise AclApiError
+                    except:
+                        raise AclApiError("no valid json with 'job' returned")
+            self.storage.remove_acl_network(name, src)
 
     def _check_acl_exists(self, name, src, dst):
         acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})

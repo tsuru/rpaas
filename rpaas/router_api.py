@@ -6,8 +6,8 @@ import json
 
 from flask import request, Response, Blueprint
 
-from rpaas import (auth, get_manager, storage, manager, validate_name,
-                   tasks, require_plan, ValidationError)
+from rpaas import (auth, get_manager, storage, manager, tasks)
+from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
 supported_extra_features = []  # possible values: "cname", "tls", "healthcheck"
@@ -117,7 +117,7 @@ def add_routes(name):
     m = get_manager()
     try:
         m.bind(name, name, router_mode=True)
-        m.add_upstream(name, name, addresses)
+        m.add_upstream(name, name, addresses, True)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:

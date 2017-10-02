@@ -19,6 +19,7 @@ from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
 from rpaas import consul_manager, hc, nginx, sslutils, ssl_plugins, storage, celery_sentinel, lock
+from rpaas.misc import check_option_enable
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
 
@@ -129,6 +130,9 @@ class BaseManagerTask(Task):
         self.lock_manager = lock.Lock(app.backend.client)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
+        self.acl_manager = acl.Dumb(self.storage)
+        if check_option_enable("CHECK_ACL_API"):
+            self.acl_manager = acl.AclManager(config, self.storage)
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:
             self.hc = hc.HCAPI(self.storage,
@@ -185,6 +189,7 @@ class BaseManagerTask(Task):
                 lb.remove_host(host)
             if node_name is not None:
                 self.consul_manager.remove_node(name, node_name, host.id)
+            self.acl_manager.remove_acl(name, host.dns_name)
             self.hc.remove_url(name, host.dns_name)
         finally:
             self.storage.remove_task(name)

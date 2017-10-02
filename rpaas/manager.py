@@ -16,7 +16,9 @@ import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 from celery.utils import uuid
 
-from rpaas import consul_manager, nginx, sslutils, ssl_plugins, storage, tasks
+from rpaas import (consul_manager, nginx, sslutils, ssl_plugins,
+                   storage, tasks, acl)
+from rpaas.misc import check_option_enable
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -31,6 +33,9 @@ class Manager(object):
         self.nginx_manager = nginx.Nginx(config)
         self.task_manager = tasks.TaskManager(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
+        self.acl_manager = acl.Dumb(self.storage)
+        if check_option_enable("CHECK_ACL_API"):
+            self.acl_manager = acl.AclManager(config, self.storage)
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -253,11 +258,14 @@ class Manager(object):
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
-    def add_upstream(self, name, upstream_name, server):
+    def add_upstream(self, name, upstream_name, server, acl=False):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
+        if acl:
+            for host in lb.hosts:
+                self.acl_manager.add_acl(name, host.dns_name, server)
         self.consul_manager.add_server_upstream(name, upstream_name, server)
 
     def remove_upstream(self, name, upstream_name, server):

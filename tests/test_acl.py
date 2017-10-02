@@ -124,8 +124,6 @@ class AclManagerTestCase(unittest.TestCase):
         "environment": "139",
         "rules": [{
             "id": "68",
-            "action": "permit",
-            "protocol": "ip",
             "source": "0.0.0.0/0",
             "destination": "10.70.1.80/32"
         }],
@@ -135,16 +133,8 @@ class AclManagerTestCase(unittest.TestCase):
             "num_vlan": 250,
             "rules": [{
                 "id": "854",
-                "sequence": 9,
-                "action": "permit",
-                "protocol": "tcp",
                 "source": "10.0.0.1/32",
-                "destination": "192.168.0.0/24",
-                "l4-options": {
-                    "dest-port-op": "range",
-                    "dest-port-start": "32768",
-                    "dest-port-end": "61000"
-                }
+                "destination": "192.168.0.0/24"
             }]
 
         }, {
@@ -153,47 +143,68 @@ class AclManagerTestCase(unittest.TestCase):
             "num_vlan": 165,
             "rules": [{
                 "id": "1221",
-                "sequence": 1,
-                "action": "permit",
-                "protocol": "tcp",
-                "source": "10.0.0.1/32",
-                "destination": "192.168.0.0/24",
-                "l4-options": {
-                    "dest-port-op": "range",
-                    "dest-port-start": "32768",
-                    "dest-port-end": "61000"
-
-                }
+               "source": "10.0.0.1/32",
+                "destination": "192.168.0.0/24"
             }]
         }]
     }]
 }
-''', '{"job":4}', '{"job":5}']
+''', '{"job":4}', '{"job":5}', '''
+{
+	"envs": [{
+		"environment": "123",
+		"vlans": [{
+			"kind": "object#acl",
+			"environment": "139",
+			"num_vlan": 250,
+			"rules": [{
+				"id": "854",
+				"source": "10.0.0.1/32",
+				"destination": "192.168.1.0/24"
+			}]
+		}]
+	}]
+}
+''', '{"job":6}']
         response_texts.reverse()
         response_side_effects = []
-        for _ in range(3):
+        for _ in range(5):
             response = mock.Mock()
             response.status_code = 200
             response.text = response_texts.pop()
             response_side_effects.append(response)
-        self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.1/24")
+        self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
+        self.storage.store_acl_network("myrpaas", "10.0.1.2/32", "192.168.1.0/24")
         requests.request.side_effect = response_side_effects
         acl_manager = AclManager(self.config, self.storage)
         acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
                                                     acl_manager.acl_auth_basic.password)
-        acl_manager.remove_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
+        acl_manager.remove_acl("myrpaas", "10.0.0.1")
         reqs = [mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
                           data={'rules': [{'l4-options': {'dest-port-op': 'range',
                                                           'dest-port-start': '32768',
                                                           'dest-port-end': '61000'},
                                            'protocol': 'tcp',
                                            'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
-                                           'destination': '192.168.0.1/24',
+                                           'destination': '192.168.0.0/24',
                                            'source': '10.0.0.1/32',
                                            'action': 'permit'}],
                                 'kind': 'object#acl'}, timeout=30),
                 mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/250/854', auth='acluser/aclpassword',
                           timeout=30),
                 mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/165/1221', auth='acluser/aclpassword',
-                          timeout=30)]
+                          timeout=30),
+                mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
+                          data={'rules': [{'l4-options': {'dest-port-op': 'range',
+                                                          'dest-port-start': '32768',
+                                                          'dest-port-end': '61000'},
+                                           'protocol': 'tcp',
+                                           'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
+                                           'destination': '192.168.1.0/24',
+                                           'source': '10.0.0.1/32',
+                                           'action': 'permit'}],
+                                'kind': 'object#acl'}, timeout=30),
+                mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/250/854', auth='acluser/aclpassword', timeout=30)
+                ]
         requests.request.assert_has_calls(reqs)

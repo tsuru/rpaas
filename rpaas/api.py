@@ -13,8 +13,8 @@ from raven.contrib.flask import Sentry
 import hm.log
 
 from rpaas import (admin_api, router_api, admin_plugin, auth, get_manager, manager,
-                   plugin, storage, tasks, check_option_enable, validate_name, ValidationError,
-                   require_plan)
+                   plugin, storage, tasks)
+from rpaas.misc import (validate_name, ValidationError, require_plan, check_option_enable)
 
 api = Flask(__name__)
 api.register_blueprint(router_api.router)
