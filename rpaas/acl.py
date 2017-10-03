@@ -126,7 +126,7 @@ class AclManager(object):
             params['json'] = data
         rsp = requests.request(method.lower(), url, timeout=self.acl_api_timeout,
                                auth=self.acl_auth_basic, **params)
-        if rsp.status_code != 200:
+        if rsp.status_code not in [200, 201]:
             raise AclApiError(
                 "Error applying ACL: {}: {}".format(url, rsp.text))
         return rsp.text
