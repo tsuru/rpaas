@@ -130,8 +130,8 @@ class AclManager(object):
                                auth=self.acl_auth_basic, **params)
         if rsp.status_code not in [200, 201]:
             raise AclApiError(
-                "Error applying ACL: {}: {}".format(url, rsp.text))
-        return rsp.text
+                "Error applying ACL: {}: {}".format(url, rsp.text.encode('utf-8')))
+        return rsp.text.encode('utf-8')
 
     def _get_network_from_ip(self, ip):
         if not self.network_api_url:
