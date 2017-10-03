@@ -49,7 +49,7 @@ class AclManagerTestCase(unittest.TestCase):
                                     'source': '10.0.0.1/32',
                                     'action': 'permit'}]}
         requests.request.assert_called_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.1/32',
-                                            auth="acluser/aclpassword", data=expected_data, timeout=30)
+                                            auth="acluser/aclpassword", json=expected_data, timeout=30)
         data = self.storage.find_acl_network({"name": "myrpaas"})
         expected_storage = {'_id': 'myrpaas', 'acls': [{'destination': ['192.168.0.1/24'],
                                                         'source': '10.0.0.1/32'}]}
@@ -90,7 +90,7 @@ class AclManagerTestCase(unittest.TestCase):
                                     'source': '10.0.0.1/32',
                                     'action': 'permit'}]}
         requests.request.assert_called_once_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.0/27',
-                                                 auth="acluser/aclpassword", data=expected_data, timeout=30)
+                                                 auth="acluser/aclpassword", json=expected_data, timeout=30)
         data = self.storage.find_acl_network({"name": "myrpaas"})
         expected_storage = {'_id': 'myrpaas', 'acls': [{'destination': ['192.168.0.0/24'],
                                                         'source': '10.0.0.1/32'}]}
@@ -187,7 +187,7 @@ class AclManagerTestCase(unittest.TestCase):
                                                     acl_manager.acl_auth_basic.password)
         acl_manager.remove_acl("myrpaas", "10.0.0.1")
         reqs = [mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
-                          data={'rules': [{'l4-options': {'dest-port-op': 'range',
+                          json={'rules': [{'l4-options': {'dest-port-op': 'range',
                                                           'dest-port-start': '32768',
                                                           'dest-port-end': '61000'},
                                            'protocol': 'tcp',
@@ -201,7 +201,7 @@ class AclManagerTestCase(unittest.TestCase):
                 mock.call('delete', 'http://aclapihost/api/ipv4/acl/139/165/1221', auth='acluser/aclpassword',
                           timeout=30),
                 mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
-                          data={'rules': [{'l4-options': {'dest-port-op': 'range',
+                          json={'rules': [{'l4-options': {'dest-port-op': 'range',
                                                           'dest-port-start': '32768',
                                                           'dest-port-end': '61000'},
                                            'protocol': 'tcp',
