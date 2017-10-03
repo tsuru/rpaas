@@ -15,9 +15,11 @@ class Dumb(object):
         self.storage = storage
 
     def add_acl(self, name, src, dst):
+        src = str(ipaddress.ip_network(unicode(src)))
         self.storage.store_acl_network(name, src, dst)
 
     def remove_acl(self, name, src):
+        src = str(ipaddress.ip_network(unicode(src)))
         self.storage.remove_acl_network(name, src)
 
 

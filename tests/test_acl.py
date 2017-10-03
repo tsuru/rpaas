@@ -214,3 +214,6 @@ class AclManagerTestCase(unittest.TestCase):
                           timeout=30)
                 ]
         requests.request.assert_has_calls(reqs)
+        acls = self.storage.find_acl_network({"name": "myrpaas"})
+        expected_acls = {'_id': 'myrpaas', 'acls': [{'source': '10.0.1.2/32', 'destination': ['192.168.1.0/24']}]}
+        self.assertEqual(expected_acls, acls)

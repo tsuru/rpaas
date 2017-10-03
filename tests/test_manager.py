@@ -108,6 +108,7 @@ class ManagerTestCase(unittest.TestCase):
         self.LoadBalancer.create.side_effect = Exception("LB create failure")
         lb = self.LoadBalancer.create.return_value
         host = self.Host.create.return_value
+        host.dns_name = "10.0.0.1"
         manager.new_instance("x")
         lb.add_host.assert_not_called()
         lb.destroy.assert_not_called()
@@ -124,6 +125,7 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager.generate_token.return_value = "abc-123"
         lb = self.LoadBalancer.create.return_value
         host = self.Host.create.return_value
+        host.dns_name = "10.0.0.1"
         dumb_hc = hc.return_value
         dumb_hc.create.side_effect = Exception("HC create failure")
         manager.new_instance("x")
@@ -145,6 +147,7 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager.generate_token.return_value = "abc-123"
         lb = self.LoadBalancer.create.return_value
         host = self.Host.create.return_value
+        host.dns_name = "10.0.0.1"
         dumb_hc = hc.return_value
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.side_effect = Exception("Nginx timeout")
@@ -269,7 +272,7 @@ class ManagerTestCase(unittest.TestCase):
         self.storage.store_le_certificate("x", "foobar.com")
         self.storage.store_le_certificate("x", "example.com")
         self.storage.store_le_certificate("y", "test.com")
-        self.storage.store_acl_network("x", "10.0.0.1", "192.168.1.1")
+        self.storage.store_acl_network("x", "10.0.0.1/32", "192.168.1.1")
         lb = self.LoadBalancer.find.return_value
         host = mock.Mock()
         host.dns_name = "10.0.0.1"
@@ -1003,9 +1006,9 @@ content = location /x {
         acls = self.storage.find_acl_network({"name": "inst"})
         expected_acls = {'_id': 'inst',
                          'acls': [{'destination': ['192.168.0.1', '192.168.0.2'],
-                                   'source': '10.0.0.1'},
+                                   'source': '10.0.0.1/32'},
                                   {'destination': ['192.168.0.1', '192.168.0.2'],
-                                   'source': '10.0.0.2'}]}
+                                   'source': '10.0.0.2/32'}]}
         self.assertEqual(acls, expected_acls)
         manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream',
                                                                            ['192.168.0.1', '192.168.0.2'])
@@ -1025,9 +1028,9 @@ content = location /x {
         acls = self.storage.find_acl_network({"name": "inst"})
         expected_acls = {'_id': 'inst',
                          'acls': [{'destination': ['192.168.0.1'],
-                                   'source': '10.0.0.1'},
+                                   'source': '10.0.0.1/32'},
                                   {'destination': ['192.168.0.1'],
-                                   'source': '10.0.0.2'}]}
+                                   'source': '10.0.0.2/32'}]}
         self.assertEqual(acls, expected_acls)
         manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
 
