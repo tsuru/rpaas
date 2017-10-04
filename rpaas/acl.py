@@ -36,7 +36,7 @@ class AclManager(object):
         self.acl_api_user = config.get("ACL_API_USER")
         self.acl_api_password = config.get("ACL_API_PASSWORD")
         self.acl_api_timeout = int(config.get("ACL_API_TIMEOUT", 30))
-        self.acl_port_range_start = config.get("ACL_PORT_RANGE_START", "32768")
+        self.acl_port_range_start = config.get("ACL_PORT_RANGE_START", "30000")
         self.acl_port_range_end = config.get("ACL_PORT_RANGE_END", "61000")
         self.network_api_url = config.get("NETWORK_API_URL", None)
         self.acl_auth_basic = HTTPBasicAuth(self.acl_api_user, self.acl_api_password)

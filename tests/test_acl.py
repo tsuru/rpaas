@@ -41,7 +41,7 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
         expected_data = {'kind': 'object#acl',
                          'rules': [{'l4-options': {'dest-port-op': 'range',
-                                                   'dest-port-start': '32768',
+                                                   'dest-port-start': '30000',
                                                    'dest-port-end': '61000'},
                                     'protocol': 'tcp',
                                     'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
@@ -82,7 +82,7 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.2")
         expected_data = {'kind': 'object#acl',
                          'rules': [{'l4-options': {'dest-port-op': 'range',
-                                                   'dest-port-start': '32768',
+                                                   'dest-port-start': '30000',
                                                    'dest-port-end': '61000'},
                                     'protocol': 'tcp',
                                     'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
@@ -188,7 +188,7 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager.remove_acl("myrpaas", "10.0.0.1")
         reqs = [mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
                           json={'l4-options': {'dest-port-op': 'range',
-                                               'dest-port-start': '32768',
+                                               'dest-port-start': '30000',
                                                'dest-port-end': '61000'},
                                 'protocol': 'tcp',
                                 'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
@@ -201,7 +201,7 @@ class AclManagerTestCase(unittest.TestCase):
                           timeout=30),
                 mock.call('post', 'http://aclapihost/api/ipv4/acl/search', auth='acluser/aclpassword',
                           json={'l4-options': {'dest-port-op': 'range',
-                                               'dest-port-start': '32768',
+                                               'dest-port-start': '30000',
                                                'dest-port-end': '61000'},
                                 'protocol': 'tcp',
                                 'description': 'permit 10.0.0.1/32 rpaas access for rpaas instance myrpaas',
