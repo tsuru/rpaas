@@ -69,7 +69,7 @@ class AclManager(object):
                 if src == acl['source']:
                     destinations += acl['destination']
             for dst in destinations:
-                request_data = self._request_data("permit", name, src, dst)
+                request_data = self._request_data("permit", name, src, dst, True)
                 for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
                     response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
                     self._check_acl_response(response)
@@ -104,7 +104,7 @@ class AclManager(object):
                     rule_id = rule['id']
                     yield environment_id, vlan_id, rule_id
 
-    def _request_data(self, action, name, src, dst):
+    def _request_data(self, action, name, src, dst, rule_only=False):
         description = "{} {} rpaas access for {} instance {}".format(
             action, src, self.service_name, name
         )
@@ -118,6 +118,8 @@ class AclManager(object):
                                "dest-port-end": self.acl_port_range_end,
                                "dest-port-op": "range"}
                 }
+        if rule_only:
+            return rule
         data['rules'].append(rule)
         return data
 
