@@ -258,28 +258,26 @@ class Manager(object):
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
-    def add_upstream(self, name, upstream_name, server, acl=False):
+    def add_upstream(self, name, upstream_name, servers, acl=False):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         if acl:
             for host in lb.hosts:
-                if isinstance(server, list):
-                    for hostname in server:
-                        dst_host, _ = host_from_destination(hostname)
-                        self.acl_manager.add_acl(name, host.dns_name, dst_host)
-                else:
+                if not isinstance(servers, list):
+                    servers = [servers]
+                for server in servers:
                     dst_host, _ = host_from_destination(server)
                     self.acl_manager.add_acl(name, host.dns_name, dst_host)
-        self.consul_manager.add_server_upstream(name, upstream_name, server)
+        self.consul_manager.add_server_upstream(name, upstream_name, servers)
 
-    def remove_upstream(self, name, upstream_name, server):
+    def remove_upstream(self, name, upstream_name, servers):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.consul_manager.remove_server_upstream(name, upstream_name, server)
+        self.consul_manager.remove_server_upstream(name, upstream_name, servers)
 
     def list_upstreams(self, name, upstream_name):
         self.task_manager.ensure_ready(name)

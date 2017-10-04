@@ -1032,7 +1032,7 @@ content = location /x {
                                   {'destination': ['192.168.0.1'],
                                    'source': '10.0.0.2/32'}]}
         self.assertEqual(acls, expected_acls)
-        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
+        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', ['192.168.0.1'])
 
     @mock.patch("rpaas.acl.AclManager")
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -1047,7 +1047,7 @@ content = location /x {
         manager.consul_manager = mock.Mock()
         manager.add_upstream("inst", "my_upstream", '192.168.0.1', True)
         manager.acl_manager.add_acl.assert_called_once_with('inst', '10.0.0.1', '192.168.0.1')
-        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', '192.168.0.1')
+        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', ['192.168.0.1'])
 
     def test_delete_route_error_task_running(self):
         self.storage.store_task("inst")
