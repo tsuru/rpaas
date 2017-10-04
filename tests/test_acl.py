@@ -32,7 +32,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_without_networkapi(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = '{"jobs": "3"}'
+        response.text = '{"jobs": "3", "result": "success"}'
 
         requests.request.return_value = response
         acl_manager = AclManager(self.config, self.storage)
@@ -59,7 +59,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_using_networkapi(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = '{"jobs": "3"}'
+        response.text = '{"jobs": "3", "result": "success"}'
         requests.request.return_value = response
         config = copy.deepcopy(self.config)
         config.update({'NETWORK_API_URL': 'https://networkapi'})
@@ -108,7 +108,7 @@ class AclManagerTestCase(unittest.TestCase):
                                                     acl_manager.acl_auth_basic.password)
         with self.assertRaises(AclApiError) as cm:
             acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
-        self.assertEqual(cm.exception.message, "no valid json with 'jobs' returned")
+        self.assertEqual(cm.exception.message, "no valid json returned")
 
     @mock.patch("rpaas.acl.requests")
     def test_remove_acl_successfully(self, requests):
@@ -154,7 +154,7 @@ class AclManagerTestCase(unittest.TestCase):
         }]
     }]
 }
-''', '{"job":4}', '{"job":5}', '''
+''', '{"job":4, "result":"success"}', '{"job":5, "result":"success"}', '''
 {
     "envs": [{
         "environment": "123",
@@ -170,7 +170,7 @@ class AclManagerTestCase(unittest.TestCase):
         }]
     }]
 }
-''', '{"job":6}']
+''', '{"job":6, "result":"success"}']
         response_texts.reverse()
         response_side_effects = []
         for _ in range(5):
@@ -216,4 +216,43 @@ class AclManagerTestCase(unittest.TestCase):
         requests.request.assert_has_calls(reqs)
         acls = self.storage.find_acl_network({"name": "myrpaas"})
         expected_acls = {'_id': 'myrpaas', 'acls': [{'source': '10.0.1.2/32', 'destination': ['192.168.1.0/24']}]}
+        self.assertEqual(expected_acls, acls)
+
+    @mock.patch("rpaas.acl.requests")
+    def test_remove_acl_failure(self, requests):
+        response_texts = ['''
+        {
+            "envs": [{
+                "environment": "123",
+                "vlans": [{
+                    "kind": "object#acl",
+                    "environment": "139",
+                    "num_vlan": 250,
+                    "rules": [{
+                        "id": "854",
+                        "source": "10.0.0.1/32",
+                        "destination": "192.168.1.0/24"
+                    }]
+                }]
+            }]
+        }
+        ''', '{"result":"failure"}']
+        response_texts.reverse()
+        response_side_effects = []
+        for _ in range(2):
+            response = mock.Mock()
+            response.status_code = 200
+            response.text = response_texts.pop()
+            response_side_effects.append(response)
+        self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
+        requests.request.side_effect = response_side_effects
+        acl_manager = AclManager(self.config, self.storage)
+        acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
+                                                    acl_manager.acl_auth_basic.password)
+
+        with self.assertRaises(AclApiError) as cm:
+            acl_manager.remove_acl("myrpaas", "10.0.0.1")
+        self.assertEqual(cm.exception.message, "invalid response: failure")
+        acls = self.storage.find_acl_network({"name": "myrpaas"})
+        expected_acls = {'_id': 'myrpaas', 'acls': [{'source': '10.0.0.1/32', 'destination': ['192.168.1.0/24']}]}
         self.assertEqual(expected_acls, acls)

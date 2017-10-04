@@ -57,12 +57,7 @@ class AclManager(object):
             return
         request_data = self._request_data("permit", name, src, dst)
         response = self._make_request("PUT", "api/ipv4/acl/{}".format(src_network), request_data)
-        try:
-            response = json.loads(response)
-            if not response.get("jobs"):
-                raise AclApiError
-        except:
-            raise AclApiError("no valid json with 'jobs' returned")
+        self._check_acl_response(response)
         self.storage.store_acl_network(name, src, dst)
 
     def remove_acl(self, name, src):
@@ -77,13 +72,18 @@ class AclManager(object):
                 request_data = self._request_data("permit", name, src, dst)
                 for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
                     response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
-                    try:
-                        response = json.loads(response)
-                        if not response.get("job"):
-                            raise AclApiError
-                    except:
-                        raise AclApiError("no valid json with 'job' returned")
+                    self._check_acl_response(response)
             self.storage.remove_acl_network(name, src)
+
+    def _check_acl_response(self, response):
+        try:
+            response = json.loads(response)
+            if not response.get("result"):
+                raise ValueError
+            if response['result'] != "success":
+                raise AclApiError("invalid response: {}".format(response['result']))
+        except ValueError:
+            raise AclApiError("no valid json returned")
 
     def _check_acl_exists(self, name, src, dst):
         acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})
