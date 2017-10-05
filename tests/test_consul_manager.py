@@ -393,3 +393,60 @@ class ConsulManagerTestCase(unittest.TestCase):
                                                                      "http://server4:333"])
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(["server1:123"]), servers)
+
+    def test_find_acl_networks_return_empty(self):
+        acls = self.manager.find_acl_network("myrpaas", "10.0.0.1/32")
+        self.assertEqual([], acls)
+
+    def test_find_acl_networks_return_one_dst(self):
+        self.consul.kv.put("test-suite-rpaas/myrpaas/acl/10.0.0.1_32", "192.168.0.0/24")
+        acls = self.manager.find_acl_network("myrpaas", "10.0.0.1/32")
+        self.assertEqual(acls, [{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24']}])
+
+    def test_find_acl_networks_return_many_dst(self):
+        self.consul.kv.put("test-suite-rpaas/myrpaas/acl/10.0.0.1_32", "192.168.0.0/24,10.0.0.0/24")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/acl/10.0.0.2_32", "192.168.1.0/24,10.0.1.0/24")
+        acls = self.manager.find_acl_network("myrpaas", "10.0.0.1/32")
+        self.assertEqual(acls, [{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24', '10.0.0.0/24']}])
+
+    def test_find_acl_networks_return_all_acls(self):
+        self.consul.kv.put("test-suite-rpaas/myrpaas/acl/10.0.0.1_32", "192.168.0.0/24,10.0.0.0/24")
+        self.consul.kv.put("test-suite-rpaas/myrpaas/acl/10.0.0.2_32", "192.168.1.0/24,10.0.0.0/24")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual(acls, [{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24', '10.0.0.0/24']},
+                                {'source': '10.0.0.2/32', 'destination': ['192.168.1.0/24', '10.0.0.0/24']}])
+
+    def test_store_acl_network_successfully(self):
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([], acls)
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24']}], acls)
+
+    def test_store_acl_network_already_exist_entry(self):
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([], acls)
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24']}], acls)
+
+    def test_store_acl_network_append_to_already_exist_src_entry(self):
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([], acls)
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24', '192.168.1.0/24']}], acls)
+
+    def test_remove_acl_network_successfully(self):
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([], acls)
+        self.manager.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
+        self.manager.store_acl_network("myrpaas", "10.0.0.2/32", "192.168.1.0/24")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([{'source': '10.0.0.1/32', 'destination': ['192.168.0.0/24']},
+                          {'source': '10.0.0.2/32', 'destination': ['192.168.1.0/24']}], acls)
+        self.manager.remove_acl_network("myrpaas", "10.0.0.1/32")
+        acls = self.manager.find_acl_network("myrpaas")
+        self.assertEqual([{'source': '10.0.0.2/32', 'destination': ['192.168.1.0/24']}], acls)
