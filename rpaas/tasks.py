@@ -130,9 +130,9 @@ class BaseManagerTask(Task):
         self.lock_manager = lock.Lock(app.backend.client)
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
-        self.acl_manager = acl.Dumb(self.storage)
+        self.acl_manager = acl.Dumb(self.consul_manager)
         if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
-            self.acl_manager = acl.AclManager(config, self.storage)
+            self.acl_manager = acl.AclManager(config, self.consul_manager)
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:
             self.hc = hc.HCAPI(self.storage,
@@ -154,9 +154,9 @@ class BaseManagerTask(Task):
                 self.hc.create(name)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
-            acls = self.storage.find_acl_network({"name": name})
+            acls = self.consul_manager.find_acl_network(name)
             if acls:
-                acl_host = acls['acls'].pop()
+                acl_host = acls.pop()
                 for dst in acl_host['destination']:
                     self.acl_manager.add_acl(name, host.dns_name, dst)
             self.hc.add_url(name, host.dns_name)
@@ -216,6 +216,7 @@ class RemoveInstanceTask(BaseManagerTask):
             raise storage.InstanceNotFoundError()
         for host in lb.hosts:
             self._delete_host(name, host, lb)
+        self.consul_manager.destroy_instance(name)
         lb.destroy()
         for cert in self.storage.find_le_certificates({'name': name}):
             self.storage.remove_le_certificate(name, cert['domain'])

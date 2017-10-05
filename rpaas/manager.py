@@ -33,9 +33,9 @@ class Manager(object):
         self.nginx_manager = nginx.Nginx(config)
         self.task_manager = tasks.TaskManager(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
-        self.acl_manager = acl.Dumb(self.storage)
+        self.acl_manager = acl.Dumb(self.consul_manager)
         if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
-            self.acl_manager = acl.AclManager(config, self.storage)
+            self.acl_manager = acl.AclManager(config, self.consul_manager)
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -82,7 +82,6 @@ class Manager(object):
                 config.update(plan.config)
         if metadata and metadata.get("consul_token"):
             self.consul_manager.destroy_token(metadata["consul_token"])
-        self.consul_manager.destroy_instance(name)
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
@@ -475,7 +474,7 @@ class Manager(object):
 
             try:
                 self.task_manager.create(name)
-                task = tasks.RevokeCertTask().dealy(self.config, name, plugin)
+                task = tasks.RevokeCertTask().delay(self.config, name, plugin)
                 self.task_manager.update(name, task.task_id)
                 return ''
             except Exception:

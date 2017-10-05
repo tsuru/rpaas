@@ -3,6 +3,7 @@
 # license that can be found in the LICENSE file.
 
 import copy
+import consul
 import unittest
 import os
 
@@ -18,9 +19,15 @@ tasks.app.conf.CELERY_ALWAYS_EAGER = True
 class ManagerTestCase(unittest.TestCase):
 
     def setUp(self):
+        self.master_token = "rpaas-test"
         os.environ["MONGO_DATABASE"] = "host_manager_test"
+        os.environ.setdefault("CONSUL_HOST", "127.0.0.1")
+        os.environ.setdefault("CONSUL_TOKEN", self.master_token)
         os.environ.setdefault("RPAAS_SERVICE_NAME", "test-suite-rpaas")
         self.storage = storage.MongoDBStorage()
+        self.consul = consul.Consul(token=self.master_token)
+        self.consul.kv.delete("test-suite-rpaas", recurse=True)
+
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
@@ -36,6 +43,7 @@ class ManagerTestCase(unittest.TestCase):
         self.LoadBalancer = self.lb_patcher.start()
         self.Host = self.host_patcher.start()
         self.config = {
+            "RPAAS_SERVICE_NAME": "test-suite-rpaas",
             "HOST_MANAGER": "my-host-manager",
             "LB_MANAGER": "my-lb-manager",
             "serviceofferingid": "abcdef123459",
@@ -267,18 +275,19 @@ class ManagerTestCase(unittest.TestCase):
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.update_instance("x", "huge")
 
-    def test_remove_instance(self):
+    @mock.patch.object(rpaas.manager.consul_manager.ConsulManager, 'destroy_token', return_value=None)
+    @mock.patch.object(rpaas.tasks.consul_manager.ConsulManager, 'destroy_instance', return_value=None)
+    def test_remove_instance(self, destroy_instance, destroy_token):
         self.storage.store_instance_metadata("x", plan_name="small", consul_token="abc-123")
         self.storage.store_le_certificate("x", "foobar.com")
         self.storage.store_le_certificate("x", "example.com")
         self.storage.store_le_certificate("y", "test.com")
-        self.storage.store_acl_network("x", "10.0.0.1/32", "192.168.1.1")
         lb = self.LoadBalancer.find.return_value
         host = mock.Mock()
         host.dns_name = "10.0.0.1"
         lb.hosts = [host]
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
+        manager.consul_manager.store_acl_network("x", "10.0.0.1/32", "192.168.1.1")
         manager.remove_instance("x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
@@ -290,19 +299,19 @@ class ManagerTestCase(unittest.TestCase):
         self.assertIsNone(self.storage.find_instance_metadata("x"))
         self.assertEquals([cert for cert in self.storage.find_le_certificates({"name": "x"})], [])
         self.assertEquals([cert['name'] for cert in self.storage.find_le_certificates({"name": "y"})][0], "y")
-        manager.consul_manager.destroy_token.assert_called_with("abc-123")
-        manager.consul_manager.destroy_instance.assert_called_with("x")
-        acls = self.storage.find_acl_network({"name": "x"})
-        self.assertEqual(None, acls)
+        destroy_token.assert_called_with("abc-123")
+        destroy_instance.assert_called_with("x")
+        acls = manager.consul_manager.find_acl_network("x")
+        self.assertEqual([], acls)
 
-    def test_remove_instance_no_token(self):
+    @mock.patch.object(rpaas.manager.consul_manager.ConsulManager, 'destroy_token', return_value=None)
+    def test_remove_instance_no_token(self, destroy_token):
         self.storage.store_instance_metadata("x", plan_name="small")
         lb = self.LoadBalancer.find.return_value
         host = mock.Mock()
         host.dns_name = "10.0.0.1"
         lb.hosts = [host]
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
@@ -312,7 +321,7 @@ class ManagerTestCase(unittest.TestCase):
         lb.destroy.assert_called_once()
         self.assertEquals(self.storage.find_task("x").count(), 0)
         self.assertIsNone(self.storage.find_instance_metadata("x"))
-        manager.consul_manager.destroy_token.assert_not_called()
+        destroy_token.assert_not_called()
 
     def test_remove_instance_remove_task_on_exception(self):
         self.storage.store_instance_metadata("x", plan_name="small")
@@ -564,11 +573,11 @@ content = location /x {
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
         self.storage.store_instance_metadata("x", consul_token="abc-123")
-        self.storage.store_acl_network("x", "10.0.0.4/32", "192.168.0.0/24")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
+        manager.consul_manager.store_acl_network("x", "10.0.0.4/32", "192.168.0.0/24")
         hosts = [mock.Mock(), mock.Mock(), mock.Mock()]
         for idx, host in enumerate(hosts):
             host.dns_name = "10.0.0.{}".format(idx + 1)
@@ -583,13 +592,12 @@ content = location /x {
                           mock.call("10.0.0.2", timeout=600),
                           mock.call("10.0.0.3", timeout=600)]
         self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
-        acls = self.storage.find_acl_network({"name": "x"})
+        acls = manager.consul_manager.find_acl_network("x")
         expected_acls = [{'destination': ['192.168.0.0/24'], 'source': '10.0.0.1/32'},
                          {'destination': ['192.168.0.0/24'], 'source': '10.0.0.2/32'},
                          {'destination': ['192.168.0.0/24'], 'source': '10.0.0.3/32'},
                          {'destination': ['192.168.0.0/24'], 'source': '10.0.0.4/32'}]
-        acls['acls'].sort()
-        self.assertEqual(expected_acls, acls['acls'])
+        self.assertEqual(expected_acls, acls)
 
     @mock.patch("rpaas.tasks.nginx")
     def test_scale_instance_up_no_token(self, nginx):
@@ -1012,17 +1020,15 @@ content = location /x {
         lb.hosts = [host1, host2]
 
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
         manager.add_upstream("inst", "my_upstream", ['192.168.0.1', '192.168.0.2'], True)
-        acls = self.storage.find_acl_network({"name": "inst"})
-        expected_acls = {'_id': 'inst',
-                         'acls': [{'destination': ['192.168.0.1', '192.168.0.2'],
-                                   'source': '10.0.0.1/32'},
-                                  {'destination': ['192.168.0.1', '192.168.0.2'],
-                                   'source': '10.0.0.2/32'}]}
+        acls = manager.consul_manager.find_acl_network("inst")
+        expected_acls = [{'destination': ['192.168.0.2', '192.168.0.1'],
+                          'source': '10.0.0.1/32'},
+                         {'destination': ['192.168.0.2', '192.168.0.1'],
+                          'source': '10.0.0.2/32'}]
         self.assertEqual(acls, expected_acls)
-        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream',
-                                                                           ['192.168.0.1', '192.168.0.2'])
+        servers = manager.consul_manager.list_upstream("inst", "my_upstream")
+        self.assertEqual(servers, set(['192.168.0.2', '192.168.0.1']))
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_upstream_single_host(self, LoadBalancer):
@@ -1034,16 +1040,15 @@ content = location /x {
         lb.hosts = [host1, host2]
 
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
         manager.add_upstream("inst", "my_upstream", '192.168.0.1', True)
-        acls = self.storage.find_acl_network({"name": "inst"})
-        expected_acls = {'_id': 'inst',
-                         'acls': [{'destination': ['192.168.0.1'],
-                                   'source': '10.0.0.1/32'},
-                                  {'destination': ['192.168.0.1'],
-                                   'source': '10.0.0.2/32'}]}
+        acls = manager.consul_manager.find_acl_network("inst")
+        expected_acls = [{'destination': ['192.168.0.1'],
+                          'source': '10.0.0.1/32'},
+                         {'destination': ['192.168.0.1'],
+                          'source': '10.0.0.2/32'}]
         self.assertEqual(acls, expected_acls)
-        manager.consul_manager.add_server_upstream.assert_called_once_with('inst', 'my_upstream', ['192.168.0.1'])
+        servers = manager.consul_manager.list_upstream("inst", "my_upstream")
+        self.assertEqual(servers, set(['192.168.0.1']))
 
     @mock.patch("rpaas.acl.AclManager")
     @mock.patch("rpaas.manager.LoadBalancer")

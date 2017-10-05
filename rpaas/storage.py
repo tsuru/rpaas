@@ -239,27 +239,3 @@ class MongoDBStorage(storage.MongoDBStorage):
             certificate["name"] = certificate["_id"]
             del certificate["_id"]
             yield certificate
-
-    def store_acl_network(self, name, src, dst):
-        acl = self.db[self.acls_collection].find_one({"_id": name, "acls.source": src})
-        if not acl:
-            self.db[self.acls_collection].update({"_id": name}, {"$push": {
-                "acls": {
-                    "$each": [{"source": src, "destination": [dst]}]
-                }
-            }}, upsert=True)
-        else:
-            self.db[self.acls_collection].update({"_id": name, "acls.source": src},
-                                                 {"$addToSet": {"acls.$.destination": dst}}, upsert=True)
-
-    def find_acl_network(self, query):
-        if "name" in query:
-            query["_id"] = query["name"]
-            del query["name"]
-        return self.db[self.acls_collection].find_one(query)
-
-    def remove_acl_network(self, name, src):
-        self.db[self.acls_collection].update({"_id": name}, {"$pull": {"acls": {"source": src}}})
-        acls = self.db[self.acls_collection].find_one({"_id": name}, {"acls": 1})
-        if acls and 'acls' in acls and not acls['acls']:
-            self.db[self.acls_collection].remove({"_id": name})

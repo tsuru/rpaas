@@ -62,10 +62,7 @@ class AclManager(object):
 
     def remove_acl(self, name, src):
         src = str(ipaddress.ip_network(unicode(src)))
-        acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})
-        if not acl_data:
-            return
-        acls = acl_data.get('acls')
+        acls = self.storage.find_acl_network(name, src)
         if not acls:
             return
         destinations = []
@@ -88,11 +85,11 @@ class AclManager(object):
             raise AclApiError("no valid json returned")
 
     def _check_acl_exists(self, name, src, dst):
-        acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})
-        if acl_data and 'acls' in acl_data and acl_data['acls']:
-            for acl in acl_data['acls']:
-                if src == acl['source'] and dst in acl['destination']:
-                    return True
+        acl_data = self.storage.find_acl_network(name, src)
+        if not acl_data:
+            return False
+        if dst in acl_data[0]['destination']:
+            return True
         return False
 
     def _iter_on_acl_query_results(self, request_data):

@@ -2,23 +2,25 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import consul
 import copy
 import mock
 import os
 import unittest
 from rpaas.acl import (AclManager, AclApiError)
-from rpaas import storage
+from rpaas import consul_manager
 
 
 class AclManagerTestCase(unittest.TestCase):
 
     def setUp(self):
-        os.environ["MONGO_DATABASE"] = "acl_test"
-        os.environ["RPAAS_SERVICE_NAME"] = "rpaas-acl"
-        self.storage = storage.MongoDBStorage()
-        colls = self.storage.db.collection_names(False)
-        for coll in colls:
-            self.storage.db.drop_collection(coll)
+        self.master_token = "rpaas-test"
+        os.environ.setdefault("RPAAS_SERVICE_NAME", "rpaas-acl")
+        os.environ.setdefault("CONSUL_HOST", "127.0.0.1")
+        os.environ.setdefault("CONSUL_TOKEN", self.master_token)
+        self.consul = consul.Consul(token=self.master_token)
+        self.consul.kv.delete("rpaas-acl", recurse=True)
+        self.storage = consul_manager.ConsulManager(os.environ)
         self.config = {
             "ACL_API_HOST": "http://aclapihost",
             "ACL_API_USER": "acluser",
@@ -26,7 +28,7 @@ class AclManagerTestCase(unittest.TestCase):
         }
 
     def tearDown(self):
-        del os.environ["MONGO_DATABASE"], os.environ["RPAAS_SERVICE_NAME"]
+        del os.environ["RPAAS_SERVICE_NAME"]
 
     @mock.patch("rpaas.acl.requests")
     def test_add_acl_without_networkapi(self, requests):
@@ -50,9 +52,8 @@ class AclManagerTestCase(unittest.TestCase):
                                     'action': 'permit'}]}
         requests.request.assert_called_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.1/32',
                                             auth="acluser/aclpassword", json=expected_data, timeout=30)
-        data = self.storage.find_acl_network({"name": "myrpaas"})
-        expected_storage = {'_id': 'myrpaas', 'acls': [{'destination': ['192.168.0.1/24'],
-                                                        'source': '10.0.0.1/32'}]}
+        data = self.storage.find_acl_network("myrpaas")
+        expected_storage = [{'destination': ['192.168.0.1/24'], 'source': '10.0.0.1/32'}]
         self.assertEqual(data, expected_storage)
 
     @mock.patch("rpaas.acl.requests")
@@ -91,9 +92,8 @@ class AclManagerTestCase(unittest.TestCase):
                                     'action': 'permit'}]}
         requests.request.assert_called_once_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.0/27',
                                                  auth="acluser/aclpassword", json=expected_data, timeout=30)
-        data = self.storage.find_acl_network({"name": "myrpaas"})
-        expected_storage = {'_id': 'myrpaas', 'acls': [{'destination': ['192.168.0.0/24'],
-                                                        'source': '10.0.0.1/32'}]}
+        data = self.storage.find_acl_network("myrpaas")
+        expected_storage = [{'destination': ['192.168.0.0/24'], 'source': '10.0.0.1/32'}]
         self.assertEqual(data, expected_storage)
 
     @mock.patch("rpaas.acl.requests")
@@ -212,8 +212,8 @@ class AclManagerTestCase(unittest.TestCase):
                           timeout=30)
                 ]
         requests.request.assert_has_calls(reqs)
-        acls = self.storage.find_acl_network({"name": "myrpaas"})
-        expected_acls = {'_id': 'myrpaas', 'acls': [{'source': '10.0.1.2/32', 'destination': ['192.168.1.0/24']}]}
+        acls = self.storage.find_acl_network("myrpaas")
+        expected_acls = [{'source': '10.0.1.2/32', 'destination': ['192.168.1.0/24']}]
         self.assertEqual(expected_acls, acls)
 
     @mock.patch("rpaas.acl.requests")
@@ -251,6 +251,6 @@ class AclManagerTestCase(unittest.TestCase):
         with self.assertRaises(AclApiError) as cm:
             acl_manager.remove_acl("myrpaas", "10.0.0.1")
         self.assertEqual(cm.exception.message, "invalid response: failure")
-        acls = self.storage.find_acl_network({"name": "myrpaas"})
-        expected_acls = {'_id': 'myrpaas', 'acls': [{'source': '10.0.0.1/32', 'destination': ['192.168.1.0/24']}]}
+        acls = self.storage.find_acl_network("myrpaas")
+        expected_acls = [{'source': '10.0.0.1/32', 'destination': ['192.168.1.0/24']}]
         self.assertEqual(expected_acls, acls)
