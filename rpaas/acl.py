@@ -63,17 +63,19 @@ class AclManager(object):
     def remove_acl(self, name, src):
         src = str(ipaddress.ip_network(unicode(src)))
         acl_data = self.storage.find_acl_network({"name": name, "acls.source": src})
-        if acl_data and 'acls' in acl_data and acl_data['acls']:
-            destinations = []
-            for acl in acl_data['acls']:
-                if src == acl['source']:
-                    destinations += acl['destination']
-            for dst in destinations:
-                request_data = self._request_data("permit", name, src, dst, True)
-                for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
-                    response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
-                    self._check_acl_response(response)
-            self.storage.remove_acl_network(name, src)
+        if not acl_data:
+            return
+        acls = acl_data.get('acls')
+        if not acls:
+            return
+        destinations = []
+        destinations += [dst for acl in acls if src == acl['source'] for dst in acl['destination']]
+        for dst in destinations:
+            request_data = self._request_data("permit", name, src, dst, True)
+            for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
+                response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
+                self._check_acl_response(response)
+        self.storage.remove_acl_network(name, src)
 
     def _check_acl_response(self, response):
         try:
