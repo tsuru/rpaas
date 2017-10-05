@@ -579,7 +579,6 @@ content = location /x {
         lb.add_host.assert_has_calls([mock.call(host) for host in hosts])
         self.assertEqual(lb.add_host.call_count, 3)
         nginx_manager = nginx.Nginx.return_value
-        created_host = self.Host.create.return_value
         expected_calls = [mock.call("10.0.0.1", timeout=600),
                           mock.call("10.0.0.2", timeout=600),
                           mock.call("10.0.0.3", timeout=600)]
