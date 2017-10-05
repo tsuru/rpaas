@@ -564,21 +564,33 @@ content = location /x {
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
         self.storage.store_instance_metadata("x", consul_token="abc-123")
+        self.storage.store_acl_network("x", "10.0.0.4/32", "192.168.0.0/24")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
+        hosts = [mock.Mock(), mock.Mock(), mock.Mock()]
+        for idx, host in enumerate(hosts):
+            host.dns_name = "10.0.0.{}".format(idx + 1)
+        self.Host.create.side_effect = hosts
         manager.scale_instance("x", 5)
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.assertEqual(self.Host.create.call_count, 3)
-        lb.add_host.assert_called_with(self.Host.create.return_value)
+        lb.add_host.assert_has_calls([mock.call(host) for host in hosts])
         self.assertEqual(lb.add_host.call_count, 3)
         nginx_manager = nginx.Nginx.return_value
         created_host = self.Host.create.return_value
-        expected_calls = [mock.call(created_host.dns_name, timeout=600),
-                          mock.call(created_host.dns_name, timeout=600),
-                          mock.call(created_host.dns_name, timeout=600)]
+        expected_calls = [mock.call("10.0.0.1", timeout=600),
+                          mock.call("10.0.0.2", timeout=600),
+                          mock.call("10.0.0.3", timeout=600)]
         self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
+        acls = self.storage.find_acl_network({"name": "x"})
+        expected_acls = [{'destination': ['192.168.0.0/24'], 'source': '10.0.0.1/32'},
+                         {'destination': ['192.168.0.0/24'], 'source': '10.0.0.2/32'},
+                         {'destination': ['192.168.0.0/24'], 'source': '10.0.0.3/32'},
+                         {'destination': ['192.168.0.0/24'], 'source': '10.0.0.4/32'}]
+        acls['acls'].sort()
+        self.assertEqual(expected_acls, acls['acls'])
 
     @mock.patch("rpaas.tasks.nginx")
     def test_scale_instance_up_no_token(self, nginx):

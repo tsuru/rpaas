@@ -154,6 +154,11 @@ class BaseManagerTask(Task):
                 self.hc.create(name)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
+            acls = self.storage.find_acl_network({"name": name})
+            if acls:
+                acl_host = acls['acls'].pop()
+                for dst in acl_host['destination']:
+                    self.acl_manager.add_acl(name, host.dns_name, dst)
             self.hc.add_url(name, host.dns_name)
         except:
             exc_info = sys.exc_info()
