@@ -32,7 +32,6 @@ class MongoDBStorage(storage.MongoDBStorage):
     quota_collection = "quota"
     le_certificates_collection = "le_certificates"
     healing_collection = "healing"
-    acls_collection = "acls"
 
     def store_hc(self, hc):
         self.db[self.hcs_collections].update({"_id": hc["_id"]}, hc, upsert=True)
