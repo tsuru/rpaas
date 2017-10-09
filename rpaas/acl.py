@@ -65,8 +65,7 @@ class AclManager(object):
         acls = self.storage.find_acl_network(name, src)
         if not acls:
             return
-        destinations = []
-        destinations += [dst for acl in acls if src == acl['source'] for dst in acl['destination']]
+        destinations = [dst for acl in acls if src == acl['source'] for dst in acl['destination']]
         for dst in destinations:
             request_data = self._request_data("permit", name, src, dst, True)
             for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
