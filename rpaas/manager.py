@@ -171,7 +171,10 @@ class Manager(object):
                 return
             if bound_host is not None:
                 raise BindError("This service can only be bound to one application.")
-        self.consul_manager.write_location(name, "/", destination=app_host, router_mode=router_mode)
+        if not router_mode:
+            bind_mode = True
+        self.consul_manager.write_location(name, "/", destination=app_host, router_mode=router_mode,
+                                           bind_mode=bind_mode)
         self.storage.store_binding(name, app_host)
 
     def unbind(self, name):
@@ -185,7 +188,7 @@ class Manager(object):
         bound_host = binding_data.get("app_host")
         self.storage.remove_root_binding(name)
         self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
-        self.consul_manager.remove_server_upstream(name, bound_host, bound_host)
+        self.consul_manager.remove_server_upstream(name, "rpaas_default_upstream", bound_host)
 
     def info(self, name):
         addr = self._get_address(name)

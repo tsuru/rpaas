@@ -109,6 +109,16 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/myapp.tsuru.io")
         self.assertEqual("myapp.tsuru.io", item[1]["Value"])
 
+    def test_write_location_root_bind_mode(self):
+        self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io", bind_mode=True)
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
+        expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/",
+                                                                host="http://myapp.tsuru.io",
+                                                                upstream="rpaas_default_upstream")
+        self.assertEqual(expected, item[1]["Value"])
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/rpaas_default_upstream")
+        self.assertEqual("myapp.tsuru.io", item[1]["Value"])
+
     def test_write_location_root_router_mode(self):
         self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", router_mode=True)
         item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/locations/ROOT")

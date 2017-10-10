@@ -78,12 +78,14 @@ class ConsulManager(object):
                 node_status_list[node_server_name] = node['Value']
         return node_status_list
 
-    def write_location(self, instance_name, path, destination=None, content=None, router_mode=False):
+    def write_location(self, instance_name, path, destination=None, content=None, router_mode=False, bind_mode=False):
         if content:
             content = content.strip()
         else:
             upstream, _ = self._host_from_destination(destination)
             upstream_server = upstream
+            if bind_mode:
+                upstream = "rpaas_default_upstream"
             content = self.config_manager.generate_host_config(path, destination, upstream, router_mode)
             if router_mode:
                 upstream_server = None
