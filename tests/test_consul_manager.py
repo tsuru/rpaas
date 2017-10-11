@@ -293,6 +293,13 @@ class ConsulManagerTestCase(unittest.TestCase):
 \n-- End custom RpaaS some_module lua module --"""
         self.assertEqual(item[1]['Value'], empty_block_value)
 
+    def test_remove_lua_module_non_existent_block(self):
+        self.manager.remove_lua("myrpaas", "some_module", "server")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/lua_module/server/some_module")
+        empty_block_value = """-- Begin custom RpaaS some_module lua module --
+\n-- End custom RpaaS some_module lua module --"""
+        self.assertEqual(item[1]['Value'], empty_block_value)
+
     def test_upstream_add_to_empty_upstrem(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
