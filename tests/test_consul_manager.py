@@ -20,8 +20,15 @@ class ConsulManagerTestCase(unittest.TestCase):
         os.environ.setdefault("CONSUL_TOKEN", self.master_token)
         self.consul = consul.Consul(token=self.master_token)
         self.consul.kv.delete("test-suite-rpaas", recurse=True)
+        self.consul.kv.put("test-suite-rpaas/myrpaas/safe_key", "x")
+        self.ignore_safe_key = False
         self._remove_tokens()
         self.manager = consul_manager.ConsulManager(os.environ)
+
+    def tearDown(self):
+        if not self.ignore_safe_key:
+            value = self.consul.kv.get("test-suite-rpaas/myrpaas/safe_key")[1]['Value']
+            self.assertEqual(value, "x")
 
     def _remove_tokens(self):
         for token in self.consul.acl.list():
@@ -50,6 +57,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertIsNone(item[1])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         self.assertIsNone(item[1])
+        self.ignore_safe_key = True
 
     def test_remove_node(self):
         self.consul.kv.put("test-suite-rpaas/myrpaas/status/test-server", "service OK")
@@ -110,13 +118,13 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual("myapp.tsuru.io", item[1]["Value"])
 
     def test_write_location_root_router_mode(self):
-        self.manager.write_location("router-myrpaas", "/", destination="router-myrpaas", router_mode=True)
-        item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/locations/ROOT")
+        self.manager.write_location("myrpaas", "/", destination="router-myrpaas", router_mode=True)
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = nginx.NGINX_LOCATION_TEMPLATE_ROUTER.format(path="/",
                                                                host="router-myrpaas",
                                                                upstream="router-myrpaas")
         self.assertEqual(expected, item[1]["Value"])
-        item = self.consul.kv.get("test-suite-rpaas/router-myrpaas/upstream/router-myrpaas")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/router-myrpaas")
         self.assertEqual(None, item[1])
 
     def test_write_location_non_root(self):
