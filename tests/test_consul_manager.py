@@ -332,6 +332,12 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
         self.assertEqual("server1,server3", item[1]["Value"])
 
+    def test_upstream_remove_delete_empty_upstream_after_last_server_removed(self):
+        self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
+        self.manager.remove_server_upstream("myrpaas", "upstream1", "server1")
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
+        self.assertEqual(None, item[1])
+
     def test_upstream_remove_server_not_found_on_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
