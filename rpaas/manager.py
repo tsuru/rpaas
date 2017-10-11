@@ -171,8 +171,7 @@ class Manager(object):
                 return
             if bound_host is not None:
                 raise BindError("This service can only be bound to one application.")
-        if not router_mode:
-            bind_mode = True
+        bind_mode = not router_mode
         self.consul_manager.write_location(name, "/", destination=app_host, router_mode=router_mode,
                                            bind_mode=bind_mode)
         self.storage.store_binding(name, app_host)
