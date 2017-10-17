@@ -96,7 +96,7 @@ class ConsulManager(object):
         self.client.kv.delete(self._location_key(instance_name, path))
 
     def write_block(self, instance_name, block_name, content):
-        content = self._block_header_footer(content, block_name)
+        content = self._set_header_footer(content, block_name)
         self.client.kv.put(self._block_key(instance_name, block_name), content)
 
     def remove_block(self, instance_name, block_name):
@@ -109,13 +109,13 @@ class ConsulManager(object):
         if blocks[1]:
             for block in blocks[1]:
                 block_name = block['Key'].split('/')[-2]
-                block_value = self._block_header_footer(block['Value'], block_name,  True)
+                block_value = self._set_header_footer(block['Value'], block_name, True)
                 if not block_value:
                     continue
                 block_list.append({'block_name': block_name, 'content': block_value})
         return block_list
 
-    def _block_header_footer(self, content, block_name, remove=False):
+    def _set_header_footer(self, content, block_name, remove=False):
         begin_block = "## Begin custom RpaaS {} block ##\n".format(block_name)
         end_block = "## End custom RpaaS {} block ##".format(block_name)
         if remove:
@@ -189,16 +189,19 @@ class ConsulManager(object):
         return urlparse.urlparse(destination).hostname, urlparse.urlparse(destination).port
 
     def _remove_upstream(self, instance_name, upstream_name):
-        self.client.kv.delete(self._upstream_key(instance_name, upstream_name))
+        content = self._set_header_footer(None, upstream_name)
+        self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
 
     def list_upstream(self, instance_name, upstream_name):
         servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
         if servers:
-            return set(servers["Value"].split(","))
+            servers = self._set_header_footer(servers["Value"], upstream_name, True)
+            return set(servers.split(","))
         return set()
 
     def _save_upstream(self, instance_name, upstream_name, servers):
-        self.client.kv.put(self._upstream_key(instance_name, upstream_name), ",".join(servers))
+        content = self._set_header_footer(",".join(servers), upstream_name)
+        self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
 
     def get_certificate(self, instance_name, host_id=None):
         cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]

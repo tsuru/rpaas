@@ -114,8 +114,8 @@ class ConsulManagerTestCase(unittest.TestCase):
                                                                 host="http://myapp.tsuru.io",
                                                                 upstream="myapp.tsuru.io")
         self.assertEqual(expected, item[1]["Value"])
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/myapp.tsuru.io")
-        self.assertEqual("myapp.tsuru.io", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "myapp.tsuru.io")
+        self.assertEqual(set(["myapp.tsuru.io"]), servers)
 
     def test_write_location_root_bind_mode(self):
         self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io", bind_mode=True)
@@ -125,7 +125,8 @@ class ConsulManagerTestCase(unittest.TestCase):
                                                                 upstream="rpaas_default_upstream")
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/rpaas_default_upstream")
-        self.assertEqual("myapp.tsuru.io", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "rpaas_default_upstream")
+        self.assertEqual(set(["myapp.tsuru.io"]), servers)
 
     def test_write_location_root_router_mode(self):
         self.manager.write_location("myrpaas", "/", destination="router-myrpaas", router_mode=True)
@@ -312,58 +313,58 @@ class ConsulManagerTestCase(unittest.TestCase):
 
     def test_upstream_add_to_empty_upstrem(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1"]), servers)
 
     def test_upstream_add_existing_server_to_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1"]), servers)
 
     def test_upstream_add_bulk_to_existing_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.add_server_upstream("myrpaas", "upstream1", ["server1", "server2", "server3"])
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1,server2,server3", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1", "server2", "server3"]), servers)
 
     def test_upstream_add_bulk_urls_to_existing_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "http://server1:123")
         self.manager.add_server_upstream("myrpaas", "upstream1", ["http://server1:123", "http://server2:456",
                                                                   "http://server3:789"])
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server3:789,server2:456,server1:123", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server3:789", "server2:456", "server1:123"]), servers)
 
     def test_upstream_remove_server_from_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.add_server_upstream("myrpaas", "upstream1", "server2")
         self.manager.add_server_upstream("myrpaas", "upstream1", "server3")
         self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1,server3", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1", "server3"]), servers)
 
     def test_upstream_remove_delete_empty_upstream_after_last_server_removed(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.remove_server_upstream("myrpaas", "upstream1", "server1")
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual(None, item[1])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(['']), servers)
 
     def test_upstream_remove_server_not_found_on_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", "server1")
         self.manager.remove_server_upstream("myrpaas", "upstream1", "server2")
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1"]), servers)
 
     def test_upstream_remove_bulk_to_existing_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", ["server1", "server2", "server3"])
         self.manager.remove_server_upstream("myrpaas", "upstream1", ["server2", "server3", "server4"])
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1"]), servers)
 
     def test_upstream_remove_bulk_urls_on_existing_upstream(self):
         self.manager.add_server_upstream("myrpaas", "upstream1", ["http://server1:123", "http://server2:456",
                                                                   "http://server3:789"])
         self.manager.remove_server_upstream("myrpaas", "upstream1", ["http://server2:456", "http://server3:789",
                                                                      "http://server4:333"])
-        item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        self.assertEqual("server1:123", item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "upstream1")
+        self.assertEqual(set(["server1:123"]), servers)
