@@ -3,7 +3,6 @@
 # license that can be found in the LICENSE file.
 
 import ipaddress
-import json
 import requests
 from networkapiclient import (Ip, Network)
 from requests.auth import HTTPBasicAuth
@@ -24,6 +23,10 @@ class Dumb(object):
 
 
 class AclApiError(Exception):
+    pass
+
+
+class AclNotFound(Exception):
     pass
 
 
@@ -84,6 +87,8 @@ class AclManager(object):
                         response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
                         self._check_acl_response(response)
                         self.storage.remove_acl_network(name, src)
+                    except AclNotFound:
+                        self.storage.remove_acl_network(name, src)
                     finally:
                         self.lock_manager.unlock(instance_lock)
                 else:
@@ -91,11 +96,15 @@ class AclManager(object):
 
     def _check_acl_response(self, response):
         try:
-            response = json.loads(response)
-            if not response.get("result"):
-                raise ValueError
-            if response['result'] != "success":
-                raise AclApiError("invalid response: {}".format(response['result']))
+            response.encoding = 'utf-8'
+            if response.status_code in [400, 404] and response.json().get('message') == "Acesso nao existe!":
+                raise AclNotFound()
+            if response.status_code not in [200, 201]:
+                raise AclApiError(
+                    "Error applying ACL: {}: {}".format(response.url, response.text.encode('utf-8')))
+            if response.json().get('result') and response.json()['result'] != "success":
+                raise AclApiError("invalid response: {}".format(response.json()['result']))
+            return response.json()
         except ValueError:
             raise AclApiError("no valid json returned")
 
@@ -109,7 +118,7 @@ class AclManager(object):
 
     def _iter_on_acl_query_results(self, request_data):
         response = self._make_request("POST", "api/ipv4/acl/search", request_data)
-        query_results = json.loads(response)
+        query_results = self._check_acl_response(response)
         for environment in query_results.get('envs', []):
             for vlan in environment.get('vlans', []):
                 environment_id = vlan['environment']
@@ -142,12 +151,8 @@ class AclManager(object):
         url = "{}/{}".format(self.acl_api_host, path)
         if data:
             params['json'] = data
-        rsp = requests.request(method.lower(), url, timeout=self.acl_api_timeout,
-                               auth=self.acl_auth_basic, **params)
-        if rsp.status_code not in [200, 201, 400, 404]:
-            raise AclApiError(
-                "Error applying ACL: {}: {}".format(url, rsp.text.encode('utf-8')))
-        return rsp.text.encode('utf-8')
+        return requests.request(method.lower(), url, timeout=self.acl_api_timeout,
+                                auth=self.acl_auth_basic, **params)
 
     def _get_network_from_ip(self, ip):
         if not self.network_api_url:

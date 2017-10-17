@@ -8,6 +8,7 @@ import mock
 import os
 import redis
 import unittest
+import json
 from rpaas.acl import (AclManager, AclApiError)
 from rpaas import consul_manager, lock
 
@@ -40,7 +41,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_without_networkapi(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = '{"jobs": "3", "result": "success"}'
+        response.json.return_value = {"jobs": "3", "result": "success"}
 
         requests.request.return_value = response
         acl_manager = AclManager(self.config, self.storage, self.lock_manager)
@@ -66,7 +67,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_using_networkapi(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = '{"jobs": "3", "result": "success"}'
+        response.json.return_value = {"jobs": "3", "result": "success"}
         requests.request.return_value = response
         config = copy.deepcopy(self.config)
         config.update({'NETWORK_API_URL': 'https://networkapi'})
@@ -106,7 +107,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_invalid_job_returned(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = "invalid json"
+        response.json.side_effect = ValueError("invalid json")
 
         requests.request.return_value = response
         acl_manager = AclManager(self.config, self.storage, self.lock_manager)
@@ -120,7 +121,7 @@ class AclManagerTestCase(unittest.TestCase):
     def test_add_acl_lock_failure(self, requests):
         response = mock.Mock()
         response.status_code = 200
-        response.text = '{"jobs": "3", "result": "success"}'
+        response.json.return_value = {"jobs": "3", "result": "success"}
 
         requests.request.return_value = response
         acl_manager = AclManager(self.config, self.storage, self.lock_manager)
@@ -184,7 +185,7 @@ class AclManagerTestCase(unittest.TestCase):
         for _ in range(3):
             response = mock.Mock()
             response.status_code = 200
-            response.text = response_texts.pop()
+            response.json.return_value = json.loads(response_texts.pop())
             response_side_effects.append(response)
         requests.request.side_effect = response_side_effects
 
@@ -270,7 +271,7 @@ class AclManagerTestCase(unittest.TestCase):
         for _ in range(5):
             response = mock.Mock()
             response.status_code = 200
-            response.text = response_texts.pop()
+            response.json.return_value = json.loads(response_texts.pop())
             response_side_effects.append(response)
         self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.0.0/24")
         self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
@@ -334,7 +335,7 @@ class AclManagerTestCase(unittest.TestCase):
         for _ in range(2):
             response = mock.Mock()
             response.status_code = 200
-            response.text = response_texts.pop()
+            response.json.return_value = json.loads(response_texts.pop())
             response_side_effects.append(response)
         self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
         requests.request.side_effect = response_side_effects
@@ -348,3 +349,38 @@ class AclManagerTestCase(unittest.TestCase):
         acls = self.storage.find_acl_network("myrpaas")
         expected_acls = [{'source': '10.0.0.1/32', 'destination': ['192.168.1.0/24']}]
         self.assertEqual(expected_acls, acls)
+
+    @mock.patch("rpaas.acl.requests")
+    def test_remove_acl_not_found_on_api(self, requests):
+        response_texts = ['''
+        {
+            "envs": [{
+                "environment": "123",
+                "vlans": [{
+                    "kind": "object#acl",
+                    "environment": "139",
+                    "num_vlan": 250,
+                    "rules": [{
+                        "id": "854",
+                        "source": "10.0.0.1/32",
+                        "destination": "192.168.1.0/24"
+                    }]
+                }]
+            }]
+        }
+        ''', '{"result":"failure", "message":"Acesso nao existe!"}']
+        response_texts.reverse()
+        response_side_effects = []
+        for i in range(2):
+            response = mock.Mock()
+            response.status_code = (200 * (i + 1))
+            response.json.return_value = json.loads(response_texts.pop())
+            response_side_effects.append(response)
+        self.storage.store_acl_network("myrpaas", "10.0.0.1/32", "192.168.1.0/24")
+        requests.request.side_effect = response_side_effects
+        acl_manager = AclManager(self.config, self.storage, self.lock_manager)
+        acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
+                                                    acl_manager.acl_auth_basic.password)
+        acl_manager.remove_acl("myrpaas", "10.0.0.1")
+        acls = self.storage.find_acl_network("myrpaas")
+        self.assertEqual([], acls)
