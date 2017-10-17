@@ -18,7 +18,8 @@ from hm import config
 from hm.model.host import Host
 from hm.model.load_balancer import LoadBalancer
 
-from rpaas import consul_manager, hc, nginx, sslutils, ssl_plugins, storage, celery_sentinel, lock, acl
+from rpaas import (consul_manager, hc, nginx, sslutils, ssl_plugins,
+                   storage, celery_sentinel, acl, lock)
 from rpaas.misc import check_option_enable
 
 possible_redis_envs = ['SENTINEL_ENDPOINT', 'DBAAS_SENTINEL_ENDPOINT', 'REDIS_ENDPOINT']
@@ -132,7 +133,7 @@ class BaseManagerTask(Task):
         self.storage = storage.MongoDBStorage(config)
         self.acl_manager = acl.Dumb(self.consul_manager)
         if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
-            self.acl_manager = acl.AclManager(config, self.consul_manager)
+            self.acl_manager = acl.AclManager(config, self.consul_manager, lock.Lock(app.backend.client))
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:
             self.hc = hc.HCAPI(self.storage,
@@ -258,12 +259,12 @@ class RestoreMachineTask(BaseManagerTask):
                     start_time = datetime.datetime.utcnow()
                     self._restore_machine(task, config, healthcheck_timeout)
                     elapsed_time = datetime.datetime.utcnow() - start_time
-                    self.lock_manager.extend_lock(extra_time=elapsed_time.seconds)
+                    self.lock_manager.extend_lock(lock_name, extra_time=elapsed_time.seconds)
                 except Exception as e:
                     self.storage.update_task(task['_id'], {"last_attempt": datetime.datetime.utcnow()})
-                    self.lock_manager.unlock()
+                    self.lock_manager.unlock(lock_name)
                     raise e
-            self.lock_manager.unlock()
+            self.lock_manager.unlock(lock_name)
 
     def _restore_machine(self, task, config, healthcheck_timeout):
         retry_failure_delay = int(self.config.get("RESTORE_MACHINE_FAILURE_DELAY", 5))
@@ -408,8 +409,9 @@ class SessionResumptionTask(BaseManagerTask):
                 try:
                     self.rotate_session_ticket(lb.hosts)
                 except Exception as e:
-                    self.lock_manager.unlock()
                     logging.error("Error renewing session ticket for {}: {}".format(lb.name, repr(e)))
+                finally:
+                    self.lock_manager.unlock(lock_name)
 
     def rotate_session_ticket(self, hosts):
         session_ticket = sslutils.generate_session_ticket()

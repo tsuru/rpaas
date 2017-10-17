@@ -137,13 +137,13 @@ class SessionResumptionTestCase(unittest.TestCase):
         cert_a, key_a = self.consul_manager.get_certificate("instance-a", "xxx")
         cert_b, key_b = self.consul_manager.get_certificate("instance-b", "bbb")
         redis.StrictRedis().delete("session_resumption:test_rpaas_session_resumption:last_run")
-        redis.StrictRedis().delete("session_resumption:test_rpaas_session_resumption:instance:instance-a")
         nginx_manager.reset_mock()
         session = session_resumption.SessionResumption(self.config)
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30)]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30),
+                                call('10.2.2.2', 'ticket4', 30), call('10.2.2.3', 'ticket4', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         self.assertTupleEqual((cert_a, key_a), self.consul_manager.get_certificate("instance-a", "xxx"))
         self.assertTupleEqual((cert_b, key_b), self.consul_manager.get_certificate("instance-b", "bbb"))
@@ -180,7 +180,7 @@ class SessionResumptionTestCase(unittest.TestCase):
         lb1.hosts = [HostFake("xxx", "instance-a", "10.1.1.1"), lb1_host2]
         lb2.hosts = [HostFake("aaa", "instance-b", "10.2.2.2"), HostFake("bbb", "instance-b", "10.2.2.3")]
         load_balancer.list.return_value = [lb1, lb2]
-        ticket.side_effect = ["ticket1", "ticket2", "ticket3"]
+        ticket.side_effect = ["ticket1", "ticket2", "ticket3", "ticket4"]
         session = session_resumption.SessionResumption(self.config)
         session.start()
         time.sleep(1)
@@ -195,7 +195,8 @@ class SessionResumptionTestCase(unittest.TestCase):
         session.start()
         time.sleep(1)
         session.stop()
-        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30)]
+        nginx_expected_calls = [call('10.1.1.1', 'ticket3', 30), call('10.1.1.2', 'ticket3', 30),
+                                call('10.2.2.2', 'ticket4', 30), call('10.2.2.3', 'ticket4', 30)]
         self.assertEqual(nginx_expected_calls, nginx_manager.add_session_ticket.call_args_list)
         error_msg = "Error renewing session ticket for instance-a: AttributeError('dns_name not defined',)"
         logging.error.assert_called_with(error_msg)

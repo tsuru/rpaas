@@ -29,7 +29,7 @@ class AclApiError(Exception):
 
 class AclManager(object):
 
-    def __init__(self, config, storage):
+    def __init__(self, config, storage, lock_manager):
         self.storage = storage
         self.service_name = config.get("RPAAS_SERVICE_NAME", "rpaas")
         self.acl_api_host = config.get("ACL_API_HOST")
@@ -40,6 +40,8 @@ class AclManager(object):
         self.acl_port_range_end = config.get("ACL_PORT_RANGE_END", "61000")
         self.network_api_url = config.get("NETWORK_API_URL", None)
         self.acl_auth_basic = HTTPBasicAuth(self.acl_api_user, self.acl_api_password)
+        self.lock_manager = lock_manager
+        self.lock_name = "acl_manager:{}".format(self.service_name)
         if self.network_api_url:
             self.network_api_username = config.get("NETWORK_API_USERNAME")
             self.network_api_password = config.get("NETWORK_API_PASSWORD")
@@ -56,9 +58,16 @@ class AclManager(object):
         if self._check_acl_exists(name, src, dst):
             return
         request_data = self._request_data("permit", name, src, dst)
-        response = self._make_request("PUT", "api/ipv4/acl/{}".format(src_network), request_data)
-        self._check_acl_response(response)
-        self.storage.store_acl_network(name, src, dst)
+        instance_lock = "{}:{}".format(self.lock_name, name)
+        if self.lock_manager.lock(instance_lock, timeout=(self.acl_api_timeout * 2)):
+            try:
+                response = self._make_request("PUT", "api/ipv4/acl/{}".format(src_network), request_data)
+                self._check_acl_response(response)
+                self.storage.store_acl_network(name, src, dst)
+            finally:
+                self.lock_manager.unlock(instance_lock)
+        else:
+            raise AclApiError("could not get lock for {} instance".format(name))
 
     def remove_acl(self, name, src):
         src = str(ipaddress.ip_network(unicode(src)))
@@ -69,9 +78,16 @@ class AclManager(object):
         for dst in destinations:
             request_data = self._request_data("permit", name, src, dst, True)
             for env, vlan, acl_id in self._iter_on_acl_query_results(request_data):
-                response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
-                self._check_acl_response(response)
-        self.storage.remove_acl_network(name, src)
+                instance_lock = "{}:{}".format(self.lock_name, name)
+                if self.lock_manager.lock(instance_lock, timeout=(self.acl_api_timeout * 2)):
+                    try:
+                        response = self._make_request("DELETE", "api/ipv4/acl/{}/{}/{}".format(env, vlan, acl_id), None)
+                        self._check_acl_response(response)
+                        self.storage.remove_acl_network(name, src)
+                    finally:
+                        self.lock_manager.unlock(instance_lock)
+                else:
+                    raise AclApiError("could not get lock for {} instance".format(name))
 
     def _check_acl_response(self, response):
         try:
