@@ -196,6 +196,8 @@ class ConsulManager(object):
         servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
         if servers:
             servers = self._set_header_footer(servers["Value"], upstream_name, True)
+            if servers == "":
+                return set()
             return set(servers.split(","))
         return set()
 
