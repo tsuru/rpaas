@@ -17,7 +17,7 @@ from hm.model.load_balancer import LoadBalancer
 from celery.utils import uuid
 
 from rpaas import (consul_manager, nginx, sslutils, ssl_plugins,
-                   storage, tasks, acl)
+                   storage, tasks, acl, lock)
 from rpaas.misc import check_option_enable, host_from_destination
 
 PENDING = "pending"
@@ -35,7 +35,7 @@ class Manager(object):
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
         self.acl_manager = acl.Dumb(self.consul_manager)
         if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
-            self.acl_manager = acl.AclManager(config, self.consul_manager)
+            self.acl_manager = acl.AclManager(config, self.consul_manager, lock.Lock(tasks.app.backend.client))
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
