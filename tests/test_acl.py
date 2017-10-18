@@ -47,20 +47,20 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager = AclManager(self.config, self.storage, self.lock_manager)
         acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
                                                     acl_manager.acl_auth_basic.password)
-        acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
+        acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.0/24")
         expected_data = {'kind': 'object#acl',
                          'rules': [{'l4-options': {'dest-port-op': 'range',
                                                    'dest-port-start': '30000',
                                                    'dest-port-end': '61000'},
                                     'protocol': 'tcp',
                                     'description': 'permit 10.0.0.1/32 rpaas access for rpaas-acl instance myrpaas',
-                                    'destination': '192.168.0.1/24',
+                                    'destination': '192.168.0.0/24',
                                     'source': '10.0.0.1/32',
                                     'action': 'permit'}]}
         requests.request.assert_called_with("put", 'http://aclapihost/api/ipv4/acl/10.0.0.1/32',
                                             auth="acluser/aclpassword", json=expected_data, timeout=30)
         data = self.storage.find_acl_network("myrpaas")
-        expected_storage = [{'destination': ['192.168.0.1/24'], 'source': '10.0.0.1/32'}]
+        expected_storage = [{'destination': ['192.168.0.0/24'], 'source': '10.0.0.1/32'}]
         self.assertEqual(data, expected_storage)
 
     @mock.patch("rpaas.acl.requests")
@@ -77,17 +77,21 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager.ip_client.get_ipv4_or_ipv6.side_effect = [{'ips': {'networkipv4': '153806'}},
                                                               {'ips': {'networkipv4': '153806'}},
                                                               {'ips': {'networkipv4': '153806'}},
-                                                              {'ips': {'networkipv4': '153806'}}]
+                                                              {'ips': {'networkipv4': '153806'}},
+                                                              {'ips': {'networkipv4': '153806'}}
+                                                              ]
         acl_manager.network_client = mock.Mock()
         acl_manager.network_client.get_network_ipv4.side_effect = [{'network': {'block': '27'}},
                                                                    {'network': {'block': '24'}},
                                                                    {'network': {'block': '27'}},
-                                                                   {'network': {'block': '24'}}
+                                                                   {'network': {'block': '24'}},
+                                                                   {'network': {'block': '27'}}
                                                                    ]
         acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
                                                     acl_manager.acl_auth_basic.password)
         acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1")
         acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.2")
+        acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.0/24")
         expected_data = {'kind': 'object#acl',
                          'rules': [{'l4-options': {'dest-port-op': 'range',
                                                    'dest-port-start': '30000',
@@ -114,7 +118,7 @@ class AclManagerTestCase(unittest.TestCase):
         acl_manager.acl_auth_basic = "{}/{}".format(acl_manager.acl_auth_basic.username,
                                                     acl_manager.acl_auth_basic.password)
         with self.assertRaises(AclApiError) as cm:
-            acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
+            acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.0/24")
         self.assertEqual(cm.exception.message, "no valid json returned")
 
     @mock.patch("rpaas.acl.requests")
@@ -129,16 +133,16 @@ class AclManagerTestCase(unittest.TestCase):
                                                     acl_manager.acl_auth_basic.password)
         acl_manager.lock_manager.lock("{}:{}".format(self.lock_name, "myrpaas"), timeout=60)
         with self.assertRaises(AclApiError) as cm:
-            acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
+            acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.0/24")
         self.assertEqual(cm.exception.message, "could not get lock for myrpaas instance")
         acl_manager.lock_manager.unlock("{}:{}".format(self.lock_name, "myrpaas"))
-        acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.1/24")
+        acl_manager.add_acl("myrpaas", "10.0.0.1", "192.168.0.0/24")
         expected_data = {'rules': [{'l4-options': {'dest-port-op': 'range',
                                                    'dest-port-start': '30000',
                                                    'dest-port-end': '61000'},
                                     'protocol': 'tcp',
                                     'description': 'permit 10.0.0.1/32 rpaas access for rpaas-acl instance myrpaas',
-                                    'destination': '192.168.0.1/24',
+                                    'destination': '192.168.0.0/24',
                                     'source': '10.0.0.1/32',
                                     'action': 'permit'}],
                          'kind': 'object#acl'}

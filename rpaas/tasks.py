@@ -132,7 +132,7 @@ class BaseManagerTask(Task):
         self.hc = hc.Dumb()
         self.storage = storage.MongoDBStorage(config)
         self.acl_manager = acl.Dumb(self.consul_manager)
-        if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
+        if check_option_enable(self._get_conf("CHECK_ACL_API", None)):
             self.acl_manager = acl.AclManager(config, self.consul_manager, lock.Lock(app.backend.client))
         hc_url = self._get_conf("HCAPI_URL", None)
         if hc_url:

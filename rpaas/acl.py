@@ -57,7 +57,8 @@ class AclManager(object):
         if src_network == src:
             src_network = str(ipaddress.ip_network(unicode(src_network)))
         src = str(ipaddress.ip_network(unicode(src)))
-        dst = self._get_network_from_ip(dst)
+        if ipaddress.ip_network(unicode(dst)).prefixlen == 32:
+            dst = self._get_network_from_ip(dst)
         if self._check_acl_exists(name, src, dst):
             return
         request_data = self._request_data("permit", name, src, dst)
