@@ -241,8 +241,9 @@ class RestoreMachineTestCase(unittest.TestCase):
             restorer.start()
             time.sleep(1)
             restorer.stop()
-            self.assertEqual(extend_lock.call_args_list, [call(extra_time=10), call(extra_time=10),
-                                                          call(extra_time=10)])
+            self.assertEqual(extend_lock.call_args_list, [call("restore_lock", extra_time=10),
+                                                          call("restore_lock", extra_time=10),
+                                                          call("restore_lock", extra_time=10)])
             nginx_expected_calls = [call('10.1.1.1', timeout=600), call('10.3.3.3', timeout=600),
                                     call('10.4.4.4', timeout=600), call('10.5.5.5', timeout=600)]
             self.assertEqual(nginx_expected_calls, nginx_manager.wait_healthcheck.call_args_list)

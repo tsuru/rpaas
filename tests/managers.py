@@ -169,7 +169,7 @@ class FakeManager(object):
         _, instance = self.find_instance(name)
         del instance.lua_modules[lua_module_type][lua_module_name]
 
-    def add_upstream(self, name, upstream_name, server):
+    def add_upstream(self, name, upstream_name, server, acl=False):
         _, instance = self.find_instance(name)
         if isinstance(server, list):
             instance.upstreams[upstream_name] |= set(server)

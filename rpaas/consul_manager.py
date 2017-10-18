@@ -4,9 +4,9 @@
 
 import consul
 import os
-import urlparse
 
 from . import nginx
+from misc import host_from_destination
 
 ACL_TEMPLATE = """key "{service_name}/{instance_name}" {{
     policy = "read"
@@ -82,7 +82,7 @@ class ConsulManager(object):
         if content:
             content = content.strip()
         else:
-            upstream, _ = self._host_from_destination(destination)
+            upstream, _ = host_from_destination(destination)
             upstream_server = upstream
             if bind_mode:
                 upstream = "rpaas_default_upstream"
@@ -161,10 +161,10 @@ class ConsulManager(object):
         servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
             for idx, _ in enumerate(server):
-                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
+                server[idx] = ":".join(map(str, filter(None, host_from_destination(server[idx]))))
             servers |= set(server)
         else:
-            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
+            server = ":".join(map(str, filter(None, host_from_destination(server))))
             servers.add(server)
         self._save_upstream(instance_name, upstream_name, servers)
 
@@ -172,21 +172,16 @@ class ConsulManager(object):
         servers = self.list_upstream(instance_name, upstream_name)
         if isinstance(server, list):
             for idx, _ in enumerate(server):
-                server[idx] = ":".join(map(str, filter(None, self._host_from_destination(server[idx]))))
+                server[idx] = ":".join(map(str, filter(None, host_from_destination(server[idx]))))
             servers -= set(server)
         else:
-            server = ":".join(map(str, filter(None, self._host_from_destination(server))))
+            server = ":".join(map(str, filter(None, host_from_destination(server))))
             if server in servers:
                 servers.remove(server)
         if len(servers) < 1:
             self._remove_upstream(instance_name, upstream_name)
         else:
             self._save_upstream(instance_name, upstream_name, servers)
-
-    def _host_from_destination(self, destination):
-        if '//' not in destination:
-            destination = '%s%s' % ('http://', destination)
-        return urlparse.urlparse(destination).hostname, urlparse.urlparse(destination).port
 
     def _remove_upstream(self, instance_name, upstream_name):
         content = self._set_header_footer(None, upstream_name)
@@ -204,6 +199,39 @@ class ConsulManager(object):
     def _save_upstream(self, instance_name, upstream_name, servers):
         content = self._set_header_footer(",".join(servers), upstream_name)
         self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
+
+    def find_acl_network(self, instance_name, src=None):
+        src = self._normalize_acl_src(src)
+        acls = self.client.kv.get(self._acl_key(instance_name, src), recurse=True)[1]
+        if not acls:
+            return []
+        acls_list = []
+        for acl in acls:
+            src = acl['Key'].split('/')[-1]
+            acls_list.append({"source": self._normalize_acl_src(src),
+                              "destination": acl["Value"].split(",")})
+        return acls_list
+
+    def store_acl_network(self, instance_name, src, dst):
+        acls = self.find_acl_network(instance_name, src)
+        if acls:
+            acls = set(acls[0]['destination'])
+            acls |= set([dst])
+        else:
+            acls.append(dst)
+        src = self._normalize_acl_src(src)
+        self.client.kv.put(self._acl_key(instance_name, src), ",".join(acls))
+
+    def remove_acl_network(self, instance_name, src):
+        src = self._normalize_acl_src(src)
+        self.client.kv.delete(self._acl_key(instance_name, src))
+
+    def _normalize_acl_src(self, src):
+        if not src:
+            return
+        if "_" in src:
+            return src.replace("_", "/")
+        return src.replace("/", "_")
 
     def get_certificate(self, instance_name, host_id=None):
         cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
@@ -252,6 +280,12 @@ class ConsulManager(object):
 
     def _upstream_key(self, instance_name, upstream_name):
         base_key = "upstream/{}".format(upstream_name)
+        return self._key(instance_name, base_key)
+
+    def _acl_key(self, instance_name, src=None):
+        base_key = "acl"
+        if src:
+            base_key = "acl/{}".format(src)
         return self._key(instance_name, base_key)
 
     def _key(self, instance_name, suffix=None):

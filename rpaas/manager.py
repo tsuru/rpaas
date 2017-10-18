@@ -16,7 +16,9 @@ import hm.lb_managers.networkapi_cloudstack  # NOQA
 from hm.model.load_balancer import LoadBalancer
 from celery.utils import uuid
 
-from rpaas import consul_manager, nginx, sslutils, ssl_plugins, storage, tasks
+from rpaas import (consul_manager, nginx, sslutils, ssl_plugins,
+                   storage, tasks, acl, lock)
+from rpaas.misc import check_option_enable, host_from_destination
 
 PENDING = "pending"
 FAILURE = "failure"
@@ -31,6 +33,9 @@ class Manager(object):
         self.nginx_manager = nginx.Nginx(config)
         self.task_manager = tasks.TaskManager(config)
         self.service_name = os.environ.get("RPAAS_SERVICE_NAME", "rpaas")
+        self.acl_manager = acl.Dumb(self.consul_manager)
+        if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
+            self.acl_manager = acl.AclManager(config, self.consul_manager, lock.Lock(tasks.app.backend.client))
 
     def new_instance(self, name, team=None, plan_name=None):
         plan = None
@@ -77,7 +82,6 @@ class Manager(object):
                 config.update(plan.config)
         if metadata and metadata.get("consul_token"):
             self.consul_manager.destroy_token(metadata["consul_token"])
-        self.consul_manager.destroy_instance(name)
         self.storage.decrement_quota(name)
         self.storage.remove_task(name)
         self.storage.remove_binding(name)
@@ -253,19 +257,26 @@ class Manager(object):
         self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
 
-    def add_upstream(self, name, upstream_name, server):
+    def add_upstream(self, name, upstream_name, servers, acl=False):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.consul_manager.add_server_upstream(name, upstream_name, server)
+        if acl:
+            for host in lb.hosts:
+                if not isinstance(servers, list):
+                    servers = [servers]
+                for server in servers:
+                    dst_host, _ = host_from_destination(server)
+                    self.acl_manager.add_acl(name, host.dns_name, dst_host)
+        self.consul_manager.add_server_upstream(name, upstream_name, servers)
 
-    def remove_upstream(self, name, upstream_name, server):
+    def remove_upstream(self, name, upstream_name, servers):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.consul_manager.remove_server_upstream(name, upstream_name, server)
+        self.consul_manager.remove_server_upstream(name, upstream_name, servers)
 
     def list_upstreams(self, name, upstream_name):
         self.task_manager.ensure_ready(name)
@@ -463,7 +474,7 @@ class Manager(object):
 
             try:
                 self.task_manager.create(name)
-                task = tasks.RevokeCertTask().dealy(self.config, name, plugin)
+                task = tasks.RevokeCertTask().delay(self.config, name, plugin)
                 self.task_manager.update(name, task.task_id)
                 return ''
             except Exception:
