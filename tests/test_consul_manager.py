@@ -450,3 +450,50 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.manager.remove_acl_network("myrpaas", "10.0.0.1/32")
         acls = self.manager.find_acl_network("myrpaas")
         self.assertEqual([{'source': '10.0.0.2/32', 'destination': ['192.168.1.0/24']}], acls)
+
+    def test_swap_empty_instances_successfully(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        myrpaas_1_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-1/swap")[1]['Value']
+        myrpaas_2_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-2/swap")[1]['Value']
+        self.assertEqual(myrpaas_1_swap, "myrpaas-2")
+        self.assertEqual(myrpaas_2_swap, "myrpaas-1")
+
+    def test_swap_already_swapped_instances_same_order_successfully(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        myrpaas_1_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-1/swap")[1]['Value']
+        myrpaas_2_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-2/swap")[1]['Value']
+        self.assertEqual(myrpaas_1_swap, "myrpaas-2")
+        self.assertEqual(myrpaas_2_swap, "myrpaas-1")
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        myrpaas_1_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-1/swap")[1]
+        myrpaas_2_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-2/swap")[1]
+        self.assertIsNone(myrpaas_1_swap)
+        self.assertIsNone(myrpaas_2_swap)
+
+    def test_swap_already_swapped_instances_different_order_successfully(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        myrpaas_1_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-1/swap")[1]['Value']
+        myrpaas_2_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-2/swap")[1]['Value']
+        self.assertEqual(myrpaas_1_swap, "myrpaas-2")
+        self.assertEqual(myrpaas_2_swap, "myrpaas-1")
+        self.manager.swap_instances("myrpaas-2", "myrpaas-1")
+        myrpaas_1_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-1/swap")[1]
+        myrpaas_2_swap = self.consul.kv.get("test-suite-rpaas/myrpaas-2/swap")[1]
+        self.assertIsNone(myrpaas_1_swap)
+        self.assertIsNone(myrpaas_2_swap)
+
+    def test_swap_already_swapped_instance_fail(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        with self.assertRaises(consul_manager.InstanceAlreadySwappedError):
+            self.manager.swap_instances("myrpaas-1", "myrpaas-3")
+
+    def test_swap_already_swapped_instances_fail(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        self.manager.swap_instances("myrpaas-3", "myrpaas-4")
+        with self.assertRaises(consul_manager.InstanceAlreadySwappedError):
+            self.manager.swap_instances("myrpaas-1", "myrpaas-3")
+
+    def test_swap_already_swapped_instance_with_not_swapped_fail(self):
+        self.manager.swap_instances("myrpaas-1", "myrpaas-2")
+        with self.assertRaises(consul_manager.InstanceAlreadySwappedError):
+            self.manager.swap_instances("myrpaas-1", "myrpaas-3")

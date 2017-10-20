@@ -6,7 +6,7 @@ import json
 
 from flask import request, Response, Blueprint
 
-from rpaas import (auth, get_manager, storage, manager, tasks)
+from rpaas import (auth, get_manager, storage, manager, tasks, consul_manager)
 from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
@@ -89,6 +89,8 @@ def delete_backend(name):
         get_manager().remove_instance(name)
     except storage.InstanceNotFoundError:
         return "Backend not found", 404
+    except consul_manager.InstanceAlreadySwappedError:
+        return "Instance with swap enabled", 412
     return "", 200
 
 
@@ -152,7 +154,23 @@ def delete_routes(name):
 @router.route("/backend/<name>/swap", methods=["POST"])
 @auth.required
 def swap(name):
-    # Nothing to do here.
+    data = request.get_json()
+    if not data:
+        return "Could not decode body json", 400
+    if data.get('cnameOnly'):
+        return "Swap cname only not supported", 400
+    target_instance = data.get('target')
+    if not target_instance:
+        return "Target instance cannot be empty", 400
+    m = get_manager()
+    try:
+        m.swap(name, "router-{}".format(target_instance))
+    except tasks.NotReadyError as e:
+        return "Backend not ready: {}".format(e), 412
+    except storage.InstanceNotFoundError:
+        return "Backend not found", 404
+    except consul_manager.InstanceAlreadySwappedError:
+        return "Instance already swapped", 412
     return "", 200
 
 

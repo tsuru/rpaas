@@ -4,7 +4,7 @@
 
 from collections import defaultdict
 
-from rpaas import storage, manager
+from rpaas import storage, manager, consul_manager
 
 
 class FakeInstance(object):
@@ -54,6 +54,8 @@ class FakeManager(object):
         return instance.bound
 
     def remove_instance(self, name):
+        if name == 'router-swap_error':
+            raise consul_manager.InstanceAlreadySwappedError()
         index, _ = self.find_instance(name)
         if index == -1:
             raise storage.InstanceNotFoundError()
@@ -189,3 +191,11 @@ class FakeManager(object):
     def list_upstreams(self, name, upstream_name):
         _, instance = self.find_instance(name)
         return instance.upstreams[upstream_name]
+
+    def swap(self, instance_a, instance_b):
+        _, instance_a = self.find_instance(instance_a)
+        _, instance_b = self.find_instance(instance_b)
+        if not instance_a:
+            raise storage.InstanceNotFoundError()
+        if not instance_b:
+            raise consul_manager.InstanceAlreadySwappedError()
