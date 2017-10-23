@@ -46,7 +46,7 @@ class ConsulManager(object):
         self.client.acl.destroy(acl_id)
 
     def destroy_instance(self, instance_name):
-        self.client.kv.delete(self._key(instance_name), recurse=True)
+        self.client.kv.delete(self._key("{}/".format(instance_name)), recurse=True)
 
     def write_healthcheck(self, instance_name):
         self.client.kv.put(self._key(instance_name, "healthcheck"), "true")

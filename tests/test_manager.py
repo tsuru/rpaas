@@ -353,6 +353,16 @@ class ManagerTestCase(unittest.TestCase):
         with self.assertRaises(QuotaExceededError):
             manager.new_instance("g")
 
+    @mock.patch("rpaas.tasks.nginx")
+    def test_remove_instance_do_not_remove_similar_instance_name(self, nginx):
+        manager = Manager(self.config)
+        manager.new_instance("instance")
+        manager.new_instance("instance_abcdf")
+        manager.consul_manager.write_healthcheck("instance_abdcf")
+        manager.remove_instance("instance")
+        instance2_healthcheck = manager.consul_manager.client.kv.get("test-suite-rpaas/instance_abcdf/healthcheck")[1]
+        self.assertEqual(instance2_healthcheck['Value'], "true")
+
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_restore_machine_instance(self, LoadBalancer):
         manager = Manager(self.config)
