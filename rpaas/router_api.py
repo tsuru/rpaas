@@ -99,6 +99,7 @@ def delete_backend(name):
 def list_routes(name):
     try:
         routes = get_manager().list_upstreams(name, name)
+        routes = ["http://{}".format(route) for route in routes]
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:

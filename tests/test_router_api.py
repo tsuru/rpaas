@@ -159,7 +159,7 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual("application/json", resp.mimetype)
         data = json.loads(resp.data)
-        self.assertEqual(["10.0.0.1:123", "10.0.0.2:123"],
+        self.assertEqual(["http://10.0.0.1:123", "http://10.0.0.2:123"],
                          sorted(data['addresses']))
 
     def test_list_routes_empty(self):
