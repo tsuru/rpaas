@@ -22,6 +22,10 @@ service "nginx" {{
 """
 
 
+class InstanceAlreadySwappedError(Exception):
+    pass
+
+
 class ConsulManager(object):
 
     def __init__(self, config):
@@ -199,6 +203,32 @@ class ConsulManager(object):
     def _save_upstream(self, instance_name, upstream_name, servers):
         content = self._set_header_footer(",".join(servers), upstream_name)
         self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
+
+    def swap_instances(self, src_instance, dst_instance):
+        if not self.check_swap_state(src_instance, dst_instance):
+            raise InstanceAlreadySwappedError()
+        src_instance_value = self.client.kv.get(self._key(src_instance, "swap"))[1]
+        if not src_instance_value:
+            self.client.kv.put(self._key(src_instance, "swap"), dst_instance)
+            self.client.kv.put(self._key(dst_instance, "swap"), src_instance)
+            return
+        if src_instance_value['Value'] == dst_instance:
+            self.client.kv.delete(self._key(src_instance, "swap"))
+            self.client.kv.delete(self._key(dst_instance, "swap"))
+            return
+        self.client.kv.put(self._key(src_instance, "swap"), dst_instance)
+        self.client.kv.put(self._key(dst_instance, "swap"), src_instance)
+
+    def check_swap_state(self, src_instance, dst_instance):
+        src_instance_status = self.client.kv.get(self._key(src_instance, "swap"))[1]
+        dst_instance_status = self.client.kv.get(self._key(dst_instance, "swap"))[1]
+        if not src_instance_status and not dst_instance_status:
+            return True
+        if not src_instance_status or not dst_instance_status:
+            return False
+        if sorted([src_instance_status['Value'], dst_instance_status['Value']]) != sorted([src_instance, dst_instance]):
+            return False
+        return True
 
     def find_acl_network(self, instance_name, src=None):
         src = self._normalize_acl_src(src)

@@ -12,6 +12,7 @@ import mock
 import rpaas.manager
 from rpaas.manager import Manager, ScaleError, QuotaExceededError
 from rpaas import tasks, storage, nginx
+from rpaas.consul_manager import InstanceAlreadySwappedError
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
@@ -331,6 +332,13 @@ class ManagerTestCase(unittest.TestCase):
         manager.consul_manager = mock.Mock()
         manager.remove_instance("x")
         self.assertEquals(self.storage.find_task("x").count(), 0)
+
+    def test_remove_instance_on_swap_error(self):
+        self.storage.store_instance_metadata("x", plan_name="small")
+        manager = Manager(self.config)
+        manager.consul_manager.swap_instances("x", "y")
+        with self.assertRaises(InstanceAlreadySwappedError):
+            manager.remove_instance("x")
 
     @mock.patch("rpaas.tasks.nginx")
     def test_remove_instance_decrement_quota(self, nginx):
@@ -1208,3 +1216,19 @@ content = location /x {
 
         LoadBalancer.find.assert_called_with("inst")
         manager.consul_manager.remove_lua.assert_called_with("inst", "server", "module")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_swap_success(self, LoadBalancer):
+        LoadBalancer.find.side_effect = [mock.Mock, mock.Mock]
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.swap("x", "y")
+        manager.consul_manager.swap_instances.assert_called_with("x", "y")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_swap_instance_not_found(self, LoadBalancer):
+        LoadBalancer.find.side_effect = [mock.Mock, None]
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.swap("x", "y")

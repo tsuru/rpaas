@@ -73,6 +73,8 @@ class Manager(object):
         config["HOST_TAGS"] = ",".join(tags)
 
     def remove_instance(self, name):
+        if not self.consul_manager.check_swap_state(name, None):
+            raise consul_manager.InstanceAlreadySwappedError()
         self.task_manager.create(name)
         metadata = self.storage.find_instance_metadata(name)
         config = copy.deepcopy(self.config)
@@ -232,6 +234,15 @@ class Manager(object):
 
     def status(self, name):
         return self._get_address(name)
+
+    def swap(self, src_instance, dst_instance):
+        self.task_manager.ensure_ready(src_instance)
+        self.task_manager.ensure_ready(dst_instance)
+        for instance in [src_instance, dst_instance]:
+            lb = LoadBalancer.find(instance)
+            if lb is None:
+                raise storage.InstanceNotFoundError(instance)
+        self.consul_manager.swap_instances(src_instance, dst_instance)
 
     def node_status(self, name):
         lb = LoadBalancer.find(name)

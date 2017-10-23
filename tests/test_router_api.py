@@ -143,6 +143,12 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual("Backend not found", resp.data)
         self.assertEqual([], self.manager.instances)
 
+    def test_delete_backend_swap_enabled_error(self):
+        resp = self.api.delete("/router/backend/swap_error")
+        self.assertEqual(412, resp.status_code)
+        self.assertEqual("Instance with swap enabled", resp.data)
+        self.assertEqual([], self.manager.instances)
+
     def test_list_routes(self):
         self.manager.new_instance("router-someapp")
         self.manager.add_upstream(
@@ -203,3 +209,41 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(set([]), routes)
         routes = self.manager.list_routes("router-someapp")
         self.assertFalse(self.manager.check_bound("router-someapp"))
+
+    def test_swap_success(self):
+        self.manager.new_instance("router-app1")
+        self.manager.new_instance("router-app2")
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({'target': 'app2'}),
+                             content_type="application/json")
+        self.assertEqual(200, resp.status_code)
+
+    def test_swap_empty_json_error(self):
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({}),
+                             content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Could not decode body json", resp.data)
+
+    def test_swap_cname_only_not_suppported_error(self):
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({'target': 'app2', 'cnameOnly': 'true'}),
+                             content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Swap cname only not supported", resp.data)
+
+    def test_swap_target_instance_empty_error(self):
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({'a': 'b'}),
+                             content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Target instance cannot be empty", resp.data)
+
+    def test_swap_target_backend_not_found_error(self):
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({'target': 'app2'}),
+                             content_type="application/json")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Backend not found", resp.data)
+
+    def test_swap_instance_already_swapped_error(self):
+        self.manager.new_instance("router-app1")
+        resp = self.api.post("/router/backend/app1/swap", data=json.dumps({'target': 'app2'}),
+                             content_type="application/json")
+        self.assertEqual(412, resp.status_code)
+        self.assertEqual("Instance already swapped", resp.data)
