@@ -316,7 +316,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(["server1"]), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\nserver1\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\nserver1\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_add_existing_server_to_upstream(self):
@@ -325,7 +325,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(["server1"]), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\nserver1\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\nserver1\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_add_bulk_to_existing_upstream(self):
@@ -349,7 +349,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(["server1", "server3"]), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\nserver1,server3\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\nserver1,server3\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_remove_delete_empty_upstream_after_last_server_removed(self):
@@ -358,7 +358,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_remove_delete_empty_upstream_and_create_new_one_same_item(self):
@@ -368,7 +368,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(['server1']), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\nserver1\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\nserver1\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_remove_server_not_found_on_upstream(self):
@@ -377,7 +377,7 @@ class ConsulManagerTestCase(unittest.TestCase):
         servers = self.manager.list_upstream("myrpaas", "upstream1")
         self.assertEqual(set(["server1"]), servers)
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/upstream1")
-        block = '## Begin custom RpaaS upstream1 block ##\nserver1\n## End custom RpaaS upstream1 block ##'
+        block = '## Begin custom RpaaS upstream block ##\nserver1\n## End custom RpaaS upstream block ##'
         self.assertEqual(item[1]['Value'], block)
 
     def test_upstream_remove_bulk_to_existing_upstream(self):

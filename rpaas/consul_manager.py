@@ -188,20 +188,20 @@ class ConsulManager(object):
             self._save_upstream(instance_name, upstream_name, servers)
 
     def _remove_upstream(self, instance_name, upstream_name):
-        content = self._set_header_footer(None, upstream_name)
+        content = self._set_header_footer(None, "upstream")
         self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
 
     def list_upstream(self, instance_name, upstream_name):
         servers = self.client.kv.get(self._upstream_key(instance_name, upstream_name))[1]
         if servers:
-            servers = self._set_header_footer(servers["Value"], upstream_name, True)
+            servers = self._set_header_footer(servers["Value"], "upstream", True)
             if servers == "":
                 return set()
             return set(servers.split(","))
         return set()
 
     def _save_upstream(self, instance_name, upstream_name, servers):
-        content = self._set_header_footer(",".join(servers), upstream_name)
+        content = self._set_header_footer(",".join(servers), "upstream")
         self.client.kv.put(self._upstream_key(instance_name, upstream_name), content)
 
     def swap_instances(self, src_instance, dst_instance):
