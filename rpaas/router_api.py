@@ -44,7 +44,7 @@ def add_backend(name):
     data = request.get_json()
     if not data:
         return "could not decode body json", 400
-    team = data.get('team')
+    team = data.get('team') or data.get('tsuru.io/app-teamowner')
     plan = data.get('plan')
     if not team:
         return "team name is required", 400

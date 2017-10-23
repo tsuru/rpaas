@@ -32,6 +32,12 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(201, resp.status_code)
         self.assertEqual("router-someapp", self.manager.instances[0].name)
 
+    def test_add_backend_alternative_team_field(self):
+        resp = self.api.post("/router/backend/someapp", data=json.dumps({"tsuru.io/app-teamowner": "team1"}),
+                             content_type="application/json")
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("router-someapp", self.manager.instances[0].name)
+
     def test_add_backend_without_team(self):
         resp = self.api.post("/router/backend/someapp", data=json.dumps({"team": ""}),
                              content_type="application/json")
