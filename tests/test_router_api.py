@@ -6,7 +6,7 @@ import unittest
 import json
 import os
 
-from rpaas import api, router_api, storage
+from rpaas import api, router_api, storage, consul_manager
 from . import managers
 
 
@@ -253,3 +253,61 @@ class RouterAPITestCase(unittest.TestCase):
                              content_type="application/json")
         self.assertEqual(412, resp.status_code)
         self.assertEqual("Instance already swapped", resp.data)
+
+    def test_get_certificate_success(self):
+        self.manager.new_instance("router-someapp")
+        self.manager.update_certificate("router-someapp", "cert", "key")
+        resp = self.api.get("/router/backend/someapp/certificate/test.com")
+        self.assertEqual(200, resp.status_code)
+        data = json.loads(resp.data)
+        self.assertDictEqual({'certificate': 'cert', 'key': 'key'}, data)
+
+    def test_get_certificate_instance_not_found_error(self):
+        resp = self.api.get("/router/backend/someapp/certificate/test.com")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Backend not found", resp.data)
+
+    def test_get_certificate_not_found_error(self):
+        self.manager.new_instance("router-someapp")
+        resp = self.api.get("/router/backend/someapp/certificate/test.com")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Certificate not found", resp.data)
+
+    def test_update_certificate_sucess(self):
+        self.manager.new_instance("router-someapp")
+        with self.assertRaises(consul_manager.CertificateNotFoundError):
+            self.manager.get_certificate("router-someapp")
+        resp = self.api.put("/router/backend/someapp/certificate/test.com",
+                            data=json.dumps({'certificate': 'cert', 'key': 'key'}),
+                            content_type="application/json")
+        self.assertEqual(200, resp.status_code)
+        certificate, key = self.manager.get_certificate("router-someapp")
+        self.assertEqual(certificate, "cert")
+        self.assertEqual(key, "key")
+
+    def test_update_certificate_instance_not_found_error(self):
+        resp = self.api.put("/router/backend/someapp/certificate/test.com",
+                            data=json.dumps({'certificate': 'cert', 'key': 'key'}),
+                            content_type="application/json")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Backend not found", resp.data)
+
+    def test_update_certificate_key_or_certificate_missing_error(self):
+        resp = self.api.put("/router/backend/someapp/certificate/test.com",
+                            data=json.dumps({'certificate': 'cert'}),
+                            content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Certificate or key is missing", resp.data)
+
+    def test_delete_certificate_success(self):
+        self.manager.new_instance("router-someapp")
+        self.manager.update_certificate("router-someapp", "cert", "key")
+        resp = self.api.delete("/router/backend/someapp/certificate/test.com")
+        self.assertEqual(200, resp.status_code)
+        with self.assertRaises(consul_manager.CertificateNotFoundError):
+            self.manager.get_certificate("router-someapp")
+
+    def test_delete_certificate_instance_not_found_error(self):
+        resp = self.api.delete("/router/backend/someapp/certificate/test.com")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Backend not found", resp.data)

@@ -423,7 +423,7 @@ class SessionResumptionTask(BaseManagerTask):
         exc_info = None
         try:
             self.consul_manager.get_certificate(host.group, host.id)
-        except ValueError:
+        except consul_manager.CertificateNotFoundError:
             try:
                 certificate_key, certificate_crt = sslutils.generate_admin_crt(self.config, unicode(host.dns_name))
                 self.consul_manager.set_certificate(host.group, certificate_crt, certificate_key, host.id)

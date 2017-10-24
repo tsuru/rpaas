@@ -196,8 +196,21 @@ class ConsulManagerTestCase(unittest.TestCase):
         self.assertEqual(origin_key, key)
 
     def test_get_certificate_undefined(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(consul_manager.CertificateNotFoundError):
             self.manager.get_certificate("myrpaas")
+
+    def test_delete_certificate(self):
+        self.manager.set_certificate("myrpaas", "certificate", "key")
+        self.manager.delete_certificate("myrpaas")
+        with self.assertRaises(consul_manager.CertificateNotFoundError):
+            self.manager.get_certificate("myrpaas")
+
+    def test_delete_certificate_unknow_certificate(self):
+        self.manager.set_certificate("myrpaas", "cert", "key")
+        self.manager.delete_certificate("myrpaas2")
+        cert, key = self.manager.get_certificate("myrpaas")
+        self.assertEqual("cert", cert)
+        self.assertEqual("key", key)
 
     def test_set_certificate(self):
         self.manager.set_certificate("myrpaas", "certificate", "key")

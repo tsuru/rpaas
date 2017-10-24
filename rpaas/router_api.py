@@ -10,7 +10,7 @@ from rpaas import (auth, get_manager, storage, manager, tasks, consul_manager)
 from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
-supported_extra_features = []  # possible values: "cname", "tls", "healthcheck"
+supported_extra_features = ['tls']  # possible values: "cname", "tls", "healthcheck"
 
 
 @router.url_value_preprocessor
@@ -175,25 +175,47 @@ def swap(name):
     return "", 200
 
 
-@router.route("/certificate/<cname>", methods=["GET"])
+@router.route("/backend/<name>/certificate/<cname>", methods=["GET"])
 @auth.required
-def get_certificate(cname):
-    # TODO: tsuru api must change to also send the backend name.
-    pass
+def get_certificate(name, cname):
+    m = get_manager()
+    try:
+        certificate, key = m.get_certificate(name)
+    except storage.InstanceNotFoundError:
+        return "Backend not found", 404
+    except consul_manager.CertificateNotFoundError:
+        return "Certificate not found", 404
+    return Response(response=json.dumps({'certificate': certificate, 'key': key}),
+                    status=200, mimetype="application/json")
 
 
-@router.route("/certificate/<cname>", methods=["PUT"])
+@router.route("/backend/<name>/certificate/<cname>", methods=["PUT"])
 @auth.required
-def update_certificate(cname):
-    # TODO: tsuru api must change to also send the backend name.
-    pass
+def update_certificate(name, cname):
+    data = request.get_json()
+    if not data:
+        return "Could not decode body json", 400
+    certificate = data.get('certificate')
+    key = data.get('key')
+    if not key or not certificate:
+        return "Certificate or key is missing", 400
+    m = get_manager()
+    try:
+        m.update_certificate(name, certificate, key)
+    except storage.InstanceNotFoundError:
+        return "Backend not found", 404
+    return "", 200
 
 
-@router.route("/certificate/<cname>", methods=["DELETE"])
+@router.route("/backend/<name>/certificate/<cname>", methods=["DELETE"])
 @auth.required
-def delete_certificate(cname):
-    # TODO: tsuru api must change to also send the backend name.
-    pass
+def delete_certificate(name, cname):
+    m = get_manager()
+    try:
+        m.delete_certificate(name)
+    except storage.InstanceNotFoundError:
+        return "Backend not found", 404
+    return "", 200
 
 
 @router.route("/support/<feature>", methods=["GET"])
