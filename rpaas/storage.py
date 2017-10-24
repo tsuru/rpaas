@@ -149,14 +149,6 @@ class MongoDBStorage(storage.MongoDBStorage):
             }}
         }, upsert=True)
 
-    def update_binding_certificate(self, name, cert, key):
-        result = self.db[self.bindings_collection].update({'_id': name}, {'$set': {
-            'cert': cert,
-            'key': key,
-        }})
-        if result['n'] == 0:
-            raise InstanceNotFoundError()
-
     def remove_binding(self, name):
         self.db[self.bindings_collection].remove({'_id': name})
 

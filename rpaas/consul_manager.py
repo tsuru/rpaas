@@ -26,6 +26,10 @@ class InstanceAlreadySwappedError(Exception):
     pass
 
 
+class CertificateNotFoundError(Exception):
+    pass
+
+
 class ConsulManager(object):
 
     def __init__(self, config):
@@ -267,7 +271,7 @@ class ConsulManager(object):
         cert = self.client.kv.get(self._ssl_cert_path(instance_name, "cert", host_id))[1]
         key = self.client.kv.get(self._ssl_cert_path(instance_name, "key", host_id))[1]
         if not cert or not key:
-            raise ValueError("certificate not defined")
+            raise CertificateNotFoundError()
         return cert["Value"], key["Value"]
 
     def set_certificate(self, instance_name, cert_data, key_data, host_id=None):
@@ -275,6 +279,10 @@ class ConsulManager(object):
                            cert_data.replace("\r\n", "\n"))
         self.client.kv.put(self._ssl_cert_path(instance_name, "key", host_id),
                            key_data.replace("\r\n", "\n"))
+
+    def delete_certificate(self, instance_name):
+        self.client.kv.delete(self._ssl_cert_path(instance_name, "cert"))
+        self.client.kv.delete(self._ssl_cert_path(instance_name, "key"))
 
     def _ssl_cert_path(self, instance_name, key_type, host_id=None):
         if host_id:

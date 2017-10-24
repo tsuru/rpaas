@@ -12,7 +12,7 @@ import mock
 import rpaas.manager
 from rpaas.manager import Manager, ScaleError, QuotaExceededError
 from rpaas import tasks, storage, nginx
-from rpaas.consul_manager import InstanceAlreadySwappedError
+from rpaas.consul_manager import InstanceAlreadySwappedError, CertificateNotFoundError
 
 tasks.app.conf.CELERY_ALWAYS_EAGER = True
 
@@ -847,19 +847,20 @@ content = location /x {
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_certificate(self, LoadBalancer):
-        self.storage.store_binding("inst", "app.host.com")
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
 
         manager = Manager(self.config)
-        manager.consul_manager = mock.Mock()
         manager.update_certificate("inst", "cert", "key")
 
         LoadBalancer.find.assert_called_with("inst")
-        manager.consul_manager.set_certificate.assert_called_with("inst", "cert", "key")
+        cert, key = manager.consul_manager.get_certificate("inst")
+        self.assertEqual(cert, "cert")
+        self.assertEqual(key, "key")
 
     @mock.patch("rpaas.manager.LoadBalancer")
-    def test_update_certificate_no_binding(self, LoadBalancer):
+    def test_update_certificate_instance_not_found_error(self, LoadBalancer):
+        LoadBalancer.find.return_value = None
         manager = Manager(self.config)
         with self.assertRaises(storage.InstanceNotFoundError):
             manager.update_certificate("inst", "cert", "key")
@@ -870,6 +871,65 @@ content = location /x {
         manager = Manager(self.config)
         with self.assertRaises(rpaas.tasks.NotReadyError):
             manager.update_certificate("inst", "cert", "key")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_get_certificate_success(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager.set_certificate("inst", "cert", "key")
+        cert, key = manager.get_certificate("inst")
+        self.assertEqual(cert, "cert")
+        self.assertEqual(key, "key")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_get_certificate_instance_not_found_error(self, LoadBalancer):
+        LoadBalancer.find.return_value = None
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            cert, key = manager.get_certificate("inst")
+        LoadBalancer.find.assert_called_with("inst")
+
+    def test_get_certificate_error_task_running(self):
+        self.storage.store_task("inst")
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.tasks.NotReadyError):
+            cert, key = manager.get_certificate("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_get_certificate_not_found_error(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        with self.assertRaises(CertificateNotFoundError):
+            cert, key = manager.get_certificate("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_delete_certificate_success(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+
+        manager = Manager(self.config)
+        manager.consul_manager.set_certificate("inst", "cert", "key")
+        manager.delete_certificate("inst")
+        with self.assertRaises(CertificateNotFoundError):
+            cert, key = manager.consul_manager.get_certificate("inst")
+
+    def test_delete_certificate_error_task_running(self):
+        self.storage.store_task("inst")
+        manager = Manager(self.config)
+        with self.assertRaises(rpaas.tasks.NotReadyError):
+            manager.delete_certificate("inst")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_delete_certificate_instance_not_found_error(self, LoadBalancer):
+        LoadBalancer.find.return_value = None
+        manager = Manager(self.config)
+        with self.assertRaises(storage.InstanceNotFoundError):
+            manager.delete_certificate("inst")
+        LoadBalancer.find.assert_called_with("inst")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_route(self, LoadBalancer):

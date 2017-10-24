@@ -260,13 +260,26 @@ class Manager(object):
                 node_status_return[node]['address'] = hostnames[node]
         return node_status_return
 
+    def get_certificate(self, name):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        return self.consul_manager.get_certificate(name)
+
     def update_certificate(self, name, cert, key):
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.storage.update_binding_certificate(name, cert, key)
         self.consul_manager.set_certificate(name, cert, key)
+
+    def delete_certificate(self, name):
+        self.task_manager.ensure_ready(name)
+        lb = LoadBalancer.find(name)
+        if lb is None:
+            raise storage.InstanceNotFoundError()
+        self.consul_manager.delete_certificate(name)
 
     def add_upstream(self, name, upstream_name, servers, acl=False):
         self.task_manager.ensure_ready(name)

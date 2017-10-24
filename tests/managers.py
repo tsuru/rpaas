@@ -20,6 +20,8 @@ class FakeInstance(object):
         self.lua_modules = {}
         self.node_status = {}
         self.upstreams = defaultdict(set)
+        self.cert = None
+        self.key = None
 
 
 class FakeManager(object):
@@ -103,6 +105,21 @@ class FakeManager(object):
             raise storage.InstanceNotFoundError()
         instance.cert = cert
         instance.key = key
+
+    def get_certificate(self, name):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        if not instance.cert or not instance.key:
+            raise consul_manager.CertificateNotFoundError()
+        return instance.cert, instance.key
+
+    def delete_certificate(self, name):
+        index, instance = self.find_instance(name)
+        if index < 0:
+            raise storage.InstanceNotFoundError()
+        instance.cert = None
+        instance.key = None
 
     def find_instance(self, name):
         for i, instance in enumerate(self.instances):
