@@ -66,6 +66,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         os.environ["TZ"] = 'US/Eastern'
         time.tzset()
         self.service_name = "rpaas"
+        self.maxDiff = None
 
     def tearDown(self):
         del os.environ["TSURU_TARGET"], os.environ["TSURU_TOKEN"]
@@ -152,7 +153,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.getcode.return_value = 201
         urlopen.return_value = result
         admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                  'SERVICE=abcdef-123 NAME="something nice" DATA=go go go DATE=\'2015\''])
+                                  'SERVICE=abcdef-123 NAME="something nice" DATA="go go go" DATE=\'2015\''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
@@ -225,7 +226,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         self.addCleanup(recover_retrieve)
 
         admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                  'SERVICE=abcdef-123 NAME="some thing" DATA=go go go DATE=\'2015\' wat=""'])
+                                  '''SERVICE=abcdef-123 NAME="some thing" DATA="go go go" DATE=\'2015\'
+                                     wat="" RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo='''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
@@ -244,7 +246,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                        "NAME": "some thing",
                        "DATA": "go go go",
                        "DATE": "2015",
-                       "GREETINGS": "hello"},
+                       "GREETINGS": "hello",
+                       "RANDOM_BASE64": "bm90aGluZyB0byBzZWUgaGVyZQo="},
         }
         self.assertEqual(expected_params, parsed_params)
         self.assertEqual("PUT", request.get_method())

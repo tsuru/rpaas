@@ -10,11 +10,11 @@ import datetime
 import copy
 import json
 import os
-import re
 import sys
 import time
 import urllib
 import urllib2
+import shlex
 from functools import partial
 
 try:
@@ -22,8 +22,6 @@ try:
 except:
     sys.stderr.write("This plugin requires json_util module\n")
     sys.exit(1)
-
-CONFIG_REGEXP = re.compile(r"(\w+=)")
 
 
 class CommandNotFoundError(Exception):
@@ -196,16 +194,17 @@ def _change_plan_args(args, cmd_name):
     parser.add_argument("-d", "--description", required=True)
     parser.add_argument("-c", "--config", required=True)
     parsed_args = parser.parse_args(args)
-    config_parts = CONFIG_REGEXP.split(parsed_args.config)[1:]
-    if len(config_parts) < 2:
+    config_parts = shlex.split(parsed_args.config)
+    if len(config_parts) < 1:
         sys.stderr.write("ERROR: Invalid config format, supported format is KEY=VALUE\n")
         sys.exit(2)
     config = {}
-    for i, part in enumerate(config_parts):
-        if part.endswith("="):
-            value = config_parts[i+1].strip().strip('"').strip("'")
-            key = part[:-1]
-            config[key] = value
+    for value in config_parts:
+        env_parts = value.split("=")
+        if len(env_parts) < 2:
+            sys.stderr.write("ERROR: Invalid config format, supported format is KEY=VALUE\n")
+            sys.exit(2)
+        config[env_parts[0]] = "=".join(env_parts[1:])
     return parsed_args.service, parsed_args.name, parsed_args.description, config
 
 
