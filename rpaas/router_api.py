@@ -180,12 +180,12 @@ def swap(name):
 def get_certificate(name, cname):
     m = get_manager()
     try:
-        certificate, key = m.get_certificate(name)
+        certificate, _ = m.get_certificate(name)
     except storage.InstanceNotFoundError:
         return "Backend not found", 404
     except consul_manager.CertificateNotFoundError:
         return "Certificate not found", 404
-    return Response(response=json.dumps({'certificate': certificate, 'key': key}),
+    return Response(response=json.dumps({'certificate': certificate}),
                     status=200, mimetype="application/json")
 
 

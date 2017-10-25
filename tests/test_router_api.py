@@ -260,7 +260,7 @@ class RouterAPITestCase(unittest.TestCase):
         resp = self.api.get("/router/backend/someapp/certificate/test.com")
         self.assertEqual(200, resp.status_code)
         data = json.loads(resp.data)
-        self.assertDictEqual({'certificate': 'cert', 'key': 'key'}, data)
+        self.assertDictEqual({'certificate': 'cert'}, data)
 
     def test_get_certificate_instance_not_found_error(self):
         resp = self.api.get("/router/backend/someapp/certificate/test.com")
