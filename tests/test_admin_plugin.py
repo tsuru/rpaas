@@ -227,7 +227,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
 
         admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
                                   '''SERVICE=abcdef-123 NAME="some thing" DATA="go go go" DATE=\'2015\'
-                                     wat="" RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo='''])
+                                     wat="" RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo= GREETINGS=""'''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
@@ -246,7 +246,6 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
                        "NAME": "some thing",
                        "DATA": "go go go",
                        "DATE": "2015",
-                       "GREETINGS": "hello",
                        "RANDOM_BASE64": "bm90aGluZyB0byBzZWUgaGVyZQo="},
         }
         self.assertEqual(expected_params, parsed_params)
