@@ -137,7 +137,7 @@ def delete_routes(name):
         return "could not decode body json", 400
     addresses = data.get('addresses')
     if not addresses:
-        return "Addresses cannot be empty", 400
+        return "", 200
     m = get_manager()
     try:
         m.remove_upstream(name, name, addresses)
