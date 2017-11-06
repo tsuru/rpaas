@@ -116,7 +116,7 @@ def add_routes(name):
         return "could not decode body json", 400
     addresses = data.get('addresses')
     if not addresses:
-        return "Addresses cannot be empty", 400
+        return "", 200
     m = get_manager()
     try:
         m.bind(name, name, router_mode=True)
