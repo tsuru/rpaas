@@ -31,7 +31,7 @@ setup(
         "tsuru-hm==0.6.10",
         "celery[redis]==3.1.23",
         "flower==0.9.1",
-        "GloboNetworkAPI==0.2.2",
+        "GloboNetworkAPI==0.8.1",
         "python-consul==0.6.1",
         "raven==4.2.3",
         "blinker==1.4",
