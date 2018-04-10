@@ -91,6 +91,8 @@ def add_instance():
 def update_instance(name):
     plan = request.form.get("plan_name")
     if not plan:
+        plan = request.form.get("plan")
+    if not plan:
         return "Plan is required", 404
     try:
         get_manager().update_instance(name, plan)
