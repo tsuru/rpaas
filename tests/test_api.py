@@ -132,6 +132,10 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual("huge", self.manager.instances[0].plan)
+        resp = self.api.put("/resources/someapp", data={"plan": "small"})
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("", resp.data)
+        self.assertEqual("small", self.manager.instances[0].plan)
 
     def test_update_instance_not_found(self):
         self.storage.db[self.storage.plans_collection].insert(
