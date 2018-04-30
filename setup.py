@@ -24,7 +24,8 @@ setup(
     install_requires=[
         "cffi==1.8.3",
         "cryptography==1.6",
-        "Flask==0.12",
+        "Flask==0.12.4",
+        "Werkzeug==0.11.15",
         "requests==2.18.4",
         "gevent==1.1b6",
         "gunicorn==0.17.2",
