@@ -11,7 +11,7 @@ README = codecs.open('README.rst', encoding='utf-8').read()
 
 setup(
     name="tsuru-rpaas",
-    version="0.2.3",
+    version="0.2.4",
     description="Reverse proxy as-a-service API for Tsuru PaaS",
     long_description=README,
     author="Tsuru",
