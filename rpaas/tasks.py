@@ -149,10 +149,13 @@ class BaseManagerTask(Task):
         healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         created_lb = None
         try:
-            host = Host.create(self.host_manager_name, name, self.config)
             if not lb:
                 lb = created_lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
                 self.hc.create(name)
+            config = copy.deepcopy(self.config)
+            if lb.dsr:
+                config["HOST_TAGS"] = config["HOST_TAGS"] + ",dsr_ip:{}".format(lb.address)
+            host = Host.create(self.host_manager_name, name, config)
             lb.add_host(host)
             self.nginx_manager.wait_healthcheck(host.dns_name, timeout=healthcheck_timeout)
             acls = self.consul_manager.find_acl_network(name)
