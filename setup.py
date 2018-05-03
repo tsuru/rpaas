@@ -24,6 +24,7 @@ setup(
     install_requires=[
         "cffi==1.8.3",
         "cryptography==1.6",
+        "pyOpenSSL==17.2.0",
         "Flask==0.12.4",
         "Werkzeug==0.11.15",
         "requests==2.18.4",
