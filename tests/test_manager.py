@@ -614,9 +614,9 @@ content = location /x {
     @mock.patch("rpaas.tasks.nginx")
     def test_scale_instance_up(self, nginx):
         lb = self.LoadBalancer.find.return_value
-        lb.dsr = False
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
+        delattr(lb, "dsr")
         self.storage.store_instance_metadata("x", consul_token="abc-123")
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)

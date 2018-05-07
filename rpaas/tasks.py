@@ -153,7 +153,7 @@ class BaseManagerTask(Task):
                 lb = created_lb = LoadBalancer.create(self.lb_manager_name, name, self.config)
                 self.hc.create(name)
             config = copy.deepcopy(self.config)
-            if lb.dsr:
+            if hasattr(lb, 'dsr') and lb.dsr:
                 config["HOST_TAGS"] = config["HOST_TAGS"] + ",dsr_ip:{}".format(lb.address)
             host = Host.create(self.host_manager_name, name, config)
             lb.add_host(host)
