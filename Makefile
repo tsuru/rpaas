@@ -46,8 +46,10 @@ kill-redis-sentinel-test:
 	-redis-cli -p 51111 shutdown
 
 redis-sentinel-test: kill-redis-sentinel-test copy-redis-conf
-	redis-sentinel /tmp/redis_sentinel_test.conf --daemonize yes || redis-server /tmp/redis_sentinel_test.conf --sentinel --daemonize yes; sleep 1
-	redis-sentinel /tmp/redis_sentinel2_test.conf --daemonize yes || redis-server /tmp/redis_sentinel2_test.conf --sentinel --daemonize yes; sleep 1
+	redis-sentinel /tmp/redis_sentinel_test.conf --daemonize yes || redis-server /tmp/redis_sentinel_test.conf --sentinel --daemonize yes || \
+        redis-server /tmp/redis_sentinel_test.conf --daemonize yes || redis-server /tmp/redis_sentinel_test.conf --sentinel --daemonize yes; sleep 1
+	redis-sentinel /tmp/redis_sentinel2_test.conf --daemonize yes || redis-server /tmp/redis_sentinel2_test.conf --sentinel --daemonize yes || \
+	redis-server /tmp/redis_sentinel2_test.conf --daemonize yes || redis-server /tmp/redis_sentinel2_test.conf --sentinel --daemonize yes; sleep 1
 	redis-server /tmp/redis_test.conf --daemonize yes; sleep 1
 	redis-server /tmp/redis_test2.conf --daemonize yes; sleep 1
 	redis-server /tmp/redis_test3.conf --daemonize yes; sleep 1
