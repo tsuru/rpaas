@@ -138,6 +138,20 @@ class Manager(object):
             length = len(lb.hosts)
             for idx, host in enumerate(lb.hosts):
                 yield "Restoring host ({}/{}) {} ".format(idx + 1, length, host.id)
+                stop_host_job = JobWaiting(host.stop, 0)
+                stop_host_job.start()
+                while stop_host_job.is_alive():
+                    yield "."
+                    time.sleep(1)
+                if isinstance(stop_host_job.result, Exception):
+                    raise stop_host_job.result
+                scale_host_job = JobWaiting(host.scale, 0)
+                scale_host_job.start()
+                while scale_host_job.is_alive():
+                    yield "."
+                    time.sleep(1)
+                if isinstance(scale_host_job.result, Exception):
+                    raise scale_host_job.result
                 restore_host_job = JobWaiting(host.restore, 0, reset_template=True, reset_tags=True)
                 restore_host_job.start()
                 while restore_host_job.is_alive():

@@ -443,6 +443,12 @@ class ManagerTestCase(unittest.TestCase):
         self.storage.store_instance_metadata("x", plan_name="huge", consul_token="abc-123")
         manager = Manager(self.config)
         responses = [response for response in manager.restore_instance("x")]
+        lb.hosts[0].stop.assert_called_once()
+        lb.hosts[0].scale.assert_called_once()
+        lb.hosts[0].restore.assert_called_once()
+        lb.hosts[1].scale.assert_called_once()
+        lb.hosts[1].stop.assert_called_once()
+        lb.hosts[1].restore.assert_called_once()
         while "." in responses:
             responses.remove(".")
         expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
@@ -480,6 +486,36 @@ class ManagerTestCase(unittest.TestCase):
                                                           manage_healthcheck=False)
         expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
                               "Restoring host (2/2) yyy ", ": failed to restore - 'timeout to response'\n"]
+        self.assertListEqual(responses, expected_responses)
+        self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
+                                      {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
+        self.assertEqual(self.storage.find_task("x").count(), 0)
+
+    @mock.patch("rpaas.manager.nginx")
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_restore_instance_failed_restore_change_plan(self, LoadBalancer, nginx):
+        self.config["CLOUDSTACK_TEMPLATE_ID"] = "default_template"
+        self.config["INSTANCE_EXTRA_TAGS"] = "x:y"
+        self.config["RPAAS_RESTORE_DELAY"] = 1
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"CLOUDSTACK_TEMPLATE_ID": "1234", "INSTANCE_EXTRA_TAGS": "a:b,c:d"}}
+        )
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = '10.1.1.1'
+        lb.hosts[0].id = 'xxx'
+        lb.hosts[1].dns_name = '10.2.2.2'
+        lb.hosts[1].id = 'yyy'
+        lb.hosts[1].scale.side_effect = Exception("failed to resize instance")
+        self.storage.store_instance_metadata("x", plan_name="huge", consul_token="abc-123")
+        manager = Manager(self.config)
+        responses = [response for response in manager.restore_instance("x")]
+        while "." in responses:
+            responses.remove(".")
+        expected_responses = ["Restoring host (1/2) xxx ", ": successfully restored\n",
+                              "Restoring host (2/2) yyy ", ": failed to restore - 'failed to resize instance'\n"]
         self.assertListEqual(responses, expected_responses)
         self.assertDictContainsSubset(LoadBalancer.find.call_args[1],
                                       {'CLOUDSTACK_TEMPLATE_ID': u'1234', 'HOST_TAGS': u'a:b,c:d'})
