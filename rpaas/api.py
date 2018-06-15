@@ -92,16 +92,25 @@ def update_instance(name):
     plan = request.form.get("plan_name")
     if not plan:
         plan = request.form.get("plan")
-    if not plan:
-        return "Plan is required", 404
+    flavor = request.form.get("flavor")
+    if not flavor:
+        flavor = request.form.get("tag")
+        if flavor and 'flavor:' in flavor:
+            flavor = flavor.split(':')[1]
+        else:
+            flavor = None
+    if not plan and not flavor:
+        return "Plan or flavor is required", 404
     try:
-        get_manager().update_instance(name, plan)
+        get_manager().update_instance(name, plan, flavor)
     except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except storage.PlanNotFoundError:
         return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "RpaaS flavor not found", 404
     return "", 204
 
 

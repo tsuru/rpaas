@@ -9,11 +9,12 @@ from rpaas import storage, manager, consul_manager
 
 class FakeInstance(object):
 
-    def __init__(self, name, state, plan):
+    def __init__(self, name, state, plan, flavor):
         self.name = name
         self.state = state
         self.units = 1
         self.plan = plan
+        self.flavor = flavor
         self.bound = False
         self.routes = {}
         self.blocks = {}
@@ -30,10 +31,12 @@ class FakeManager(object):
         self.instances = []
         self.storage = storage
 
-    def new_instance(self, name, state="running", team=None, plan_name=None):
+    def new_instance(self, name, state="running", team=None, plan_name=None, flavor_name=None):
         if plan_name:
             self.storage.find_plan(plan_name)
-        instance = FakeInstance(name, state, plan_name)
+        if flavor_name:
+            self.storage.find_flavor(flavor_name)
+        instance = FakeInstance(name, state, plan_name, flavor_name)
         self.instances.append(instance)
         return instance
 
@@ -63,13 +66,17 @@ class FakeManager(object):
             raise storage.InstanceNotFoundError()
         del self.instances[index]
 
-    def update_instance(self, name, plan_name):
-        if plan_name:
-            self.storage.find_plan(plan_name)
+    def update_instance(self, name, plan_name=None, flavor_name=None):
         index, _ = self.find_instance(name)
         if index == -1:
             raise storage.InstanceNotFoundError()
-        self.instances[index].plan = plan_name
+        if plan_name:
+            self.storage.find_plan(plan_name)
+        if flavor_name:
+            self.storage.find_flavor(flavor_name)
+            self.instances[index].flavor = flavor_name
+        if plan_name:
+            self.instances[index].plan = plan_name
 
     def info(self, name):
         index, instance = self.find_instance(name)

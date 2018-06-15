@@ -167,7 +167,7 @@ class APITestCase(unittest.TestCase):
         self.manager.new_instance("someapp", plan_name="small")
         resp = self.api.put("/resources/someapp", data={"plan_name": ""})
         self.assertEqual(404, resp.status_code)
-        self.assertEqual("Plan is required", resp.data)
+        self.assertEqual("Plan or flavor is required", resp.data)
 
     def test_update_invalid_plan(self):
         self.storage.db[self.storage.plans_collection].insert(

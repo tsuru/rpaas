@@ -8,7 +8,7 @@ import pymongo.errors
 
 from hm import storage
 
-from rpaas import plan
+from rpaas import plan, flavor
 
 
 class InstanceNotFoundError(Exception):
@@ -16,6 +16,10 @@ class InstanceNotFoundError(Exception):
 
 
 class PlanNotFoundError(Exception):
+    pass
+
+
+class FlavorNotFoundError(Exception):
     pass
 
 
@@ -28,6 +32,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     tasks_collection = "tasks"
     bindings_collection = "bindings"
     plans_collection = "plans"
+    flavors_collection = "flavors"
     instance_metadata_collection = "instance_metadata"
     quota_collection = "quota"
     le_certificates_collection = "le_certificates"
@@ -135,6 +140,48 @@ class MongoDBStorage(storage.MongoDBStorage):
         dict["name"] = dict["_id"]
         del dict["_id"]
         return plan.Plan(**dict)
+
+    def store_flavor(self, flavor):
+        flavor.validate()
+        d = flavor.to_dict()
+        d["_id"] = d["name"]
+        del d["name"]
+        try:
+            self.db[self.flavors_collection].insert(d)
+        except pymongo.errors.DuplicateKeyError:
+            raise DuplicateError(flavor.name)
+
+    def update_flavor(self, name, description=None, config=None):
+        update = {}
+        if description:
+            update["description"] = description
+        if config:
+            update["config"] = config
+        if update:
+            result = self.db[self.flavors_collection].update({"_id": name},
+                                                             {"$set": update})
+            if not result.get("updatedExisting"):
+                raise FlavorNotFoundError()
+
+    def delete_flavor(self, name):
+        result = self.db[self.flavors_collection].remove({"_id": name})
+        if result.get("n", 0) < 1:
+            raise FlavorNotFoundError()
+
+    def find_flavor(self, name):
+        flavor_dict = self.db[self.flavors_collection].find_one({'_id': name})
+        if not flavor_dict:
+            raise FlavorNotFoundError()
+        return self._flavor_from_dict(flavor_dict)
+
+    def list_flavors(self):
+        flavor_list = self.db[self.flavors_collection].find()
+        return [self._flavor_from_dict(p) for p in flavor_list]
+
+    def _flavor_from_dict(self, dict):
+        dict["name"] = dict["_id"]
+        del dict["_id"]
+        return flavor.Flavor(**dict)
 
     def store_binding(self, name, app_host):
         try:
