@@ -68,9 +68,13 @@ def scale(args):
 
 
 def update(args):
-    service, instance, plan = get_update_args(args)
+    service, instance, plan, flavor = get_update_args(args)
+    if flavor:
+        flavor = "flavor_name={}".format(flavor)
+    if plan:
+        plan = "plan_name={}".format(plan)
     result = proxy_request(service, instance, "/resources/{}".format(instance),
-                           body="plan_name={}".format(plan), method='PUT')
+                           body="{}".format("&".join(filter(None,[plan, flavor]))), method='PUT')
     if result.getcode() == 201:
         msg = "Instance successfully updated"
         sys.stdout.write(msg + "\n")
@@ -318,8 +322,9 @@ def get_update_args(args):
     parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-p", "--plan", required=False, help="New plan name")
+    parser.add_argument("-f", "--flavor", required=False, help="New rpaas flavor name")
     parsed = parser.parse_args(args)
-    return parsed.service, parsed.instance, parsed.plan
+    return parsed.service, parsed.instance, parsed.plan, parsed.flavor
 
 
 def ssl(args):

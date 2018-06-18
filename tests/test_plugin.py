@@ -168,14 +168,14 @@ class TsuruPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 201
         urlopen.return_value = result
-        plugin.update(["-s", "myservice", "-i", "myinstance", "-p", "new_plan"])
+        plugin.update(["-s", "myservice", "-i", "myinstance", "-p", "new_plan", "-f", "new_flavor"])
         Request.assert_called_with(self.target +
                                    "services/myservice/proxy/myinstance?" +
                                    "callback=/resources/myinstance")
         request.add_header.assert_called_with("Authorization",
                                               "bearer " + self.token)
         self.assertEqual(request.get_method(), 'PUT')
-        request.add_data.assert_called_with("plan_name=new_plan")
+        request.add_data.assert_called_with("plan_name=new_plan&flavor_name=new_flavor")
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("Instance successfully updated\n")
 
