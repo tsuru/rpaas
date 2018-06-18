@@ -58,6 +58,13 @@ def plans():
     return json.dumps([p.to_dict() for p in plans])
 
 
+@api.route("/resources/flavors", methods=["GET"])
+@auth.required
+def flavors():
+    flavors = get_manager().storage.list_flavors()
+    return json.dumps([f.to_dict() for f in flavors])
+
+
 @api.route("/resources", methods=["POST"])
 @auth.required
 def add_instance():
@@ -74,11 +81,20 @@ def add_instance():
     plan = request.form.get("plan")
     if require_plan() and not plan:
         return "plan is required", 400
+    flavor = request.form.get("flavor")
+    if not flavor:
+        flavor = request.form.get("tag")
+        if flavor and 'flavor:' in flavor:
+            flavor = flavor.split(':')[1]
+        else:
+            flavor = None
     try:
         get_manager().new_instance(name, team=team,
-                                   plan_name=plan)
+                                   plan_name=plan, flavor_name=flavor)
     except storage.PlanNotFoundError:
         return "invalid plan", 400
+    except storage.FlavorNotFoundError:
+        return "invalid flavor", 400
     except storage.DuplicateError:
         return "{} instance already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -462,7 +478,7 @@ def get_admin_plugin():
     return inspect.getsource(admin_plugin)
 
 
-admin_api.register_views(api, plans)
+admin_api.register_views(api, plans, flavors)
 
 
 def main():

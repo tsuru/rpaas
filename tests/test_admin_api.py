@@ -200,6 +200,135 @@ class AdminAPITestCase(unittest.TestCase):
         self.assertEqual(404, resp.status_code)
         self.assertEqual("plan not found", resp.data)
 
+    def test_list_flavors(self):
+        resp = self.api.get("/admin/flavors")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("[]", resp.data)
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}}
+        )
+        resp = self.api.get("/resources/flavors")
+        self.assertEqual(200, resp.status_code)
+        expected = [
+            {"name": "orange", "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}},
+            {"name": "vanilla", "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}},
+        ]
+        self.assertEqual(expected, json.loads(resp.data))
+
+    def test_create_flavor(self):
+        config = json.dumps({
+            "nginx_version": "1.12",
+            "extra_config": "dsr",
+        })
+        resp = self.api.post("/admin/flavors", data={"name": "nginx_dsr",
+                                                     "description": "nginx 1.12 + dsr",
+                                                     "config": config})
+        self.assertEqual(201, resp.status_code)
+        flavor = self.storage.find_flavor("nginx_dsr")
+        self.assertEqual("nginx_dsr", flavor.name)
+        self.assertEqual("nginx 1.12 + dsr", flavor.description)
+        self.assertEqual(json.loads(config), flavor.config)
+
+    def test_create_flavor_duplicate(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
+        )
+        config = json.dumps({
+            "nginx_version": "1.10"
+        })
+        resp = self.api.post("/admin/flavors", data={"name": "orange",
+                                                     "description": "nginx 1.10",
+                                                     "config": config})
+        self.assertEqual(409, resp.status_code)
+
+    def test_create_flavor_invalid(self):
+        config = json.dumps({
+            "nginx_version": "1.10"
+        })
+        resp = self.api.post("/admin/flavors", data={"description": "nginx 1.10",
+                                                     "config": config})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid rpaas flavor - name is required", resp.data)
+        resp = self.api.post("/admin/flavors", data={"name": "orange",
+                                                     "config": config})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid rpaas flavor - description is required", resp.data)
+        resp = self.api.post("/admin/flavors", data={"name": "orange",
+                                                     "description": "nginx 1.10"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid rpaas flavor - config is required", resp.data)
+
+    def test_retrieve_flavor(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}}
+        )
+        flavor = self.storage.find_flavor("orange")
+        resp = self.api.get("/admin/flavors/orange")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(flavor.to_dict(), json.loads(resp.data))
+
+    def test_retrieve_flavor_not_found(self):
+        resp = self.api.get("/admin/flavors/vanilla")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("flavor not found", resp.data)
+
+    def test_update_flavor(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}}
+        )
+        config = json.dumps({
+            "nginx_version": "1.10.1",
+            "dsr": "true",
+        })
+        resp = self.api.put("/admin/flavors/orange", data={"description": "nginx 1.10",
+                                                           "config": config})
+        self.assertEqual(200, resp.status_code)
+        flavor = self.storage.find_flavor("orange")
+        self.assertEqual("orange", flavor.name)
+        self.assertEqual("nginx 1.10", flavor.description)
+        self.assertEqual(json.loads(config), flavor.config)
+
+    def test_update_flavor_not_found(self):
+        config = json.dumps({
+            "nginx_version": "1.10"
+        })
+        resp = self.api.put("/admin/flavors/vanilla", data={"description": "nginx 1.10",
+                                                            "config": config})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("flavor not found", resp.data)
+
+    def test_delete_flavor(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "nginx version 1.10",
+             "config": {"nginx_version": "1.10"}}
+        )
+        resp = self.api.delete("/admin/flavors/vanilla")
+        self.assertEqual(200, resp.status_code)
+        with self.assertRaises(storage.FlavorNotFoundError):
+            self.storage.find_flavor("vanilla")
+
+    def test_delete_flavor_not_found(self):
+        resp = self.api.delete("/admin/flavors/vanilla")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("flavor not found", resp.data)
+
+
     def test_view_team_quota(self):
         self.storage.db[self.storage.quota_collection].insert(
             {"_id": "myteam",
