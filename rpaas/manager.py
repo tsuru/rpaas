@@ -43,7 +43,7 @@ class Manager(object):
         if plan_name:
             plan = self.storage.find_plan(plan_name)
         if flavor_name:
-            flavor = self.storage.find_plan(flavor_name)
+            flavor = self.storage.find_flavor(flavor_name)
         used, quota = self.storage.find_team_quota(team)
         if len(used) >= quota:
             raise QuotaExceededError(len(used), quota)
@@ -111,8 +111,7 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         metadata = self.storage.find_instance_metadata(name)
         if flavor_name:
-            flavor_data = self.storage.find_flavor(flavor_name)
-            metadata['flavor'] = flavor_data
+            metadata['flavor_name'] = flavor_name
         if plan_name:
             metadata['plan_name'] = plan_name
         self.storage.store_instance_metadata(name, **metadata)

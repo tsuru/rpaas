@@ -39,6 +39,13 @@ class ManagerTestCase(unittest.TestCase):
         self.plan["name"] = plan["_id"]
         del self.plan["_id"]
         self.storage.db[self.storage.plans_collection].insert(plan)
+        flavor = {"_id": "vanilla",
+                "description": "nginx 1.10",
+                "config": {"nginx_version": "1.10"}}
+        self.flavor = copy.deepcopy(flavor)
+        self.flavor["name"] = flavor["_id"]
+        del self.flavor["_id"]
+        self.storage.db[self.storage.flavors_collection].insert(flavor)
         self.lb_patcher = mock.patch("rpaas.tasks.LoadBalancer")
         self.host_patcher = mock.patch("rpaas.tasks.Host")
         self.LoadBalancer = self.lb_patcher.start()
@@ -170,16 +177,17 @@ class ManagerTestCase(unittest.TestCase):
         self.assertEqual(self.storage.find_task("x").count(), 0)
 
     @mock.patch("rpaas.tasks.nginx")
-    def test_new_instance_with_plan(self, nginx):
+    def test_new_instance_with_plan_and_flavor(self, nginx):
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.consul_manager.generate_token.return_value = "abc-123"
         lb = self.LoadBalancer.create.return_value
         lb.dsr = False
-        manager.new_instance("x", plan_name="small")
+        manager.new_instance("x", plan_name="small", flavor_name="vanilla")
         host = self.Host.create.return_value
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
+        config.update(self.flavor["config"])
         config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         self.Host.create.assert_called_with("my-host-manager", "x", config)
         self.LoadBalancer.create.assert_called_with("my-lb-manager", "x", config)
@@ -189,7 +197,8 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
         metadata = manager.storage.find_instance_metadata("x")
-        self.assertEqual({"_id": "x", "plan_name": "small", "consul_token": "abc-123"}, metadata)
+        self.assertEqual({"_id": "x", "plan_name": "small", 
+                          "consul_token": "abc-123", "flavor_name": "vanilla"}, metadata)
 
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_with_extra_tags(self, nginx):
@@ -243,6 +252,11 @@ class ManagerTestCase(unittest.TestCase):
         with self.assertRaises(storage.PlanNotFoundError):
             manager.new_instance("x", plan_name="supersmall")
 
+    def test_new_instance_flavor_not_found(self):
+        manager = Manager(self.config)
+        with self.assertRaises(storage.FlavorNotFoundError):
+            manager.new_instance("x", flavor_name="orange")
+
     @mock.patch("rpaas.tasks.nginx")
     def test_new_instance_over_quota(self, nginx):
         manager = Manager(self.config)
@@ -274,11 +288,22 @@ class ManagerTestCase(unittest.TestCase):
              "description": "some cool huge plan",
              "config": {"serviceofferingid": "abcdef123459"}}
         )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
+        )
         LoadBalancer.find.return_value = "something"
         self.storage.store_instance_metadata("x", plan_name=self.plan["name"], consul_token="abc-123")
         manager = Manager(self.config)
         manager.update_instance("x", "huge")
         return_metadata = {'_id': 'x', 'plan_name': 'huge', 'consul_token': 'abc-123'}
+        self.assertEquals(self.storage.find_instance_metadata("x"), return_metadata)
+        manager.update_instance("x", None, "orange")
+        return_metadata = {'_id': 'x', 'plan_name': 'huge', 'flavor_name': 'orange', 'consul_token': 'abc-123'}
+        self.assertEquals(self.storage.find_instance_metadata("x"), return_metadata)
+        manager.update_instance("x", "small", "vanilla")
+        return_metadata = {'_id': 'x', 'plan_name': 'small', 'flavor_name': 'vanilla', 'consul_token': 'abc-123'}
         self.assertEquals(self.storage.find_instance_metadata("x"), return_metadata)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -288,6 +313,14 @@ class ManagerTestCase(unittest.TestCase):
         manager = Manager(self.config)
         with self.assertRaises(storage.PlanNotFoundError):
             manager.update_instance("x", "large")
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_update_instance_invalid_flavor(self, LoadBalancer):
+        LoadBalancer.find.return_value = "something"
+        self.storage.store_instance_metadata("x", flavor_name=self.flavor["name"], consul_token="abc-123")
+        manager = Manager(self.config)
+        with self.assertRaises(storage.FlavorNotFoundError):
+            manager.update_instance("x", None, "orange")
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_update_instance_not_found(self, LoadBalancer):
