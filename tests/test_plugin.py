@@ -558,6 +558,111 @@ vm-3: Reload Ok - *
     @mock.patch("rpaas.plugin.urlopen")
     @mock.patch("rpaas.plugin.Request")
     @mock.patch("sys.stdout")
+    def test_info(self, stdout, Request, urlopen):
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.side_effect = [200, 200]
+        result.read.side_effect = ["""[
+            {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
+            {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
+        ]""",
+        """[
+            {"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
+            {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}}
+        ]"""]
+        urlopen.return_value = result
+        plugin.info(["-s", "myservice", "-i", "myinst"])
+        Request.assert_has_calls([mock.call(self.target + "services/myservice/proxy/myinst?" +
+                                            "callback=/resources/myinst/plans"),
+                                  mock.call().add_header("Authorization", "bearer " + self.token),
+                                  mock.call(self.target + "services/myservice/proxy/myinst?" +
+                                            "callback=/resources/myinst/flavors"),
+                                  mock.call().add_header("Authorization", "bearer " + self.token)])
+        self.assertEqual("GET", request.get_method())
+        urlopen.assert_called_with(request)
+        expected_calls = [
+            mock.call('List of available plans:\n\n'),
+            mock.call('small\t\tsmall vm\n'),
+            mock.call('medium\t\tmedium vm\n'),
+            mock.call('\n\n'),
+            mock.call('List of available flavors:\n\n'),
+            mock.call('vanilla\t\tnginx 1.10\n'),
+            mock.call('orange\t\tnginx 1.12\n')
+        ]
+        self.assertEqual(expected_calls, stdout.write.call_args_list)
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stderr")
+    @mock.patch("sys.stdout")
+    def test_info_failure_plans(self, stdout, stderr, Request, urlopen):
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.side_effect = [400, 200]
+        result.read.side_effect = [ "Something went wrong",
+        """[
+            {"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
+            {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}}
+        ]"""]
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            plugin.info(["-s", "myservice", "-i", "myinst"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_has_calls([mock.call(self.target + "services/myservice/proxy/myinst?" +
+                                            "callback=/resources/myinst/plans"),
+                                  mock.call().add_header("Authorization", "bearer " + self.token)])
+        self.assertEqual("GET", request.get_method())
+        urlopen.assert_called_with(request)
+        stdout.write.assert_not_called()
+        stderr.write.assert_called_with("ERROR: Something went wrong\n")
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stderr")
+    @mock.patch("sys.stdout")
+    def test_info_failure_flavors(self, stdout, stderr, Request, urlopen):
+        self.set_envs()
+        self.addCleanup(self.delete_envs)
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.side_effect = [200, 400]
+        result.read.side_effect = [ """[
+            {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
+            {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
+        ]""", "Something went wrong" ]
+        urlopen.return_value = result
+        with self.assertRaises(SystemExit) as cm:
+            plugin.info(["-s", "myservice", "-i", "myinst"])
+        exc = cm.exception
+        self.assertEqual(1, exc.code)
+        Request.assert_has_calls([mock.call(self.target + "services/myservice/proxy/myinst?" +
+                                            "callback=/resources/myinst/plans"),
+                                  mock.call().add_header("Authorization", "bearer " + self.token),
+                                  mock.call(self.target + "services/myservice/proxy/myinst?" +
+                                            "callback=/resources/myinst/flavors"),
+                                  mock.call().add_header("Authorization", "bearer " + self.token)])
+        self.assertEqual("GET", request.get_method())
+        urlopen.assert_called_with(request)
+        expected_calls = [
+            mock.call('List of available plans:\n\n'),
+            mock.call('small\t\tsmall vm\n'),
+            mock.call('medium\t\tmedium vm\n'),
+            mock.call('\n\n')
+        ]
+        self.assertEqual(expected_calls, stdout.write.call_args_list)
+        stderr.write.assert_called_with("ERROR: Something went wrong\n")
+
+    @mock.patch("rpaas.plugin.urlopen")
+    @mock.patch("rpaas.plugin.Request")
+    @mock.patch("sys.stdout")
     def test_route_with_content(self, stdout, Request, urlopen):
         request = Request.return_value
         urlopen.return_value.getcode.return_value = 200
