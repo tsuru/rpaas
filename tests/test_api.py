@@ -104,7 +104,8 @@ class APITestCase(unittest.TestCase):
              "description": "some cool flavor",
              "config": {"nginx_version": "1.12"}}
         )
-        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1", "plan": "small", "flavor": "vanilla"})
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "plan": "small", "flavor": "vanilla"})
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
         self.assertEqual("small", self.manager.instances[0].plan)
@@ -216,7 +217,6 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual("vanilla", self.manager.instances[0].flavor)
-
 
     def test_update_instance_not_found(self):
         self.storage.db[self.storage.plans_collection].insert(

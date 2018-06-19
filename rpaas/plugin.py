@@ -74,7 +74,7 @@ def update(args):
     if plan:
         plan = "plan_name={}".format(plan)
     result = proxy_request(service, instance, "/resources/{}".format(instance),
-                           body="{}".format("&".join(filter(None,[plan, flavor]))), method='PUT')
+                           body="{}".format("&".join(filter(None, [plan, flavor]))), method='PUT')
     if result.getcode() == 201:
         msg = "Instance successfully updated"
         sys.stdout.write(msg + "\n")

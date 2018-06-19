@@ -328,7 +328,6 @@ class AdminAPITestCase(unittest.TestCase):
         self.assertEqual(404, resp.status_code)
         self.assertEqual("flavor not found", resp.data)
 
-
     def test_view_team_quota(self):
         self.storage.db[self.storage.quota_collection].insert(
             {"_id": "myteam",

@@ -565,14 +565,13 @@ vm-3: Reload Ok - *
         Request.return_value = request
         result = mock.Mock()
         result.getcode.side_effect = [200, 200]
-        result.read.side_effect = ["""[
-            {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
-            {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
-        ]""",
-        """[
-            {"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
-            {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}}
-        ]"""]
+        result.read.side_effect = ["""
+            [{"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
+             {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}]
+                                   """, """
+            [{"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
+             {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}}]
+                                   """]
         urlopen.return_value = result
         plugin.info(["-s", "myservice", "-i", "myinst"])
         Request.assert_has_calls([mock.call(self.target + "services/myservice/proxy/myinst?" +
@@ -605,11 +604,11 @@ vm-3: Reload Ok - *
         Request.return_value = request
         result = mock.Mock()
         result.getcode.side_effect = [400, 200]
-        result.read.side_effect = [ "Something went wrong",
-        """[
-            {"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
-            {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}}
-        ]"""]
+        result.read.side_effect = ["Something went wrong",
+                                   """
+        [ {"name":"vanilla","description":"nginx 1.10","config":{"nginx_version":"1.10"}},
+          {"name":"orange","description":"nginx 1.12","config":{"nginx_version":"1.12"}} ]
+                                   """]
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
             plugin.info(["-s", "myservice", "-i", "myinst"])
@@ -634,10 +633,10 @@ vm-3: Reload Ok - *
         Request.return_value = request
         result = mock.Mock()
         result.getcode.side_effect = [200, 400]
-        result.read.side_effect = [ """[
+        result.read.side_effect = ["""[
             {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
             {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
-        ]""", "Something went wrong" ]
+        ]""", "Something went wrong"]
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
             plugin.info(["-s", "myservice", "-i", "myinst"])

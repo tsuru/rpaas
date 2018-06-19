@@ -40,8 +40,8 @@ class ManagerTestCase(unittest.TestCase):
         del self.plan["_id"]
         self.storage.db[self.storage.plans_collection].insert(plan)
         flavor = {"_id": "vanilla",
-                "description": "nginx 1.10",
-                "config": {"nginx_version": "1.10"}}
+                  "description": "nginx 1.10",
+                  "config": {"nginx_version": "1.10"}}
         self.flavor = copy.deepcopy(flavor)
         self.flavor["name"] = flavor["_id"]
         del self.flavor["_id"]
@@ -197,7 +197,7 @@ class ManagerTestCase(unittest.TestCase):
         nginx_manager = nginx.Nginx.return_value
         nginx_manager.wait_healthcheck.assert_called_once_with(host.dns_name, timeout=600)
         metadata = manager.storage.find_instance_metadata("x")
-        self.assertEqual({"_id": "x", "plan_name": "small", 
+        self.assertEqual({"_id": "x", "plan_name": "small",
                           "consul_token": "abc-123", "flavor_name": "vanilla"}, metadata)
 
     @mock.patch("rpaas.tasks.nginx")
