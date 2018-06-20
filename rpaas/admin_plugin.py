@@ -102,9 +102,21 @@ class DisplayTable:
             sys.stdout.write(self._add_hrule())
         sys.stdout.write("\n")
 
+def handle_plan(args):
+    parser = argparse.ArgumentParser("plan")
+    subparsers = parser.add_subparsers(help="Action to plan option")
+    parser_choice = {}
+    for choice in ["list", "remove", "create", "update", "delete", "show"]:
+        parser_choice[choice] = subparsers.add_parser(choice)
+        parser_choice[choice] = _base_args(None, parser_choice[choice])
+    if args[0] in ["list", "remove", "create", "update", "delete", "show"]:
+        globals().get("{}_plan".format(args[0]))(args, parser_choice[args[0]], parser)
+    else:
+        list_plan(args, None, parser_choice["list"])
 
-def list_plans(args):
-    service_name = _service_arg(args, "list-plans")
+def list_plan(args, parser_choice, parser):
+    parsed_args = parser.parse_args(args)
+    service_name = parsed_args.service
     result = proxy_request(service_name, "/admin/plans", method="GET")
     body = result.read().rstrip("\n")
     if result.getcode() != 200:
@@ -116,8 +128,8 @@ def list_plans(args):
         sys.stdout.write("{name}\t\t{description}\n".format(**plan))
 
 
-def create_plan(args):
-    service_name, name, description, config = _change_plan_args(args, "create-plan")
+def create_plan(args, parser_choice, parser):
+    service_name, name, description, config = _change_plan_args(args, parser_choice, parser)
     params = {
         "name": name,
         "description": description,
@@ -131,8 +143,8 @@ def create_plan(args):
     sys.stdout.write("Plan successfully created\n")
 
 
-def update_plan(args):
-    service_name, name, description, config = _change_plan_args(args, "update-plan")
+def update_plan(args, parser_choice, parser):
+    service_name, name, description, config = _change_plan_args(args, parser_choice, parser)
     plan = _retrieve_plan(service_name, name)
     config = _merge_config(plan["config"], config)
     params = {
@@ -154,8 +166,8 @@ def _merge_config(current, changes):
     return {k: v for k, v in current_copy.iteritems() if v}
 
 
-def delete_plan(args):
-    service_name, name = _plan_arg(args, "delete-plan")
+def delete_plan(args, parser_choice, parser):
+    service_name, name = _plan_arg(args, parser_choice, parser)
     result = proxy_request(service_name, "/admin/plans/"+name, method="DELETE")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + result.read().strip("\n") + "\n")
@@ -163,8 +175,8 @@ def delete_plan(args):
     sys.stdout.write("Plan successfully deleted\n")
 
 
-def retrieve_plan(args):
-    service_name, name = _plan_arg(args, "show-plan")
+def show_plan(args, parser_choice, parser):
+    service_name, name = _plan_arg(args, parser_choice, parser)
     plan = _retrieve_plan(service_name, name)
     _render_plan(plan)
 
@@ -188,11 +200,10 @@ def _render_plan(plan):
         sys.stdout.write("  {}\n".format(var))
 
 
-def _change_plan_args(args, cmd_name):
-    parser = _base_args(cmd_name)
-    parser.add_argument("-n", "--name", required=True)
-    parser.add_argument("-d", "--description", required=True)
-    parser.add_argument("-c", "--config", required=True)
+def _change_plan_args(args, parser_choice, parser):
+    parser_choice.add_argument("-n", "--name", required=True)
+    parser_choice.add_argument("-d", "--description", required=True)
+    parser_choice.add_argument("-c", "--config", required=True)
     parsed_args = parser.parse_args(args)
     config_parts = shlex.split(parsed_args.config)
     if len(config_parts) < 1:
@@ -208,9 +219,8 @@ def _change_plan_args(args, cmd_name):
     return parsed_args.service, parsed_args.name, parsed_args.description, config
 
 
-def _plan_arg(args, cmd_name):
-    parser = _base_args(cmd_name)
-    parser.add_argument("plan_name")
+def _plan_arg(args, parser_choice, parser):
+    parser_choice.add_argument("plan_name")
     parsed_args = parser.parse_args(args)
     return parsed_args.service, parsed_args.plan_name
 
@@ -299,25 +309,16 @@ def _render_healings_list(healings_table, healings_list):
     healings_table.display()
 
 
-def _base_args(cmd_name):
-    parser = argparse.ArgumentParser(cmd_name)
+def _base_args(cmd_name, parser=None):
+    if not parser:
+        parser = argparse.ArgumentParser(cmd_name)
     parser.add_argument("-s", "--service", required=True)
     return parser
 
 
-def _service_arg(args, cmd_name):
-    parser = _base_args(cmd_name)
-    parsed_args = parser.parse_args(args)
-    return parsed_args.service
-
-
 def available_commands():
     return {
-        "create-plan": create_plan,
-        "update-plan": update_plan,
-        "delete-plan": delete_plan,
-        "show-plan": retrieve_plan,
-        "list-plans": list_plans,
+        "plan": handle_plan,
         "show-quota": show_quota,
         "set-quota": set_quota,
         "list-healings": list_healings,
