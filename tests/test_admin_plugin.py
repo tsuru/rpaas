@@ -123,41 +123,25 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
-    def test_list_plans_as_default_option(self, stdout, Request, urlopen):
-        request = mock.Mock()
-        Request.return_value = request
-        result = mock.Mock()
-        result.getcode.return_value = 200
-        result.read.return_value = """[
-            {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
-            {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
-        ]"""
-        urlopen.return_value = result
-        admin_plugin.handle_plan(["-s", self.service_name])
-        Request.assert_called_with(self.target +
-                                   "services/proxy/service/rpaas?" +
-                                   "callback=/admin/plans")
-        request.add_header.assert_called_with("Authorization",
-                                              "bearer " + self.token)
-        self.assertEqual("GET", request.get_method())
-        urlopen.assert_called_with(request)
-        expected_calls = [
-            mock.call("List of available plans (use show-plan for details):\n\n"),
-            mock.call("small\t\tsmall vm\n"),
-            mock.call("medium\t\tmedium vm\n"),
-        ]
-        self.assertEqual(expected_calls, stdout.write.call_args_list)
+    @mock.patch("sys.stderr")
+    def test_plans_with_invalid_option(self, stderr, stdout, Request, urlopen):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.handle_plan(["invalid"])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("plan: error: invalid choice: 'invalid' "
+                                        "(choose from 'list', 'remove', 'create', 'update', 'delete', 'show')\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
     @mock.patch("sys.stderr")
-    def test_list_plans_as_default_option_with_no_args(self, stderr, stdout, Request, urlopen):
+    def test_plans_as_default_option_with_no_args_failure(self, stderr, stdout, Request, urlopen):
         with self.assertRaises(SystemExit) as cm:
             admin_plugin.handle_plan([])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        stderr.write.assert_called_with("plan list: error: argument -s/--service is required\n")
+        stderr.write.assert_called_with("plan: error: too few arguments\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
