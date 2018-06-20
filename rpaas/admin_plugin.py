@@ -109,7 +109,7 @@ def handle_plan(args):
     for choice in ["list", "remove", "create", "update", "delete", "show"]:
         parser_choice[choice] = subparsers.add_parser(choice)
         parser_choice[choice] = _base_args(None, parser_choice[choice])
-    if args[0] in ["list", "remove", "create", "update", "delete", "show"]:
+    if args and args[0] in ["list", "remove", "create", "update", "delete", "show"]:
         globals().get("{}_plan".format(args[0]))(args, parser_choice[args[0]], parser)
     else:
         list_plan(args, None, parser_choice["list"])

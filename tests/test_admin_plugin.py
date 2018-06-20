@@ -148,6 +148,16 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         ]
         self.assertEqual(expected_calls, stdout.write.call_args_list)
 
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    @mock.patch("sys.stderr")
+    def test_list_plans_as_default_option_with_no_args(self, stderr, stdout, Request, urlopen):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.handle_plan([])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("plan list: error: argument -s/--service is required\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
