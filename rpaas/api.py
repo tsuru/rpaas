@@ -52,15 +52,17 @@ if check_option_enable(os.environ.get("RUN_SESSION_RESUMPTION")):
 
 
 @api.route("/resources/plans", methods=["GET"])
+@api.route("/resources/<name>/plans", methods=["GET"])
 @auth.required
-def plans():
+def plans(name=None):
     plans = get_manager().storage.list_plans()
     return json.dumps([p.to_dict() for p in plans])
 
 
 @api.route("/resources/flavors", methods=["GET"])
+@api.route("/resources/<name>/flavors", methods=["GET"])
 @auth.required
-def flavors():
+def flavors(name=None):
     flavors = get_manager().storage.list_flavors()
     return json.dumps([f.to_dict() for f in flavors])
 
@@ -83,11 +85,11 @@ def add_instance():
         return "plan is required", 400
     flavor = request.form.get("flavor")
     if not flavor:
-        flavor = request.form.get("tag")
-        if flavor and 'flavor:' in flavor:
-            flavor = flavor.split(':')[1]
-        else:
-            flavor = None
+        flavor = None
+        tags = request.form.getlist("tags")
+        for tag in tags:
+            if 'flavor:' in tag:
+                flavor = tag.split(':')[1]
     try:
         get_manager().new_instance(name, team=team,
                                    plan_name=plan, flavor_name=flavor)
@@ -110,11 +112,11 @@ def update_instance(name):
         plan = request.form.get("plan")
     flavor = request.form.get("flavor")
     if not flavor:
-        flavor = request.form.get("tag")
-        if flavor and 'flavor:' in flavor:
-            flavor = flavor.split(':')[1]
-        else:
-            flavor = None
+        flavor = None
+        tags = request.form.getlist("tags")
+        for tag in tags:
+            if 'flavor:' in tag:
+                flavor = tag.split(':')[1]
     if not plan and not flavor:
         return "Plan or flavor is required", 404
     try:

@@ -367,6 +367,9 @@ class Manager(object):
         if "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
+        if "flavor_name" in metadata:
+            flavor = self.storage.find_flavor(metadata["flavor_name"])
+            config.update(flavor.config or {})
         self._add_tags(name, config, metadata["consul_token"])
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.task_manager.update(name, task.task_id)

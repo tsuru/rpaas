@@ -117,7 +117,20 @@ class APITestCase(unittest.TestCase):
              "description": "some cool flavor",
              "config": {"nginx_version": "1.12"}}
         )
-        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1", "tag": "flavor:vanilla"})
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "tags": ["whatever", "flavor:vanilla"]})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
+
+    def test_start_instance_with_flavor_and_empty_tags(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"nginx_version": "1.12"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "flavor": "vanilla", "tags": ""})
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
         self.assertEqual("vanilla", self.manager.instances[0].flavor)
@@ -213,7 +226,7 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual("orange", self.manager.instances[0].flavor)
-        resp = self.api.put("/resources/someapp", data={"tag": "flavor:vanilla"})
+        resp = self.api.put("/resources/someapp", data={"tags": "flavor:vanilla"})
         self.assertEqual(204, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual("vanilla", self.manager.instances[0].flavor)

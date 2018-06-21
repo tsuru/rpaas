@@ -737,16 +737,17 @@ content = location /x {
         self.assertEqual(expected_calls, nginx_manager.wait_healthcheck.call_args_list)
 
     @mock.patch("rpaas.tasks.nginx")
-    def test_scale_instance_up_with_plan(self, nginx):
+    def test_scale_instance_up_with_plan_and_flavor(self, nginx):
         lb = self.LoadBalancer.find.return_value
         lb.dsr = False
         lb.name = "x"
         lb.hosts = [mock.Mock(), mock.Mock()]
         self.storage.store_instance_metadata("x", plan_name=self.plan["name"],
-                                             consul_token="abc-123")
+                                             consul_token="abc-123", flavor_name=self.flavor["name"])
         self.addCleanup(self.storage.remove_instance_metadata, "x")
         config = copy.deepcopy(self.config)
         config.update(self.plan["config"])
+        config.update(self.flavor["config"])
         config["HOST_TAGS"] = "rpaas_service:test-suite-rpaas,rpaas_instance:x,consul_token:abc-123"
         manager = Manager(self.config)
         manager.scale_instance("x", 5)
