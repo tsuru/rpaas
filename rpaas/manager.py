@@ -37,10 +37,13 @@ class Manager(object):
         if check_option_enable(os.environ.get("CHECK_ACL_API", None)):
             self.acl_manager = acl.AclManager(config, self.consul_manager, lock.Lock(tasks.app.backend.client))
 
-    def new_instance(self, name, team=None, plan_name=None):
+    def new_instance(self, name, team=None, plan_name=None, flavor_name=None):
         plan = None
+        flavor = None
         if plan_name:
             plan = self.storage.find_plan(plan_name)
+        if flavor_name:
+            flavor = self.storage.find_flavor(flavor_name)
         used, quota = self.storage.find_team_quota(team)
         if len(used) >= quota:
             raise QuotaExceededError(len(used), quota)
@@ -55,6 +58,9 @@ class Manager(object):
         if plan:
             config.update(plan.config)
             metadata["plan_name"] = plan_name
+        if flavor:
+            config.update(flavor.config)
+            metadata["flavor_name"] = flavor_name
         metadata["consul_token"] = consul_token = self.consul_manager.generate_token(name)
         self.consul_manager.write_healthcheck(name)
         self.storage.store_instance_metadata(name, **metadata)
@@ -82,6 +88,10 @@ class Manager(object):
             plan = self.storage.find_plan(metadata["plan_name"])
             if plan:
                 config.update(plan.config)
+        if metadata and "flavor_name" in metadata:
+            flavor = self.storage.find_flavor(metadata["flavor_name"])
+            if flavor:
+                config.update(flavor.config)
         if metadata and metadata.get("consul_token"):
             self.consul_manager.destroy_token(metadata["consul_token"])
         self.storage.decrement_quota(name)
@@ -90,15 +100,20 @@ class Manager(object):
         self.storage.remove_instance_metadata(name)
         tasks.RemoveInstanceTask().delay(config, name)
 
-    def update_instance(self, name, plan_name):
-        if not self.storage.find_plan(plan_name):
+    def update_instance(self, name, plan_name=None, flavor_name=None):
+        if plan_name and not self.storage.find_plan(plan_name):
             raise storage.PlanNotFoundError()
+        if flavor_name and not self.storage.find_flavor(flavor_name):
+            raise storage.FlavorNotFoundError()
         self.task_manager.ensure_ready(name)
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
         metadata = self.storage.find_instance_metadata(name)
-        metadata['plan_name'] = plan_name
+        if flavor_name:
+            metadata['flavor_name'] = flavor_name
+        if plan_name:
+            metadata['plan_name'] = plan_name
         self.storage.store_instance_metadata(name, **metadata)
 
     def restore_machine_instance(self, name, machine, cancel_task=False):
@@ -124,6 +139,9 @@ class Manager(object):
         if metadata and "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
+        if metadata and "flavor_name" in metadata:
+            flavor = self.storage.find_flavor(metadata["flavor_name"])
+            config.update(flavor.config or {})
         healthcheck_timeout = int(config.get("RPAAS_HEALTHCHECK_TIMEOUT", 600))
         tags = []
         extra_tags = config.get("INSTANCE_EXTRA_TAGS", "")
@@ -349,6 +367,9 @@ class Manager(object):
         if "plan_name" in metadata:
             plan = self.storage.find_plan(metadata["plan_name"])
             config.update(plan.config or {})
+        if "flavor_name" in metadata:
+            flavor = self.storage.find_flavor(metadata["flavor_name"])
+            config.update(flavor.config or {})
         self._add_tags(name, config, metadata["consul_token"])
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.task_manager.update(name, task.task_id)

@@ -95,6 +95,130 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
+    def test_list_flavors(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        result.read.return_value = """[
+            {"name":"small","description":"small vm","config":{"serviceofferingid":"abcdef-123"}},
+            {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
+        ]"""
+        urlopen.return_value = result
+        admin_plugin.handle_plan_flavor("flavor", ["list", "-s", self.service_name])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/flavors")
+        request.add_header.assert_called_with("Authorization",
+                                              "bearer " + self.token)
+        self.assertEqual("GET", request.get_method())
+        urlopen.assert_called_with(request)
+        expected_calls = [
+            mock.call("List of available flavors (use flavor show for details):\n\n"),
+            mock.call("small\t\tsmall vm\n"),
+            mock.call("medium\t\tmedium vm\n"),
+        ]
+        self.assertEqual(expected_calls, stdout.write.call_args_list)
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_create_flavor(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 201
+        urlopen.return_value = result
+        admin_plugin.handle_plan_flavor("flavor", ["create", "-s", self.service_name, "-n", "vanilla", "-d",
+                                                   "nginx 1.12", "-c",
+                                                   'NGINX=1.12 NAME="something nice" DATA="go go go" DATE=\'2015\''])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/flavors")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type",
+                                           "application/x-www-form-urlencoded")
+        params = {
+            "name": "vanilla",
+            "description": "nginx 1.12",
+            "config": json.dumps({"NGINX": "1.12",
+                                  "NAME": "something nice",
+                                  "DATA": "go go go",
+                                  "DATE": "2015"}),
+        }
+        request.add_data.assert_called_with(urllib.urlencode(params))
+        self.assertEqual("POST", request.get_method())
+        stdout.write.assert_called_with("Flavor successfully created\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_update_flavor(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+
+        flavor = {"name": "vanilla", "description": "nginx 1.12",
+                  "config": {"NGINX": "1.12", "GREETINGS": "hello"}}
+        old_retrieve = admin_plugin._retrieve_plan_flavor
+        admin_plugin._retrieve_plan_flavor = lambda option, service_name, name: flavor
+
+        def recover_retrieve():
+            admin_plugin._retrieve_plan_flavor = old_retrieve
+        self.addCleanup(recover_retrieve)
+
+        admin_plugin.handle_plan_flavor("flavor", ["update", "-s", self.service_name, "-n", "vanilla", "-d",
+                                                   "nginx 1.12", "-c",
+                                                   '''NGINX=1.12 NAME="some thing" '''
+                                                   '''DATA="go go go" DATE=\'2015\' wat="" '''
+                                                   '''RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo= '''
+                                                   '''GREETINGS=""'''])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/flavors/vanilla")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        request.add_header.assert_any_call("Content-Type",
+                                           "application/x-www-form-urlencoded")
+
+        raw_params = request.add_data.call_args[0][0]
+        parsed_params = urlparse.parse_qs(raw_params)
+        parsed_params["description"] = unicode(parsed_params["description"][0])
+        parsed_params["config"] = json.loads(parsed_params["config"][0])
+
+        expected_params = {
+            "description": u"nginx 1.12",
+            "config": {"NGINX": "1.12",
+                       "NAME": "some thing",
+                       "DATA": "go go go",
+                       "DATE": "2015",
+                       "RANDOM_BASE64": "bm90aGluZyB0byBzZWUgaGVyZQo="},
+        }
+        self.assertEqual(expected_params, parsed_params)
+        self.assertEqual("PUT", request.get_method())
+        stdout.write.assert_called_with("Flavor successfully updated\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    def test_delete_flavor(self, stdout, Request, urlopen):
+        request = mock.Mock()
+        Request.return_value = request
+        result = mock.Mock()
+        result.getcode.return_value = 200
+        urlopen.return_value = result
+        admin_plugin.handle_plan_flavor("flavor", ["delete", "-s", self.service_name, "vanilla"])
+        Request.assert_called_with(self.target +
+                                   "services/proxy/service/rpaas?" +
+                                   "callback=/admin/flavors/vanilla")
+        request.add_header.assert_any_call("Authorization", "bearer " + self.token)
+        self.assertEqual("DELETE", request.get_method())
+        stdout.write.assert_called_with("Flavor successfully deleted\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
     def test_list_plans(self, stdout, Request, urlopen):
         request = mock.Mock()
         Request.return_value = request
@@ -105,7 +229,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
             {"name":"medium","description":"medium vm","config":{"serviceofferingid":"abcdef-126"}}
         ]"""
         urlopen.return_value = result
-        admin_plugin.list_plans(["-s", self.service_name])
+        admin_plugin.handle_plan_flavor("plan", ["list", "-s", self.service_name])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
@@ -114,11 +238,34 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         self.assertEqual("GET", request.get_method())
         urlopen.assert_called_with(request)
         expected_calls = [
-            mock.call("List of available plans (use show-plan for details):\n\n"),
+            mock.call("List of available plans (use plan show for details):\n\n"),
             mock.call("small\t\tsmall vm\n"),
             mock.call("medium\t\tmedium vm\n"),
         ]
         self.assertEqual(expected_calls, stdout.write.call_args_list)
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    @mock.patch("sys.stderr")
+    def test_plans_with_invalid_option(self, stderr, stdout, Request, urlopen):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.handle_plan_flavor("plan", ["invalid"])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("plan: error: invalid choice: 'invalid' "
+                                        "(choose from 'list', 'remove', 'create', 'update', 'delete', 'show')\n")
+
+    @mock.patch("urllib2.urlopen")
+    @mock.patch("urllib2.Request")
+    @mock.patch("sys.stdout")
+    @mock.patch("sys.stderr")
+    def test_plans_as_default_option_with_no_args_failure(self, stderr, stdout, Request, urlopen):
+        with self.assertRaises(SystemExit) as cm:
+            admin_plugin.handle_plan_flavor("plan", [])
+        exc = cm.exception
+        self.assertEqual(2, exc.code)
+        stderr.write.assert_called_with("plan: error: too few arguments\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
@@ -131,7 +278,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "Something went wrong"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.list_plans(["-s", self.service_name])
+            admin_plugin.handle_plan_flavor("plan", ["list", "-s", self.service_name])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -152,8 +299,10 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result = mock.Mock()
         result.getcode.return_value = 201
         urlopen.return_value = result
-        admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                  'SERVICE=abcdef-123 NAME="something nice" DATA="go go go" DATE=\'2015\''])
+        admin_plugin.handle_plan_flavor("plan", ["create", "-s", self.service_name, "-n", "small",
+                                                 "-d", "smalll vms", "-c",
+                                                 'SERVICE=abcdef-123 NAME="something nice" '
+                                                 'DATA="go go go" DATE=\'2015\''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans")
@@ -183,8 +332,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "Plan already exists\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                      "SERVICE=abcdef-123"])
+            admin_plugin.handle_plan_flavor("plan", ["create", "-s", self.service_name, "-n", "small",
+                                                     "-d", "smalll vms", "-c", "SERVICE=abcdef-123"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -199,8 +348,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_create_plan_invalid_config(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.create_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                      "SERVICE"])
+            admin_plugin.handle_plan_flavor("plan", ["create", "-s", self.service_name, "-n", "small",
+                                                     "-d", "smalll vms", "-c", "SERVICE"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with(
@@ -218,16 +367,18 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
 
         plan = {"name": "small", "description": "smalll vms",
                 "config": {"SERVICE": "abcd", "GREETINGS": "hello"}}
-        old_retrieve = admin_plugin._retrieve_plan
-        admin_plugin._retrieve_plan = lambda service_name, name: plan
+        old_retrieve = admin_plugin._retrieve_plan_flavor
+        admin_plugin._retrieve_plan_flavor = lambda option, service_name, name: plan
 
         def recover_retrieve():
-            admin_plugin._retrieve_plan = old_retrieve
+            admin_plugin._retrieve_plan_flavor = old_retrieve
         self.addCleanup(recover_retrieve)
 
-        admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                  '''SERVICE=abcdef-123 NAME="some thing" DATA="go go go" DATE=\'2015\'
-                                     wat="" RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo= GREETINGS=""'''])
+        admin_plugin.handle_plan_flavor("plan", ["update", "-s", self.service_name, "-n", "small", "-d", "smalll vms",
+                                                 "-c", '''SERVICE=abcdef-123 NAME="some thing" '''
+                                                       '''DATA="go go go" DATE=\'2015\' wat="" '''
+                                                       '''RANDOM_BASE64=bm90aGluZyB0byBzZWUgaGVyZQo= '''
+                                                       '''GREETINGS=""'''])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
@@ -260,11 +411,11 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         Request.return_value = request
 
         plan = {"name": "small", "description": "smalll vms", "config": {}}
-        old_retrieve = admin_plugin._retrieve_plan
-        admin_plugin._retrieve_plan = lambda service_name, name: plan
+        old_retrieve = admin_plugin._retrieve_plan_flavor
+        admin_plugin._retrieve_plan_flavor = lambda option, service_name, name: plan
 
         def recover_retrieve():
-            admin_plugin._retrieve_plan = old_retrieve
+            admin_plugin._retrieve_plan_flavor = old_retrieve
         self.addCleanup(recover_retrieve)
 
         result = mock.Mock()
@@ -272,8 +423,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.read.return_value = "plan not found\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                      "SERVICE=abcdef-123"])
+            admin_plugin.handle_plan_flavor("plan", ["update", "-s", self.service_name, "-n", "small",
+                                                     "-d", "smalll vms", "-c", "SERVICE=abcdef-123"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -288,8 +439,8 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_update_plan_invalid_config(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.update_plan(["-s", self.service_name, "-n", "small", "-d", "smalll vms", "-c",
-                                      "SERVICE"])
+            admin_plugin.handle_plan_flavor("plan", ["update", "-s", self.service_name, "-n", "small",
+                                                     "-d", "smalll vms", "-c", "SERVICE"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with(
@@ -298,7 +449,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stdout")
-    def test_retrieve_plan(self, stdout, Request, urlopen):
+    def test_show_plan(self, stdout, Request, urlopen):
         lines = []
         stdout.write.side_effect = lambda data, **kw: lines.append(data)
         plan_data = u"""{"name":"small",
@@ -313,7 +464,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         result.getcode.return_value = 200
         result.read.return_value = plan_data
         urlopen.return_value = result
-        admin_plugin.retrieve_plan(["-s", self.service_name, "small"])
+        admin_plugin.handle_plan_flavor("plan", ["show", "-s", self.service_name, "small"])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/small")
@@ -333,7 +484,7 @@ Config:
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
     @mock.patch("sys.stderr")
-    def test_retrieve_plan_failure(self, stderr, Request, urlopen):
+    def test_show_plan_failure(self, stderr, Request, urlopen):
         request = mock.Mock()
         Request.return_value = request
         result = mock.Mock()
@@ -341,7 +492,7 @@ Config:
         result.read.return_value = "something went wrong"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.retrieve_plan(["-s", self.service_name, "medium"])
+            admin_plugin.handle_plan_flavor("plan", ["show", "-s", self.service_name, "medium"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -352,12 +503,12 @@ Config:
         stderr.write.assert_called_with("ERROR: something went wrong\n")
 
     @mock.patch("sys.stderr")
-    def test_retrieve_plan_invalid_args(self, stderr):
+    def test_show_plan_invalid_args(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.retrieve_plan(["-s", self.service_name])
+            admin_plugin.handle_plan_flavor("plan", ["show", "-s", self.service_name])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        stderr.write.assert_called_with("show-plan: error: too few arguments\n")
+        stderr.write.assert_called_with("plan show: error: too few arguments\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
@@ -368,7 +519,7 @@ Config:
         result = mock.Mock()
         result.getcode.return_value = 200
         urlopen.return_value = result
-        admin_plugin.delete_plan(["-s", self.service_name, "medium"])
+        admin_plugin.handle_plan_flavor("plan", ["delete", "-s", self.service_name, "medium"])
         Request.assert_called_with(self.target +
                                    "services/proxy/service/rpaas?" +
                                    "callback=/admin/plans/medium")
@@ -387,7 +538,7 @@ Config:
         result.read.return_value = "plan not found\n"
         urlopen.return_value = result
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.delete_plan(["-s", self.service_name, "medium"])
+            admin_plugin.handle_plan_flavor("plan", ["delete", "-s", self.service_name, "medium"])
         exc = cm.exception
         self.assertEqual(1, exc.code)
         Request.assert_called_with(self.target +
@@ -400,10 +551,10 @@ Config:
     @mock.patch("sys.stderr")
     def test_delete_plan_invalid_args(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            admin_plugin.delete_plan(["-s", self.service_name])
+            admin_plugin.handle_plan_flavor("plan", ["delete", "-s", self.service_name])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        stderr.write.assert_called_with("delete-plan: error: too few arguments\n")
+        stderr.write.assert_called_with("plan delete: error: too few arguments\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")

@@ -10,7 +10,7 @@ import os
 
 import freezegun
 
-from rpaas import plan, storage
+from rpaas import plan, storage, flavor
 
 
 class MongoDBStorageTestCase(unittest.TestCase):
@@ -30,6 +30,16 @@ class MongoDBStorageTestCase(unittest.TestCase):
             {"_id": "huge",
              "description": "some cool huge plan",
              "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
         )
 
     def test_set_team_quota(self):
@@ -107,6 +117,74 @@ class MongoDBStorageTestCase(unittest.TestCase):
     def test_delete_plan_not_found(self):
         with self.assertRaises(storage.PlanNotFoundError):
             self.storage.delete_plan("super_huge")
+
+    def test_list_flavors(self):
+        flavors = self.storage.list_flavors()
+        expected = [
+            {"name": "vanilla", "description": "nginx 1.10",
+             "config": {"nginx_version": "1.10"}},
+            {"name": "orange", "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}},
+        ]
+        self.assertEqual(expected, [f.to_dict() for f in flavors])
+
+    def test_find_flavor(self):
+        flavor = self.storage.find_flavor("vanilla")
+        expected = {"name": "vanilla", "description": "nginx 1.10",
+                    "config": {"nginx_version": "1.10"}}
+        self.assertEqual(expected, flavor.to_dict())
+        with self.assertRaises(storage.FlavorNotFoundError):
+            self.storage.find_flavor("something that doesn't exist")
+
+    def test_store_flavor(self):
+        f = flavor.Flavor(name="lemon", description="nginx 1.13",
+                          config={"nginx_version": "1.13"})
+        self.storage.store_flavor(f)
+        got_flavor = self.storage.find_flavor(f.name)
+        self.assertEqual(f.to_dict(), got_flavor.to_dict())
+
+    def test_store_flavor_duplicate(self):
+        f = flavor.Flavor(name="vanilla", description="nginx 1.10",
+                          config={"nginx_version": "1.10"})
+        with self.assertRaises(storage.DuplicateError):
+            self.storage.store_flavor(f)
+
+    def test_update_flavor(self):
+        f = flavor.Flavor(name="lemon", description="nginx 1.13",
+                          config={"nginx_version": "1.13"})
+        self.storage.store_flavor(f)
+        self.storage.update_flavor(f.name, description="nginx 1.13.1",
+                                   config={"nginx_version": "1.13.1"})
+        f = self.storage.find_flavor(f.name)
+        self.assertEqual("lemon", f.name)
+        self.assertEqual("nginx 1.13.1", f.description)
+        self.assertEqual({"nginx_version": "1.13.1"}, f.config)
+
+    def test_update_flavor_partial(self):
+        f = flavor.Flavor(name="lemon", description="nginx 1.13",
+                          config={"nginx_version": "1.13"})
+        self.storage.store_flavor(f)
+        self.storage.update_flavor(f.name, config={"nginx_version": "1.13.1"})
+        f = self.storage.find_flavor(f.name)
+        self.assertEqual("lemon", f.name)
+        self.assertEqual("nginx 1.13", f.description)
+        self.assertEqual({"nginx_version": "1.13.1"}, f.config)
+
+    def test_update_flavor_not_found(self):
+        with self.assertRaises(storage.FlavorNotFoundError):
+            self.storage.update_flavor("lemon", description="nginx 1.13")
+
+    def test_delete_flavor(self):
+        f = flavor.Flavor(name="lemon", description="nginx 1.13",
+                          config={"nginx_version": "1.13"})
+        self.storage.store_flavor(f)
+        self.storage.delete_flavor(f.name)
+        with self.assertRaises(storage.FlavorNotFoundError):
+            self.storage.find_flavor(f.name)
+
+    def test_delete_flavor_not_found(self):
+        with self.assertRaises(storage.FlavorNotFoundError):
+            self.storage.delete_flavor("lemon")
 
     def test_instance_metadata_storage(self):
         self.storage.store_instance_metadata("myinstance", plan="small")

@@ -68,9 +68,13 @@ def scale(args):
 
 
 def update(args):
-    service, instance, plan = get_update_args(args)
+    service, instance, plan, flavor = get_update_args(args)
+    if flavor:
+        flavor = "flavor_name={}".format(flavor)
+    if plan:
+        plan = "plan_name={}".format(plan)
     result = proxy_request(service, instance, "/resources/{}".format(instance),
-                           body="plan_name={}".format(plan), method='PUT')
+                           body="{}".format("&".join(filter(None, [plan, flavor]))), method='PUT')
     if result.getcode() == 201:
         msg = "Instance successfully updated"
         sys.stdout.write(msg + "\n")
@@ -318,8 +322,9 @@ def get_update_args(args):
     parser.add_argument("-s", "--service", required=True, help="Service name")
     parser.add_argument("-i", "--instance", required=True, help="Service instance name")
     parser.add_argument("-p", "--plan", required=False, help="New plan name")
+    parser.add_argument("-f", "--flavor", required=False, help="New rpaas flavor name")
     parsed = parser.parse_args(args)
-    return parsed.service, parsed.instance, parsed.plan
+    return parsed.service, parsed.instance, parsed.plan, parsed.flavor
 
 
 def ssl(args):
@@ -363,6 +368,37 @@ def status(args):
     else:
         sys.stderr.write("ERROR: " + content + "\n")
         sys.exit(1)
+
+
+def info(args):
+    service, instance = get_info_args(args)
+    result = proxy_request(service, instance, "/resources/{}/plans".format(instance), method="GET")
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    plans = json.loads(body)
+    sys.stdout.write("List of available plans:\n\n")
+    for plan in plans:
+        sys.stdout.write("{name}\t\t{description}\n".format(**plan))
+    sys.stdout.write("\n\n")
+    result = proxy_request(service, instance, "/resources/{}/flavors".format(instance), method="GET")
+    body = result.read().rstrip("\n")
+    if result.getcode() != 200:
+        sys.stderr.write("ERROR: " + body + "\n")
+        sys.exit(1)
+    flavors = json.loads(body)
+    sys.stdout.write("List of available flavors:\n\n")
+    for flavor in flavors:
+        sys.stdout.write("{name}\t\t{description}\n".format(**flavor))
+
+
+def get_info_args(args):
+    parser = argparse.ArgumentParser("info")
+    parser.add_argument("-s", "--service", required=True)
+    parser.add_argument("-i", "--instance", required=True)
+    parsed_args = parser.parse_args(args)
+    return parsed_args.service, parsed_args.instance
 
 
 def get_status_args(args):
@@ -492,6 +528,7 @@ def available_commands():
         "status": status,
         "update": update,
         "lua": lua,
+        "info": info
     }
 
 

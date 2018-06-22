@@ -53,6 +53,30 @@ class APITestCase(unittest.TestCase):
         ]
         self.assertEqual(expected, json.loads(resp.data))
 
+    def test_flavors(self):
+        resp = self.api.get("/resources/flavors")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual("[]", resp.data)
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.13",
+             "config": {"nginx_version": "1.13"}}
+        )
+        resp = self.api.get("/resources/flavors")
+        self.assertEqual(200, resp.status_code)
+        expected = [
+            {"name": "vanilla", "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}},
+            {"name": "orange", "description": "nginx 1.13",
+             "config": {"nginx_version": "1.13"}},
+        ]
+        self.assertEqual(expected, json.loads(resp.data))
+
     def test_start_instance(self):
         resp = self.api.post("/resources", data={"name": "someapp", "team": "team1"})
         self.assertEqual(201, resp.status_code)
@@ -68,6 +92,48 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(201, resp.status_code)
         self.assertEqual("someapp", self.manager.instances[0].name)
         self.assertEqual("small", self.manager.instances[0].plan)
+
+    def test_start_instance_with_plan_and_flavor(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"nginx_version": "1.12"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "plan": "small", "flavor": "vanilla"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("small", self.manager.instances[0].plan)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
+
+    def test_start_instance_with_flavor_as_tag(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"nginx_version": "1.12"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "tags": ["whatever", "flavor:vanilla"]})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
+
+    def test_start_instance_with_flavor_and_empty_tags(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"nginx_version": "1.12"}}
+        )
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "flavor": "vanilla", "tags": ""})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("someapp", self.manager.instances[0].name)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
 
     def test_start_instance_with_invalid_names(self):
         resp = self.api.post("/resources", data={"names": "someapp"})
@@ -107,6 +173,13 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("invalid plan", resp.data)
         self.assertEqual([], self.manager.instances)
 
+    def test_start_instance_flavor_not_found(self):
+        resp = self.api.post("/resources", data={"name": "someapp", "team": "team1",
+                                                 "flavor": "vanilla"})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("invalid flavor", resp.data)
+        self.assertEqual([], self.manager.instances)
+
     def test_start_instance_unauthorized(self):
         self.set_auth_env("rpaas", "rpaas123")
         self.addCleanup(self.delete_auth_env)
@@ -136,6 +209,27 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertEqual("", resp.data)
         self.assertEqual("small", self.manager.instances[0].plan)
+
+    def test_update_instance_tag_with_flavor(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"nginx": "1.12"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "some cool flavor",
+             "config": {"nginx": "1.13"}}
+        )
+        self.manager.new_instance("someapp", flavor_name="vanilla")
+        resp = self.api.put("/resources/someapp", data={"flavor": "orange"})
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("", resp.data)
+        self.assertEqual("orange", self.manager.instances[0].flavor)
+        resp = self.api.put("/resources/someapp", data={"tags": "flavor:vanilla"})
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("", resp.data)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
 
     def test_update_instance_not_found(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -167,7 +261,7 @@ class APITestCase(unittest.TestCase):
         self.manager.new_instance("someapp", plan_name="small")
         resp = self.api.put("/resources/someapp", data={"plan_name": ""})
         self.assertEqual(404, resp.status_code)
-        self.assertEqual("Plan is required", resp.data)
+        self.assertEqual("Plan or flavor is required", resp.data)
 
     def test_update_invalid_plan(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -184,6 +278,17 @@ class APITestCase(unittest.TestCase):
         resp = self.api.put("/resources/someapp", data={"plan_name": "large"})
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Plan not found", resp.data)
+
+    def test_update_invalid_flavor(self):
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "some cool flavor",
+             "config": {"nginx": "1.13"}}
+        )
+        self.manager.new_instance("someapp", flavor_name="orange")
+        resp = self.api.put("/resources/someapp", data={"flavor": "vanilla"})
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("RpaaS flavor not found", resp.data)
 
     def test_remove_instance(self):
         self.manager.new_instance("someapp")

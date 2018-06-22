@@ -52,10 +52,19 @@ if check_option_enable(os.environ.get("RUN_SESSION_RESUMPTION")):
 
 
 @api.route("/resources/plans", methods=["GET"])
+@api.route("/resources/<name>/plans", methods=["GET"])
 @auth.required
-def plans():
+def plans(name=None):
     plans = get_manager().storage.list_plans()
     return json.dumps([p.to_dict() for p in plans])
+
+
+@api.route("/resources/flavors", methods=["GET"])
+@api.route("/resources/<name>/flavors", methods=["GET"])
+@auth.required
+def flavors(name=None):
+    flavors = get_manager().storage.list_flavors()
+    return json.dumps([f.to_dict() for f in flavors])
 
 
 @api.route("/resources", methods=["POST"])
@@ -74,11 +83,20 @@ def add_instance():
     plan = request.form.get("plan")
     if require_plan() and not plan:
         return "plan is required", 400
+    flavor = request.form.get("flavor")
+    if not flavor:
+        flavor = None
+        tags = request.form.getlist("tags")
+        for tag in tags:
+            if 'flavor:' in tag:
+                flavor = tag.split(':')[1]
     try:
         get_manager().new_instance(name, team=team,
-                                   plan_name=plan)
+                                   plan_name=plan, flavor_name=flavor)
     except storage.PlanNotFoundError:
         return "invalid plan", 400
+    except storage.FlavorNotFoundError:
+        return "invalid flavor", 400
     except storage.DuplicateError:
         return "{} instance already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -92,16 +110,25 @@ def update_instance(name):
     plan = request.form.get("plan_name")
     if not plan:
         plan = request.form.get("plan")
-    if not plan:
-        return "Plan is required", 404
+    flavor = request.form.get("flavor")
+    if not flavor:
+        flavor = None
+        tags = request.form.getlist("tags")
+        for tag in tags:
+            if 'flavor:' in tag:
+                flavor = tag.split(':')[1]
+    if not plan and not flavor:
+        return "Plan or flavor is required", 404
     try:
-        get_manager().update_instance(name, plan)
+        get_manager().update_instance(name, plan, flavor)
     except tasks.NotReadyError as e:
         return "Instance not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except storage.PlanNotFoundError:
         return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "RpaaS flavor not found", 404
     return "", 204
 
 
@@ -453,7 +480,7 @@ def get_admin_plugin():
     return inspect.getsource(admin_plugin)
 
 
-admin_api.register_views(api, plans)
+admin_api.register_views(api, plans, flavors)
 
 
 def main():

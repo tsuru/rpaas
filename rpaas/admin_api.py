@@ -7,7 +7,7 @@ from bson import json_util
 
 from flask import request, Response
 
-from rpaas import auth, get_manager, storage, plan
+from rpaas import auth, get_manager, storage, plan, flavor
 
 
 @auth.required
@@ -69,6 +69,54 @@ def delete_plan(name):
 
 
 @auth.required
+def create_flavor():
+    name = request.form.get("name")
+    description = request.form.get("description")
+    config = json.loads(request.form.get("config", "null"))
+    manager = get_manager()
+    f = flavor.Flavor(name=name, description=description, config=config)
+    try:
+        manager.storage.store_flavor(f)
+    except storage.DuplicateError:
+        return "flavor already exists", 409
+    except flavor.InvalidFlavorError as e:
+        return unicode(e), 400
+    return "", 201
+
+
+@auth.required
+def retrieve_flavor(name):
+    manager = get_manager()
+    try:
+        flavor = manager.storage.find_flavor(name)
+    except storage.FlavorNotFoundError:
+        return "flavor not found", 404
+    return json.dumps(flavor.to_dict())
+
+
+@auth.required
+def update_flavor(name):
+    description = request.form.get("description")
+    config = json.loads(request.form.get("config", "null"))
+    manager = get_manager()
+    try:
+        manager.storage.update_flavor(name, description, config)
+    except storage.FlavorNotFoundError:
+        return "flavor not found", 404
+    return ""
+
+
+@auth.required
+def delete_flavor(name):
+    manager = get_manager()
+    try:
+        manager.storage.delete_flavor(name)
+    except storage.FlavorNotFoundError:
+        return "flavor not found", 404
+    return ""
+
+
+@auth.required
 def view_team_quota(team_name):
     manager = get_manager()
     used, quota = manager.storage.find_team_quota(team_name)
@@ -98,7 +146,7 @@ def restore_instance():
     return Response(manager.restore_instance(instance_name), content_type='event/stream')
 
 
-def register_views(app, list_plans):
+def register_views(app, list_plans, list_flavors):
     app.add_url_rule("/admin/healings", methods=["GET"],
                      view_func=healings)
     app.add_url_rule("/admin/plans", methods=["GET"],
@@ -111,6 +159,16 @@ def register_views(app, list_plans):
                      view_func=update_plan)
     app.add_url_rule("/admin/plans/<name>", methods=["DELETE"],
                      view_func=delete_plan)
+    app.add_url_rule("/admin/flavors", methods=["GET"],
+                     view_func=list_flavors)
+    app.add_url_rule("/admin/flavors", methods=["POST"],
+                     view_func=create_flavor)
+    app.add_url_rule("/admin/flavors/<name>", methods=["GET"],
+                     view_func=retrieve_flavor)
+    app.add_url_rule("/admin/flavors/<name>", methods=["PUT"],
+                     view_func=update_flavor)
+    app.add_url_rule("/admin/flavors/<name>", methods=["DELETE"],
+                     view_func=delete_flavor)
     app.add_url_rule("/admin/quota/<team_name>", methods=["GET"],
                      view_func=view_team_quota)
     app.add_url_rule("/admin/quota/<team_name>", methods=["POST"],
