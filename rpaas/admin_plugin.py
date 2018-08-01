@@ -107,10 +107,10 @@ def handle_plan_flavor(option, args):
     parser = argparse.ArgumentParser(option)
     subparsers = parser.add_subparsers(help="Action to {} option".format(option))
     parser_choice = {}
-    for choice in ["list", "remove", "create", "update", "delete", "show"]:
+    for choice in ["list", "create", "update", "delete", "show"]:
         parser_choice[choice] = subparsers.add_parser(choice)
         parser_choice[choice] = _base_args(None, parser_choice[choice])
-    if args and args[0] in ["list", "remove", "create", "update", "delete", "show"]:
+    if args and args[0] in ["list", "create", "update", "delete", "show"]:
         globals().get("{}_plan_flavor".format(args[0]))(option, args, parser_choice[args[0]], parser)
     else:
         parser.parse_args(args)
