@@ -21,6 +21,7 @@ try:
     from bson import json_util
 except:
     sys.stderr.write("This plugin requires json_util module\n")
+    sys.stderr.write("You can install it using: pip install pymongo\n")
     sys.exit(1)
 
 
