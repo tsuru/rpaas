@@ -141,6 +141,12 @@ class BaseManagerTask(Task):
                                user=self._get_conf("HCAPI_USER"),
                                password=self._get_conf("HCAPI_PASSWORD"),
                                hc_format=self._get_conf("HCAPI_FORMAT", "http://{}:8080/"))
+        self.retry_countdown = os.environ.get("RETRY_COUNTDOWN", None)
+        if self.retry_countdown:
+            self.retry_countdown = int(self.retry_countdown)
+        self.max_retries = os.environ.get("MAX_RETRIES", None)
+        if self.max_retries:
+            self.max_retries = int(self.max_retries)
 
     def _get_conf(self, key, default=config.undefined):
         return config.get_config(key, default, self.config)
@@ -203,17 +209,26 @@ class BaseManagerTask(Task):
         finally:
             self.storage.remove_task(name)
 
+    def run(self, *args, **kwargs):
+        try:
+            self.execute(*args, **kwargs)
+        except Exception as exc:
+            self.retry(exc=exc, countdown=self.retry_countdown, max_retries=self.max_retries)
+
+    def execute(self, *args, **kwargs):
+        raise NotImplementedError
+
 
 class NewInstanceTask(BaseManagerTask):
 
-    def run(self, config, name):
+    def execute(self, config, name):
         self.init_config(config)
         self._add_host(name)
 
 
 class RemoveInstanceTask(BaseManagerTask):
 
-    def run(self, config, name):
+    def execute(self, config, name):
         self.init_config(config)
         lb = LoadBalancer.find(name, self.config)
         if lb is None:
@@ -229,7 +244,7 @@ class RemoveInstanceTask(BaseManagerTask):
 
 class ScaleInstanceTask(BaseManagerTask):
 
-    def run(self, config, name, quantity):
+    def execute(self, config, name, quantity):
         try:
             self.init_config(config)
             lb = LoadBalancer.find(name, self.config)
@@ -249,7 +264,7 @@ class ScaleInstanceTask(BaseManagerTask):
 
 class RestoreMachineTask(BaseManagerTask):
 
-    def run(self, config):
+    def execute(self, config):
         self.init_config(config)
         lock_name = self.config.get("RESTORE_LOCK_NAME", "restore_lock")
         healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
@@ -300,7 +315,7 @@ class RestoreMachineTask(BaseManagerTask):
 
 class CheckMachineTask(BaseManagerTask):
 
-    def run(self, config):
+    def execute(self, config):
         self.init_config(config)
         for node in self.consul_manager.service_healthcheck():
             node_fail = False
@@ -341,7 +356,7 @@ class CheckMachineTask(BaseManagerTask):
 
 class DownloadCertTask(BaseManagerTask):
 
-    def run(self, config, name, plugin, csr, key, domain):
+    def execute(self, config, name, plugin, csr, key, domain):
         try:
             self.init_config(config)
             sslutils.generate_crt(self.config, name, plugin, csr, key, domain)
@@ -351,7 +366,7 @@ class DownloadCertTask(BaseManagerTask):
 
 class RevokeCertTask(BaseManagerTask):
 
-    def run(self, config, name, plugin, domain):
+    def execute(self, config, name, plugin, domain):
         try:
             self.init_config(config)
             lb = LoadBalancer.find(name, self.config)
@@ -372,7 +387,7 @@ class RevokeCertTask(BaseManagerTask):
 
 class RenewCertsTask(BaseManagerTask):
 
-    def run(self, config):
+    def execute(self, config):
         self.init_config(config)
         expires_in = int(self.config.get("LE_CERTIFICATE_EXPIRATION_DAYS", 90))
         limit = datetime.datetime.utcnow() - datetime.timedelta(days=expires_in - 3)
@@ -394,7 +409,7 @@ class RenewCertsTask(BaseManagerTask):
 
 class SessionResumptionTask(BaseManagerTask):
 
-    def run(self, config):
+    def execute(self, config):
         self.init_config(config)
         session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
         instances_to_rotate = self.config.get("SESSION_RESUMPTION_INSTANCES", None)
