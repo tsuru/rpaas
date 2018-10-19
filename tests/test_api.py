@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Copyright 2014 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
@@ -623,6 +625,19 @@ class APITestCase(unittest.TestCase):
         self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': None,
             'content': 'my content',
+        })
+
+    def test_add_route_with_utf8_content(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/route", data={
+            'path': '/somewhere',
+            'content': 'my content ☺'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertDictEqual(instance.routes.get('/somewhere'), {
+            'destination': None,
+            'content': 'my content ☺'
         })
 
     def test_delete_route(self):

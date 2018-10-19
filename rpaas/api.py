@@ -311,6 +311,8 @@ def add_route(name):
         return 'either content xor destination are required', 400
     if destination and content:
         return 'cannot have both content and destination', 400
+    if content:
+        content = content.encode("utf-8")
     try:
         get_manager().add_route(name, path, destination, content)
     except storage.InstanceNotFoundError:

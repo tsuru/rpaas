@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Copyright 2016 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
@@ -153,6 +155,13 @@ class ConsulManagerTestCase(unittest.TestCase):
                                     content="something nice")
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         self.assertEqual("something nice", item[1]["Value"])
+
+    def test_write_location_content_utf8(self):
+        self.manager.write_location("myrpaas", "/admin/app_sites/",
+                                    destination="http://myapp.tsuru.io",
+                                    content='my content ☺')
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
+        self.assertEqual('my content ☺', item[1]["Value"])
 
     def test_write_location_content_strip(self):
         self.manager.write_location("myrpaas", "/admin/app_sites/",
