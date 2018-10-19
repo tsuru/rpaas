@@ -254,7 +254,7 @@ class TsuruAdminPluginTestCase(unittest.TestCase):
         exc = cm.exception
         self.assertEqual(2, exc.code)
         stderr.write.assert_called_with("plan: error: invalid choice: 'invalid' "
-                                        "(choose from 'list', 'remove', 'create', 'update', 'delete', 'show')\n")
+                                        "(choose from 'list', 'create', 'update', 'delete', 'show')\n")
 
     @mock.patch("urllib2.urlopen")
     @mock.patch("urllib2.Request")
