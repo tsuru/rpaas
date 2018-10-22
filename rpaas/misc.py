@@ -18,9 +18,14 @@ def check_option_enable(option):
 
 
 def validate_name(name):
-    if not name or re.search("^[0-9a-z-]+$", name) is None or len(name) > 25:
-        raise ValidationError(
-            "instance name must match [0-9a-z-] and length up to 25 chars")
+    instance_length = None
+    if os.environ.get("INSTANCE_LENGTH"):
+        instance_length = int(os.environ.get("INSTANCE_LENGTH"))
+    if not name or re.search("^[0-9a-z-]+$", name) is None or (instance_length and len(name) > instance_length):
+        validation_error_msg = "instance name must match [0-9a-z-]"
+        if instance_length:
+            validation_error_msg = "{} and length up to {} chars".format(validation_error_msg, instance_length)
+        raise ValidationError(validation_error_msg)
 
 
 def require_plan():

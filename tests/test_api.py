@@ -28,6 +28,7 @@ class APITestCase(unittest.TestCase):
         colls = self.storage.db.collection_names(False)
         for coll in colls:
             self.storage.db.drop_collection(coll)
+        os.environ["INSTANCE_LENGTH"] = "25"
 
     def test_plans(self):
         resp = self.api.get("/resources/plans")
@@ -135,20 +136,26 @@ class APITestCase(unittest.TestCase):
         self.assertEqual("someapp", self.manager.instances[0].name)
         self.assertEqual("vanilla", self.manager.instances[0].flavor)
 
-    def test_start_instance_with_invalid_names(self):
+    def test_start_instance_with_invalid_names_and_sizes(self):
+        del os.environ["INSTANCE_LENGTH"]
         resp = self.api.post("/resources", data={"names": "someapp"})
         self.assertEqual(400, resp.status_code)
-        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        self.assertEqual("instance name must match [0-9a-z-]", resp.data)
         resp = self.api.post("/resources", data={"name": "test_1"})
         self.assertEqual(400, resp.status_code)
-        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        self.assertEqual("instance name must match [0-9a-z-]", resp.data)
         resp = self.api.post("/resources", data={"name": "test1#"})
         self.assertEqual(400, resp.status_code)
-        self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
+        self.assertEqual("instance name must match [0-9a-z-]", resp.data)
+        os.environ["INSTANCE_LENGTH"] = "25"
         resp = self.api.post("/resources", data={"name": 26 * "t"})
         self.assertEqual(400, resp.status_code)
         self.assertEqual("instance name must match [0-9a-z-] and length up to 25 chars", resp.data)
         self.assertEqual([], self.manager.instances)
+        del os.environ["INSTANCE_LENGTH"]
+        resp = self.api.post("/resources", data={"name": 50 * "t", "team": "team1"})
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual(self.manager.instances[0].name, 50 * "t")
 
     def test_start_instance_without_team(self):
         resp = self.api.post("/resources", data={"name": "someapp"})
