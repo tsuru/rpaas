@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Copyright 2016 rpaas authors. All rights reserved.
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
@@ -630,7 +632,7 @@ class ManagerTestCase(unittest.TestCase):
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_info_with_binding(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
-        self.storage.replace_binding_path("inst", "/arrakis", None, "location /x {\n}")
+        self.storage.replace_binding_path("inst", "/arrakis", None, "location /x {\nmy content ☺\n}")
         lb = LoadBalancer.find.return_value
         lb.address = "192.168.1.1"
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -644,6 +646,7 @@ class ManagerTestCase(unittest.TestCase):
 destination = app.host.com
 path = /arrakis
 content = location /x {
+my content ☺
 }"""},
         ])
         self.assertEqual(manager.status("inst"), "192.168.1.1")
