@@ -240,7 +240,7 @@ class Manager(object):
                 if dst:
                     routes_data.append("destination = {}".format(dst))
                 if content:
-                    routes_data.append("content = {}".format(content.encode("utf-8")))  
+                    routes_data.append("content = {}".format(content.encode("utf-8")))
         lb = LoadBalancer.find(name)
         host_count = 0
         if lb:
