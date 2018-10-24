@@ -10,7 +10,7 @@ from rpaas import (auth, get_manager, storage, manager, tasks, consul_manager)
 from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
-supported_extra_features = ['tls']  # possible values: "cname", "tls", "healthcheck"
+supported_extra_features = ['tls', 'status']  # possible values: "cname", "tls", "healthcheck"
 
 
 @router.url_value_preprocessor
@@ -127,6 +127,19 @@ def add_routes(name):
         return "Backend not found", 404
     return "", 200
     # TODO: wait nginx reload and report status?
+
+
+@router.route("/backend/<name>/status", methods=["GET"])
+@auth.required
+def status(name):
+    node_status = get_manager().node_status(name)
+    status = []
+    for node in node_status:
+        status.append("{} - {}: {}".format(node, node_status[node]['address'], node_status[node]['status']))
+    node_status = {}
+    node_status['status'] = "\n".join(status)
+    return Response(response=json.dumps(node_status), status=200,
+                    mimetype="application/json")
 
 
 @router.route("/backend/<name>/routes/remove", methods=["POST"])

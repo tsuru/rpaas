@@ -185,6 +185,14 @@ class RouterAPITestCase(unittest.TestCase):
             "router-someapp", "router-someapp")
         self.assertEqual(["addr1", "addr2"], sorted(list(routes)))
 
+    def test_get_status(self):
+        instance = self.manager.new_instance("router-someapp")
+        instance.node_status = {'vm-1': {'status': 'OK', 'address': '10.1.1.1'},
+                                'vm-2': {'status': 'DEAD', 'address': '10.2.2.2'}}
+        resp = self.api.get("/router/backend/someapp/status")
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(resp.data, '{"status": "vm-1 - 10.1.1.1: OK\\nvm-2 - 10.2.2.2: DEAD"}')
+
     def test_remove_routes(self):
         self.manager.new_instance("router-someapp")
         self.manager.add_upstream(
