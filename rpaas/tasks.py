@@ -264,7 +264,7 @@ class ScaleInstanceTask(BaseManagerTask):
 
 class RestoreMachineTask(BaseManagerTask):
 
-    def execute(self, config):
+    def run(self, config):
         self.init_config(config)
         lock_name = self.config.get("RESTORE_LOCK_NAME", "restore_lock")
         healthcheck_timeout = int(self._get_conf("RPAAS_HEALTHCHECK_TIMEOUT", 600))
@@ -315,7 +315,7 @@ class RestoreMachineTask(BaseManagerTask):
 
 class CheckMachineTask(BaseManagerTask):
 
-    def execute(self, config):
+    def run(self, config):
         self.init_config(config)
         for node in self.consul_manager.service_healthcheck():
             node_fail = False
@@ -356,7 +356,7 @@ class CheckMachineTask(BaseManagerTask):
 
 class DownloadCertTask(BaseManagerTask):
 
-    def execute(self, config, name, plugin, csr, key, domain):
+    def run(self, config, name, plugin, csr, key, domain):
         try:
             self.init_config(config)
             sslutils.generate_crt(self.config, name, plugin, csr, key, domain)
@@ -366,7 +366,7 @@ class DownloadCertTask(BaseManagerTask):
 
 class RevokeCertTask(BaseManagerTask):
 
-    def execute(self, config, name, plugin, domain):
+    def run(self, config, name, plugin, domain):
         try:
             self.init_config(config)
             lb = LoadBalancer.find(name, self.config)
@@ -387,7 +387,7 @@ class RevokeCertTask(BaseManagerTask):
 
 class RenewCertsTask(BaseManagerTask):
 
-    def execute(self, config):
+    def run(self, config):
         self.init_config(config)
         expires_in = int(self.config.get("LE_CERTIFICATE_EXPIRATION_DAYS", 90))
         limit = datetime.datetime.utcnow() - datetime.timedelta(days=expires_in - 3)
@@ -409,7 +409,7 @@ class RenewCertsTask(BaseManagerTask):
 
 class SessionResumptionTask(BaseManagerTask):
 
-    def execute(self, config):
+    def run(self, config):
         self.init_config(config)
         session_resumption_rotate = int(self.config.get("SESSION_RESUMPTION_TICKET_ROTATE", 3600))
         instances_to_rotate = self.config.get("SESSION_RESUMPTION_INSTANCES", None)
