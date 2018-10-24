@@ -10,7 +10,7 @@ from rpaas import (auth, get_manager, storage, manager, tasks, consul_manager)
 from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
-supported_extra_features = ['tls', 'status']  # possible values: "cname", "tls", "healthcheck"
+supported_extra_features = ['tls', 'status', 'info']  # possible values: "cname", "tls", "healthcheck"
 
 
 @router.url_value_preprocessor
@@ -139,6 +139,33 @@ def status(name):
     node_status = {}
     node_status['status'] = "\n".join(status)
     return Response(response=json.dumps(node_status), status=200,
+                    mimetype="application/json")
+
+
+@router.route("/info", methods=["GET"])
+@auth.required
+def info():
+    plans   = get_manager().storage.list_plans()
+    flavors = get_manager().storage.list_flavors()
+    options_plans = []
+    options_flavors = []
+    for p in [p.to_dict() for p in plans]:
+        options_plans.append("{} - {}".format(p['name'], p['description']))
+    for f in [f.to_dict() for f in flavors]:
+        options_flavors.append("{} - {}".format(f['name'], f['description']))
+    options = """
+scale  - number of instance vms
+plan   - set instance to plan
+flavor - set instance to flavor
+"""
+    if options_plans:
+        options = options + "\nAvailable plans: \n" + "\n".join(options_plans)
+    if options_plans:
+        options = options + "\n"
+    if options_flavors:
+        options = options + "\nAvailable flavors: \n" + "\n".join(options_flavors)
+
+    return Response(response=json.dumps({'Router options': options}), status=200,
                     mimetype="application/json")
 
 

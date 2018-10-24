@@ -193,6 +193,44 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual(resp.data, '{"status": "vm-1 - 10.1.1.1: OK\\nvm-2 - 10.2.2.2: DEAD"}')
 
+    def test_get_info(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "huge",
+             "description": "some cool huge plan",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "nginx 1.12",
+             "config": {"nginx_version": "1.12"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "nginx 1.13",
+             "config": {"nginx_version": "1.13"}}
+        )
+        resp = self.api.get("/router/info")
+        self.assertEqual(200, resp.status_code)
+        info_return = '''{"Router options": "\\n
+                           scale  - number of instance vms\\n
+                           plan   - set instance to plan\\n
+                           flavor - set instance to flavor\\n\\n
+
+                           Available plans: \\n
+                           small - some cool plan\\n
+                           huge - some cool huge plan\\n\\n
+
+                           Available flavors: \\n
+                           vanilla - nginx 1.12\\n
+                           orange - nginx 1.13"}'''
+        info_return = info_return.replace("\n", "").replace(" " * 27, "")
+        self.assertEqual(resp.data, info_return)
+
     def test_remove_routes(self):
         self.manager.new_instance("router-someapp")
         self.manager.add_upstream(
