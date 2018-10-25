@@ -46,15 +46,22 @@ def add_backend(name):
         return "could not decode body json", 400
     team = data.get('team') or data.get('tsuru.io/app-teamowner')
     plan = data.get('plan')
+    flavor = data.get('flavor')
+    scale = data.get('scale')
     if not team:
         return "team name is required", 400
     if require_plan() and not plan:
         return "plan is required", 400
     try:
-        get_manager().new_instance(name, team=team,
-                                   plan_name=plan)
+        if flavor:
+            get_manager().new_instance(name, team=team,
+                                       plan_name=plan, flavor_name=flavor)
+        else:
+            get_manager().new_instance(name, team=team, plan_name=plan)
     except storage.PlanNotFoundError:
-        return "invalid plan", 400
+        return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "Flavor not found", 404
     except storage.DuplicateError:
         return "{} backend already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -69,16 +76,26 @@ def update_backend(name):
     if not data:
         return "could not decode body json", 400
     plan = data.get('plan')
-    if not plan:
-        return "Plan is required", 400
+    flavor = data.get('flavor')
+    scale = data.get('scale')
+    if not plan and not flavor and not scale:
+        return "Invalid option. Valid update options are: scale, flavor and plan", 400
     try:
-        get_manager().update_instance(name, plan)
+        if scale and int(scale) <= 0:
+            raise ValueError
+        get_manager().update_instance(name, plan, flavor)
+        if scale:
+            get_manager().scale_instance(name, scale)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Backend not found", 404
     except storage.PlanNotFoundError:
         return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "Flavor not found", 404
+    except ValueError:
+        return "Scale option should be integer and >0", 400
     return "", 204
 
 

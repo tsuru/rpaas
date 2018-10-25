@@ -45,17 +45,40 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual("team name is required", resp.data)
         self.assertEqual([], self.manager.instances)
 
-    def test_add_backend_with_plan(self):
+    def test_add_backend_invalid_plan_and_invalid_flavor(self):
+        resp = self.api.post("/router/backend/someapp", data=json.dumps({"team": "t1", "plan": "small"}),
+                             content_type="application/json")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Plan not found", resp.data)
+        self.assertEqual([], self.manager.instances)
+        resp = self.api.post("/router/backend/someapp", data=json.dumps({"team": "t1", "flavor": "vanilla"}),
+                             content_type="application/json")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Flavor not found", resp.data)
+        self.assertEqual([], self.manager.instances)
+
+    def test_add_backend_with_plan_and_flavor(self):
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "small",
              "description": "some cool plan",
              "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "vanilla flavor",
+             "config": {"serviceofferingid": "abcdef123459"}}
         )
         resp = self.api.post("/router/backend/someapp", data=json.dumps({"team": "team1", "plan": "small"}),
                              content_type="application/json")
         self.assertEqual(201, resp.status_code)
         self.assertEqual("router-someapp", self.manager.instances[0].name)
         self.assertEqual("small", self.manager.instances[0].plan)
+        resp = self.api.post("/router/backend/otherapp", data=json.dumps({"team": "team1", "plan": "small", "flavor": "vanilla"}),
+                             content_type="application/json")
+        self.assertEqual(201, resp.status_code)
+        self.assertEqual("router-otherapp", self.manager.instances[1].name)
+        self.assertEqual("small", self.manager.instances[1].plan)
+        self.assertEqual("vanilla", self.manager.instances[1].flavor)
 
     def test_get_backend(self):
         self.manager.new_instance("router-someapp", state='10.0.0.5')
@@ -94,12 +117,34 @@ class RouterAPITestCase(unittest.TestCase):
              "description": "some cool huge plan",
              "config": {"serviceofferingid": "abcdef123459"}}
         )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "vanilla flavor",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "orange",
+             "description": "orange flavor",
+             "config": {"serviceofferingid": "abcdef123459"}}
+        )
         self.manager.new_instance("router-someapp", plan_name="small")
         resp = self.api.put("/router/backend/someapp", data=json.dumps({"plan": "huge"}),
                             content_type="application/json")
         self.assertEqual("", resp.data)
         self.assertEqual(204, resp.status_code)
         self.assertEqual("huge", self.manager.instances[0].plan)
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"flavor": "vanilla"}),
+                            content_type="application/json")
+        self.assertEqual("", resp.data)
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("vanilla", self.manager.instances[0].flavor)
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"flavor": "orange", "plan": "small", "scale": 3}),
+                            content_type="application/json")
+        self.assertEqual("", resp.data)
+        self.assertEqual(204, resp.status_code)
+        self.assertEqual("orange", self.manager.instances[0].flavor)
+        self.assertEqual("small", self.manager.instances[0].plan)
+        self.assertEqual(3, self.manager.instances[0].units)
 
     def test_update_backend_not_found(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -112,7 +157,7 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Backend not found", resp.data)
 
-    def test_update_backend_no_plan(self):
+    def test_update_backend_no_plan_or_invalid_option(self):
         self.storage.db[self.storage.plans_collection].insert(
             {"_id": "small",
              "description": "some cool plan",
@@ -122,7 +167,7 @@ class RouterAPITestCase(unittest.TestCase):
         resp = self.api.put("/router/backend/someapp", data=json.dumps({"plan": ""}),
                             content_type="application/json")
         self.assertEqual(400, resp.status_code)
-        self.assertEqual("Plan is required", resp.data)
+        self.assertEqual("Invalid option. Valid update options are: scale, flavor and plan", resp.data)
 
     def test_update_backend_plan_not_found(self):
         self.storage.db[self.storage.plans_collection].insert(
@@ -135,6 +180,34 @@ class RouterAPITestCase(unittest.TestCase):
                             content_type="application/json")
         self.assertEqual(404, resp.status_code)
         self.assertEqual("Plan not found", resp.data)
+
+    def test_update_backend_flavor_not_found(self):
+        self.storage.db[self.storage.plans_collection].insert(
+            {"_id": "small",
+             "description": "some cool plan",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.storage.db[self.storage.flavors_collection].insert(
+            {"_id": "vanilla",
+             "description": "some cool flavor",
+             "config": {"serviceofferingid": "abcdef123456"}}
+        )
+        self.manager.new_instance("router-someapp", plan_name="small")
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"flavor": "orange"}),
+                            content_type="application/json")
+        self.assertEqual(404, resp.status_code)
+        self.assertEqual("Flavor not found", resp.data)
+
+    def test_update_backend_invalid_scale_value(self):
+       self.manager.new_instance("router-someapp")
+       resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale":"a"}),
+                           content_type="application/json")
+       self.assertEqual(400, resp.status_code)
+       self.assertEqual("Scale option should be integer and >0", resp.data)
+       resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale":"0"}),
+                           content_type="application/json")
+       self.assertEqual(400, resp.status_code)
+       self.assertEqual("Scale option should be integer and >0", resp.data)
 
     def test_delete_backend(self):
         self.manager.new_instance("router-someapp")
