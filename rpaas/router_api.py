@@ -10,7 +10,7 @@ from rpaas import (auth, get_manager, storage, manager, tasks, consul_manager)
 from rpaas.misc import (validate_name, require_plan, ValidationError)
 
 router = Blueprint('router', __name__, url_prefix='/router')
-supported_extra_features = ['tls']  # possible values: "cname", "tls", "healthcheck"
+supported_extra_features = ['tls', 'status', 'info']  # possible values: "cname", "tls", "healthcheck"
 
 
 @router.url_value_preprocessor
@@ -46,15 +46,21 @@ def add_backend(name):
         return "could not decode body json", 400
     team = data.get('team') or data.get('tsuru.io/app-teamowner')
     plan = data.get('plan')
+    flavor = data.get('flavor')
     if not team:
         return "team name is required", 400
     if require_plan() and not plan:
         return "plan is required", 400
     try:
-        get_manager().new_instance(name, team=team,
-                                   plan_name=plan)
+        if flavor:
+            get_manager().new_instance(name, team=team,
+                                       plan_name=plan, flavor_name=flavor)
+        else:
+            get_manager().new_instance(name, team=team, plan_name=plan)
     except storage.PlanNotFoundError:
-        return "invalid plan", 400
+        return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "Flavor not found", 404
     except storage.DuplicateError:
         return "{} backend already exists".format(name), 409
     except manager.QuotaExceededError as e:
@@ -69,16 +75,26 @@ def update_backend(name):
     if not data:
         return "could not decode body json", 400
     plan = data.get('plan')
-    if not plan:
-        return "Plan is required", 400
+    flavor = data.get('flavor')
+    scale = data.get('scale')
+    if not plan and not flavor and not scale:
+        return "Invalid option. Valid update options are: scale, flavor and plan", 400
     try:
-        get_manager().update_instance(name, plan)
+        if scale and int(scale) <= 0:
+            raise ValueError
+        get_manager().update_instance(name, plan, flavor)
+        if scale:
+            get_manager().scale_instance(name, scale)
     except tasks.NotReadyError as e:
         return "Backend not ready: {}".format(e), 412
     except storage.InstanceNotFoundError:
         return "Backend not found", 404
     except storage.PlanNotFoundError:
         return "Plan not found", 404
+    except storage.FlavorNotFoundError:
+        return "Flavor not found", 404
+    except ValueError:
+        return "Scale option should be integer and >0", 400
     return "", 204
 
 
@@ -127,6 +143,42 @@ def add_routes(name):
         return "Backend not found", 404
     return "", 200
     # TODO: wait nginx reload and report status?
+
+
+@router.route("/backend/<name>/status", methods=["GET"])
+@auth.required
+def status(name):
+    node_status = get_manager().node_status(name)
+    status = []
+    for node in node_status:
+        status.append("{} - {}: {}".format(node, node_status[node]['address'], node_status[node]['status']))
+    node_status = {}
+    node_status['status'] = "\n".join(status)
+    return Response(response=json.dumps(node_status), status=200,
+                    mimetype="application/json")
+
+
+@router.route("/info", methods=["GET"])
+@auth.required
+def info():
+    plans = get_manager().storage.list_plans()
+    flavors = get_manager().storage.list_flavors()
+    options_plans = ["{} - {}".format(p.name, p.description) for p in plans]
+    options_flavors = ["{} - {}".format(f.name, f.description) for f in flavors]
+    options = """
+scale  - number of instance vms
+plan   - set instance to plan
+flavor - set instance to flavor
+"""
+    if options_plans:
+        options = options + "\nAvailable plans: \n" + "\n".join(options_plans)
+    if options_plans:
+        options = options + "\n"
+    if options_flavors:
+        options = options + "\nAvailable flavors: \n" + "\n".join(options_flavors)
+
+    return Response(response=json.dumps({'Router options': options}), status=200,
+                    mimetype="application/json")
 
 
 @router.route("/backend/<name>/routes/remove", methods=["POST"])
