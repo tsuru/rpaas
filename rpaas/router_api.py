@@ -163,12 +163,8 @@ def status(name):
 def info():
     plans = get_manager().storage.list_plans()
     flavors = get_manager().storage.list_flavors()
-    options_plans = []
-    options_flavors = []
-    for p in [p.to_dict() for p in plans]:
-        options_plans.append("{} - {}".format(p['name'], p['description']))
-    for f in [f.to_dict() for f in flavors]:
-        options_flavors.append("{} - {}".format(f['name'], f['description']))
+    options_plans = ["{} - {}".format(p.name, p.description) for p in plans]
+    options_flavors = ["{} - {}".format(f.name, f.description) for f in flavors]
     options = """
 scale  - number of instance vms
 plan   - set instance to plan
