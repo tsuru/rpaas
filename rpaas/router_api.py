@@ -47,7 +47,6 @@ def add_backend(name):
     team = data.get('team') or data.get('tsuru.io/app-teamowner')
     plan = data.get('plan')
     flavor = data.get('flavor')
-    scale = data.get('scale')
     if not team:
         return "team name is required", 400
     if require_plan() and not plan:
@@ -162,7 +161,7 @@ def status(name):
 @router.route("/info", methods=["GET"])
 @auth.required
 def info():
-    plans   = get_manager().storage.list_plans()
+    plans = get_manager().storage.list_plans()
     flavors = get_manager().storage.list_flavors()
     options_plans = []
     options_flavors = []

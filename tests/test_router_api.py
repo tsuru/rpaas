@@ -73,7 +73,8 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual(201, resp.status_code)
         self.assertEqual("router-someapp", self.manager.instances[0].name)
         self.assertEqual("small", self.manager.instances[0].plan)
-        resp = self.api.post("/router/backend/otherapp", data=json.dumps({"team": "team1", "plan": "small", "flavor": "vanilla"}),
+        resp = self.api.post("/router/backend/otherapp", data=json.dumps({"team": "team1", "plan": "small",
+                                                                          "flavor": "vanilla"}),
                              content_type="application/json")
         self.assertEqual(201, resp.status_code)
         self.assertEqual("router-otherapp", self.manager.instances[1].name)
@@ -138,7 +139,8 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual("", resp.data)
         self.assertEqual(204, resp.status_code)
         self.assertEqual("vanilla", self.manager.instances[0].flavor)
-        resp = self.api.put("/router/backend/someapp", data=json.dumps({"flavor": "orange", "plan": "small", "scale": 3}),
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"flavor": "orange", "plan": "small",
+                                                                        "scale": 3}),
                             content_type="application/json")
         self.assertEqual("", resp.data)
         self.assertEqual(204, resp.status_code)
@@ -199,15 +201,15 @@ class RouterAPITestCase(unittest.TestCase):
         self.assertEqual("Flavor not found", resp.data)
 
     def test_update_backend_invalid_scale_value(self):
-       self.manager.new_instance("router-someapp")
-       resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale":"a"}),
-                           content_type="application/json")
-       self.assertEqual(400, resp.status_code)
-       self.assertEqual("Scale option should be integer and >0", resp.data)
-       resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale":"0"}),
-                           content_type="application/json")
-       self.assertEqual(400, resp.status_code)
-       self.assertEqual("Scale option should be integer and >0", resp.data)
+        self.manager.new_instance("router-someapp")
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale": "a"}),
+                            content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Scale option should be integer and >0", resp.data)
+        resp = self.api.put("/router/backend/someapp", data=json.dumps({"scale": "0"}),
+                            content_type="application/json")
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual("Scale option should be integer and >0", resp.data)
 
     def test_delete_backend(self):
         self.manager.new_instance("router-someapp")
