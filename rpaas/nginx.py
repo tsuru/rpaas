@@ -18,6 +18,7 @@ location / {
 
 NGINX_LOCATION_TEMPLATE_DEFAULT = '''
 location {path} {{
+    {https_only}
     proxy_set_header Host {host};
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -32,6 +33,7 @@ location {path} {{
 
 NGINX_LOCATION_TEMPLATE_ROUTER = '''
 location {path} {{
+    {https_only}
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -40,6 +42,12 @@ location {path} {{
     proxy_http_version 1.1;
     proxy_pass http://{upstream};
 }}
+'''
+
+NGINX_HTTPS_ONLY = '''
+    if ($scheme = 'http') {
+        return 301 https://$http_host$request_uri;
+    }
 '''
 
 
@@ -72,17 +80,22 @@ class ConfigManager(object):
         self.location_template_default = self._load_location_template(conf, "default")
         self.location_template_router = self._load_location_template(conf, "router")
 
-    def generate_host_config(self, path, destination, upstream, router_mode=False):
+    def generate_host_config(self, path, destination, upstream, router_mode=False, https_only=False):
+        https_only_template = ''
+        if https_only:
+            https_only_template = NGINX_HTTPS_ONLY
         if router_mode:
             return self.location_template_router.format(
                 path=path.rstrip('/') + '/',
                 host=destination,
-                upstream=upstream
+                upstream=upstream,
+                https_only=https_only_template
             )
         return self.location_template_default.format(
             path=path.rstrip('/') + '/',
             host=destination,
-            upstream=upstream
+            upstream=upstream,
+            https_only=https_only_template
         )
 
     def _load_location_template(self, conf, mode):

@@ -307,6 +307,7 @@ def add_route(name):
         return 'missing path', 400
     destination = request.form.get('destination')
     content = request.form.get('content')
+    https_only = bool(request.form.get('https_only')) or False
     if not destination and not content:
         return 'either content xor destination are required', 400
     if destination and content:
@@ -314,7 +315,7 @@ def add_route(name):
     if content:
         content = content.encode("utf-8")
     try:
-        get_manager().add_route(name, path, destination, content)
+        get_manager().add_route(name, path, destination, content, https_only)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
     except tasks.NotReadyError as e:

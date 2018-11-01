@@ -211,7 +211,7 @@ class Manager(object):
                 raise BindError("This service can only be bound to one application.")
         bind_mode = not router_mode
         self.consul_manager.write_location(name, "/", destination=app_host, router_mode=router_mode,
-                                           bind_mode=bind_mode)
+                                           bind_mode=bind_mode, https_only=False)
         self.storage.store_binding(name, app_host)
 
     def unbind(self, name):
@@ -374,7 +374,7 @@ class Manager(object):
         task = tasks.ScaleInstanceTask().delay(config, name, quantity)
         self.task_manager.update(name, task.task_id)
 
-    def add_route(self, name, path, destination, content):
+    def add_route(self, name, path, destination, content, https_only):
         self.task_manager.ensure_ready(name)
         path = path.strip()
         lb = LoadBalancer.find(name)
@@ -382,7 +382,7 @@ class Manager(object):
             raise storage.InstanceNotFoundError()
         self.storage.replace_binding_path(name, path, destination, content)
         self.consul_manager.write_location(name, path, destination=destination,
-                                           content=content)
+                                           content=content, https_only=https_only)
 
     def delete_route(self, name, path):
         self.task_manager.ensure_ready(name)

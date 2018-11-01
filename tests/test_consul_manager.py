@@ -114,7 +114,19 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/",
                                                                 host="http://myapp.tsuru.io",
-                                                                upstream="myapp.tsuru.io")
+                                                                upstream="myapp.tsuru.io",
+                                                                https_only='')
+        self.assertEqual(expected, item[1]["Value"])
+        servers = self.manager.list_upstream("myrpaas", "myapp.tsuru.io")
+        self.assertEqual(set(["myapp.tsuru.io"]), servers)
+
+    def test_write_location_root_with_https(self):
+        self.manager.write_location("myrpaas", "/", destination="http://myapp.tsuru.io", https_only=True)
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
+        expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/",
+                                                                host="http://myapp.tsuru.io",
+                                                                upstream="myapp.tsuru.io",
+                                                                https_only=nginx.NGINX_HTTPS_ONLY)
         self.assertEqual(expected, item[1]["Value"])
         servers = self.manager.list_upstream("myrpaas", "myapp.tsuru.io")
         self.assertEqual(set(["myapp.tsuru.io"]), servers)
@@ -124,7 +136,8 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/",
                                                                 host="http://myapp.tsuru.io",
-                                                                upstream="rpaas_default_upstream")
+                                                                upstream="rpaas_default_upstream",
+                                                                https_only='')
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/rpaas_default_upstream")
         servers = self.manager.list_upstream("myrpaas", "rpaas_default_upstream")
@@ -135,7 +148,8 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/ROOT")
         expected = nginx.NGINX_LOCATION_TEMPLATE_ROUTER.format(path="/",
                                                                host="router-myrpaas",
-                                                               upstream="router-myrpaas")
+                                                               upstream="router-myrpaas",
+                                                               https_only='')
         self.assertEqual(expected, item[1]["Value"])
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/upstream/router-myrpaas")
         self.assertEqual(None, item[1])
@@ -146,7 +160,18 @@ class ConsulManagerTestCase(unittest.TestCase):
         item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
         expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/admin/app_sites/",
                                                                 host="http://myapp.tsuru.io",
-                                                                upstream="myapp.tsuru.io")
+                                                                upstream="myapp.tsuru.io",
+                                                                https_only='')
+        self.assertEqual(expected, item[1]["Value"])
+
+    def test_write_location_non_root_with_https(self):
+        self.manager.write_location("myrpaas", "/admin/app_sites/",
+                                    destination="http://myapp.tsuru.io", https_only=True)
+        item = self.consul.kv.get("test-suite-rpaas/myrpaas/locations/___admin___app_sites___")
+        expected = nginx.NGINX_LOCATION_TEMPLATE_DEFAULT.format(path="/admin/app_sites/",
+                                                                host="http://myapp.tsuru.io",
+                                                                upstream="myapp.tsuru.io",
+                                                                https_only=nginx.NGINX_HTTPS_ONLY)
         self.assertEqual(expected, item[1]["Value"])
 
     def test_write_location_content(self):

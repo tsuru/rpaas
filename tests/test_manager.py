@@ -824,7 +824,7 @@ my content ☺
         })
         LoadBalancer.find.assert_called_with("x")
         manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
-                                                                 router_mode=False, bind_mode=True)
+                                                                 router_mode=False, bind_mode=True, https_only=False)
 
     def test_bind_instance_error_task_running(self):
         self.storage.store_task("x")
@@ -847,7 +847,7 @@ my content ☺
         })
         LoadBalancer.find.assert_called_with("x")
         manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
-                                                                 router_mode=False, bind_mode=True)
+                                                                 router_mode=False, bind_mode=True, https_only=False)
         manager.consul_manager.reset_mock()
         manager.bind("x", "apphost.com")
         self.assertEqual(0, len(manager.consul_manager.mock_calls))
@@ -863,7 +863,7 @@ my content ☺
         lb.hosts[1].dns_name = "h2"
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("x", "/somewhere", "my.other.host", None)
+        manager.add_route("x", "/somewhere", "my.other.host", None, False)
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
         self.assertDictEqual(binding_data, {
@@ -875,8 +875,9 @@ my content ☺
             ]
         })
         LoadBalancer.find.assert_called_with("x")
-        expected_calls = [mock.call("x", "/somewhere", destination="my.other.host", content=None),
-                          mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True)]
+        expected_calls = [mock.call("x", "/somewhere", destination="my.other.host", content=None, https_only=False),
+                          mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True,
+                                    https_only=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -942,7 +943,8 @@ my content ☺
         LoadBalancer.find.assert_called_with("inst")
         content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         expected_calls = [mock.call("inst", "/", content=content_instance_not_bound),
-                          mock.call("inst", "/", destination="app2.host.com", router_mode=False, bind_mode=True)]
+                          mock.call("inst", "/", destination="app2.host.com", router_mode=False, bind_mode=True,
+                                    https_only=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
         manager.consul_manager.remove_server_upstream.assert_called_once_with("inst", "rpaas_default_upstream",
                                                                               "app.host.com")
@@ -1041,7 +1043,7 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", "my.other.host", None)
+        manager.add_route("inst", "/somewhere", "my.other.host", None, False)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1062,7 +1064,7 @@ my content ☺
         })
         manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
                                                                  destination="my.other.host",
-                                                                 content=None)
+                                                                 content=None, https_only=False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_route_with_content(self, LoadBalancer):
@@ -1072,7 +1074,7 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", None, "location /x { something; }")
+        manager.add_route("inst", "/somewhere", None, "location /x { something; }", False)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1092,13 +1094,13 @@ my content ☺
             ]
         })
         manager.consul_manager.write_location.assert_called_with("inst", "/somewhere", destination=None,
-                                                                 content="location /x { something; }")
+                                                                 content="location /x { something; }", https_only=False)
 
     def test_add_route_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
         with self.assertRaises(rpaas.tasks.NotReadyError):
-            manager.add_route("inst", "/somewhere", "my.other.host", None)
+            manager.add_route("inst", "/somewhere", "my.other.host", None, False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_route_no_binding_creates_one(self, LoadBalancer):
@@ -1107,7 +1109,7 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", "my.other.host", None)
+        manager.add_route("inst", "/somewhere", "my.other.host", None, False)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1123,7 +1125,7 @@ my content ☺
         })
         manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
                                                                  destination="my.other.host",
-                                                                 content=None)
+                                                                 content=None, https_only=False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_delete_route_with_destination(self, LoadBalancer):
