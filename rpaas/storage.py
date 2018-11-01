@@ -208,7 +208,7 @@ class MongoDBStorage(storage.MongoDBStorage):
     def find_binding(self, name):
         return self.db[self.bindings_collection].find_one({'_id': name})
 
-    def replace_binding_path(self, name, path, destination=None, content=None):
+    def replace_binding_path(self, name, path, destination=None, content=None, https_only=False):
         try:
             self.delete_binding_path(name, path)
         except:
@@ -217,6 +217,7 @@ class MongoDBStorage(storage.MongoDBStorage):
             'path': path,
             'destination': destination,
             'content': content,
+            'https_only': https_only
         }}}, upsert=True)
 
     def delete_binding_path(self, name, path):

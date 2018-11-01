@@ -298,13 +298,14 @@ class TsuruPluginTestCase(unittest.TestCase):
         urlopen.return_value.getcode.return_value = 200
         self.set_envs()
         self.addCleanup(self.delete_envs)
-        plugin.route(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host'])
+        plugin.route(['add', '-s', 'myservice', '-i', 'myinst', '-p', '/path/out', '-d', 'destination.host',
+                      '--https_only'])
         Request.assert_called_with(self.target +
                                    "services/myservice/proxy/myinst?" +
                                    "callback=/resources/myinst/route")
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         request.add_header.assert_any_call("Content-Type", "application/x-www-form-urlencoded")
-        request.add_data.assert_called_with("path=%2Fpath%2Fout&destination=destination.host")
+        request.add_data.assert_called_with("path=%2Fpath%2Fout&destination=destination.host&https_only=True")
         self.assertEqual(request.get_method(), 'POST')
         urlopen.assert_called_with(request)
         stdout.write.assert_called_with("route successfully added\n")
@@ -704,7 +705,9 @@ vm-3: Reload Ok - *
         request = Request.return_value
         urlopen.return_value.getcode.return_value = 200
         urlopen.return_value.read.return_value = '{"_id": "myinst", ' + \
-            '"paths": [{"path": "/a", "content": "desta"}, {"path": "/b", "content": "destb"}]}'
+            '"paths": [{"path": "/", "destination": "default"}, \
+                       {"path": "/a", "content": "desta", "https_only": false}, \
+                       {"path": "/b", "destination": "destb", "https_only": true}]}'
         self.set_envs()
         self.addCleanup(self.delete_envs)
         plugin.route(['list', '-s', 'myservice', '-i', 'myinst'])
@@ -714,7 +717,9 @@ vm-3: Reload Ok - *
         request.add_header.assert_any_call("Authorization", "bearer " + self.token)
         self.assertEqual(request.get_method(), 'GET')
         urlopen.assert_called_with(request)
-        stdout.write.assert_called_with("path = /a\ncontent = desta\npath = /b\ncontent = destb\n")
+        stdout.write.assert_called_with("path = /\ndestination = default\n"
+                                        "path = /a\ncontent = desta\n"
+                                        "path = /b\ndestination = destb (https only)\n")
 
     @mock.patch("rpaas.plugin.urlopen")
     @mock.patch("rpaas.plugin.Request")

@@ -129,6 +129,8 @@ def route(args):
             params['destination'] = args.destination
         if args.content:
             params['content'] = args.content
+        if args.https_only:
+            params['https_only'] = True
         method = "POST"
         message = "added"
     elif args.action == 'remove':
@@ -152,7 +154,13 @@ def route(args):
             sys.stdout.write("Routes:\n")
             for route in routes:
                 out.append("path = {}".format(route.get('path')))
-                out.append("content = {}".format(route.get('content')))
+                if route.get('content'):
+                    out.append("content = {}".format(route.get('content')))
+                    continue
+                if route.get('https_only'):
+                    out.append("destination = {} (https only)".format(route.get('destination')))
+                else:
+                    out.append("destination = {}".format(route.get('destination')))
             sys.stdout.write('\n'.join(out) + '\n')
         else:
             sys.stdout.write("route successfully {}\n".format(message))
@@ -429,6 +437,8 @@ def get_route_args(args):
     parser.add_argument("-i", "--instance", required=True, help="Instance name")
     parser.add_argument("-p", "--path", required=False, help="Path to route")
     parser.add_argument("-d", "--destination", required=False, help="Destination host")
+    parser.add_argument("--https_only", required=False, action="store_true",
+                        help="Force redirect to https - only for destination")
     parser.add_argument("-c", "--content", required=False,
                         help="(advanced) raw nginx location content")
     parsed = parser.parse_args(args)

@@ -237,6 +237,9 @@ class Manager(object):
                 routes_data.append("path = {}".format(path_data["path"]))
                 dst = path_data.get("destination")
                 content = path_data.get("content")
+                https_only = path_data.get("https_only")
+                if https_only and dst:
+                    dst = "{} (https only)".format(dst)
                 if dst:
                     routes_data.append("destination = {}".format(dst))
                 if content:
@@ -380,7 +383,7 @@ class Manager(object):
         lb = LoadBalancer.find(name)
         if lb is None:
             raise storage.InstanceNotFoundError()
-        self.storage.replace_binding_path(name, path, destination, content)
+        self.storage.replace_binding_path(name, path, destination, content, https_only)
         self.consul_manager.write_location(name, path, destination=destination,
                                            content=content, https_only=https_only)
 
