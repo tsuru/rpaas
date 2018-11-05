@@ -619,6 +619,22 @@ class APITestCase(unittest.TestCase):
         self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': 'something',
             'content': None,
+            'https_only': False
+        })
+
+    def test_add_route_forcing_https(self):
+        self.manager.new_instance("someapp")
+        resp = self.api.post("/resources/someapp/route", data={
+            'path': '/somewhere',
+            'destination': 'something',
+            'https_only': 'true'
+        })
+        self.assertEqual(201, resp.status_code)
+        _, instance = self.manager.find_instance("someapp")
+        self.assertDictEqual(instance.routes.get('/somewhere'), {
+            'destination': 'something',
+            'content': None,
+            'https_only': True
         })
 
     def test_add_route_with_content(self):
@@ -632,6 +648,7 @@ class APITestCase(unittest.TestCase):
         self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': None,
             'content': 'my content',
+            'https_only': False
         })
 
     def test_add_route_with_utf8_content(self):
@@ -644,7 +661,8 @@ class APITestCase(unittest.TestCase):
         _, instance = self.manager.find_instance("someapp")
         self.assertDictEqual(instance.routes.get('/somewhere'), {
             'destination': None,
-            'content': 'my content ☺'
+            'content': 'my content ☺',
+            'https_only': False
         })
 
     def test_delete_route(self):

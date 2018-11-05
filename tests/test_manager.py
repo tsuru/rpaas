@@ -60,6 +60,7 @@ class ManagerTestCase(unittest.TestCase):
             "CONSUL_HOST": "127.0.0.1",
             "CONSUL_TOKEN": "rpaas-test",
         }
+        self.maxDiff = None
 
     def tearDown(self):
         self.lb_patcher.stop()
@@ -633,6 +634,7 @@ class ManagerTestCase(unittest.TestCase):
     def test_info_with_binding(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/arrakis", None, "location /x {\nmy content ☺\n}")
+        self.storage.replace_binding_path("inst", "/https_only", "app1.host.com", https_only=True)
         lb = LoadBalancer.find.return_value
         lb.address = "192.168.1.1"
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -647,7 +649,9 @@ destination = app.host.com
 path = /arrakis
 content = location /x {
 my content ☺
-}"""},
+}
+path = /https_only
+destination = app1.host.com (https only)"""},
         ])
         self.assertEqual(manager.status("inst"), "192.168.1.1")
 
@@ -824,7 +828,7 @@ my content ☺
         })
         LoadBalancer.find.assert_called_with("x")
         manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
-                                                                 router_mode=False, bind_mode=True)
+                                                                 router_mode=False, bind_mode=True, https_only=False)
 
     def test_bind_instance_error_task_running(self):
         self.storage.store_task("x")
@@ -847,7 +851,7 @@ my content ☺
         })
         LoadBalancer.find.assert_called_with("x")
         manager.consul_manager.write_location.assert_called_with("x", "/", destination="apphost.com",
-                                                                 router_mode=False, bind_mode=True)
+                                                                 router_mode=False, bind_mode=True, https_only=False)
         manager.consul_manager.reset_mock()
         manager.bind("x", "apphost.com")
         self.assertEqual(0, len(manager.consul_manager.mock_calls))
@@ -863,20 +867,21 @@ my content ☺
         lb.hosts[1].dns_name = "h2"
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("x", "/somewhere", "my.other.host", None)
+        manager.add_route("x", "/somewhere", "my.other.host", None, False)
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
         self.assertDictEqual(binding_data, {
             "_id": "x",
             "app_host": "apphost.com",
             "paths": [
-                {"path": "/somewhere", "destination": "my.other.host", "content": None},
+                {"path": "/somewhere", "destination": "my.other.host", "content": None, "https_only": False},
                 {"path": "/", "destination": "apphost.com"}
             ]
         })
         LoadBalancer.find.assert_called_with("x")
-        expected_calls = [mock.call("x", "/somewhere", destination="my.other.host", content=None),
-                          mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True)]
+        expected_calls = [mock.call("x", "/somewhere", destination="my.other.host", content=None, https_only=False),
+                          mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True,
+                                    https_only=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -911,7 +916,7 @@ my content ☺
         self.assertDictEqual(binding_data, {
             "_id": "inst",
             "paths": [
-                {"path": "/me", "destination": "somewhere.com", "content": None}
+                {"path": "/me", "destination": "somewhere.com", "content": None, "https_only": False}
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
@@ -935,14 +940,15 @@ my content ☺
             "_id": "inst",
             "app_host": "app2.host.com",
             "paths": [
-                {"path": "/me", "destination": "somewhere.com", "content": None},
+                {"path": "/me", "destination": "somewhere.com", "content": None, "https_only": False},
                 {"path": "/", "destination": "app2.host.com"}
             ]
         })
         LoadBalancer.find.assert_called_with("inst")
         content_instance_not_bound = nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND
         expected_calls = [mock.call("inst", "/", content=content_instance_not_bound),
-                          mock.call("inst", "/", destination="app2.host.com", router_mode=False, bind_mode=True)]
+                          mock.call("inst", "/", destination="app2.host.com", router_mode=False, bind_mode=True,
+                                    https_only=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
         manager.consul_manager.remove_server_upstream.assert_called_once_with("inst", "rpaas_default_upstream",
                                                                               "app.host.com")
@@ -1041,7 +1047,8 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", "my.other.host", None)
+        manager.add_route("inst", "/somewhere", "my.other.host", None, False)
+        manager.add_route("inst", "/https_only", "my.other.host2", None, True)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1051,18 +1058,25 @@ my content ☺
             "paths": [
                 {
                     "path": "/",
-                    "destination": "app.host.com",
+                    "destination": "app.host.com"
                 },
                 {
                     "path": "/somewhere",
                     "destination": "my.other.host",
                     "content": None,
+                    "https_only": False
+                },
+                {
+                    "path": "/https_only",
+                    "destination": "my.other.host2",
+                    "content": None,
+                    "https_only": True
                 }
             ]
         })
-        manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
-                                                                 destination="my.other.host",
-                                                                 content=None)
+        expected_calls = [mock.call("inst", "/somewhere", destination="my.other.host", content=None, https_only=False),
+                          mock.call('inst', "/https_only", content=None, destination="my.other.host2", https_only=True)]
+        self.assertEqual(manager.consul_manager.write_location.call_args_list, expected_calls)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_route_with_content(self, LoadBalancer):
@@ -1072,7 +1086,7 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", None, "location /x { something; }")
+        manager.add_route("inst", "/somewhere", None, "location /x { something; }", False)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1088,17 +1102,18 @@ my content ☺
                     "path": "/somewhere",
                     "destination": None,
                     "content": "location /x { something; }",
+                    "https_only": False
                 }
             ]
         })
         manager.consul_manager.write_location.assert_called_with("inst", "/somewhere", destination=None,
-                                                                 content="location /x { something; }")
+                                                                 content="location /x { something; }", https_only=False)
 
     def test_add_route_error_task_running(self):
         self.storage.store_task("inst")
         manager = Manager(self.config)
         with self.assertRaises(rpaas.tasks.NotReadyError):
-            manager.add_route("inst", "/somewhere", "my.other.host", None)
+            manager.add_route("inst", "/somewhere", "my.other.host", None, False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_add_route_no_binding_creates_one(self, LoadBalancer):
@@ -1107,7 +1122,7 @@ my content ☺
 
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
-        manager.add_route("inst", "/somewhere", "my.other.host", None)
+        manager.add_route("inst", "/somewhere", "my.other.host", None, False)
 
         LoadBalancer.find.assert_called_with("inst")
         binding_data = self.storage.find_binding("inst")
@@ -1118,12 +1133,13 @@ my content ☺
                     "path": "/somewhere",
                     "destination": "my.other.host",
                     "content": None,
+                    "https_only": False
                 }
             ]
         })
         manager.consul_manager.write_location.assert_called_with("inst", "/somewhere",
                                                                  destination="my.other.host",
-                                                                 content=None)
+                                                                 content=None, https_only=False)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_delete_route_with_destination(self, LoadBalancer):
@@ -1134,7 +1150,7 @@ my content ☺
             "_id": "inst",
             "app_host": "app.host.com",
             "paths": [{"path": "/", "destination": "app.host.com"},
-                      {"path": "/arrakis", "destination": "dune.com", "content": None}]
+                      {"path": "/arrakis", "destination": "dune.com", "content": None, "https_only": False}]
         })
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -1162,7 +1178,7 @@ my content ☺
             "_id": "inst",
             "app_host": "app.host.com",
             "paths": [{"path": "/", "destination": "app.host.com"},
-                      {"path": "/arrakis", "destination": None, "content": "something"}]
+                      {"path": "/arrakis", "destination": None, "content": "something", "https_only": False}]
         })
         lb = LoadBalancer.find.return_value
         lb.hosts = [mock.Mock(), mock.Mock()]
@@ -1220,7 +1236,7 @@ my content ☺
             "_id": "inst",
             "app_host": "app.host.com",
             "paths": [{"path": "/", "destination": "app.host.com"},
-                      {"path": "/atreides", "destination": "dune.com", "content": None}]
+                      {"path": "/atreides", "destination": "dune.com", "content": None, "https_only": False}]
         })
         manager.consul_manager.remove_server_upstream.assert_not_called()
         manager.consul_manager.remove_location.assert_called_with("inst", "/arrakis")

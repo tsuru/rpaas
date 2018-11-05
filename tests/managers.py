@@ -134,9 +134,9 @@ class FakeManager(object):
                 return i, instance
         return -1, None
 
-    def add_route(self, name, path, destination, content):
+    def add_route(self, name, path, destination, content, https_only):
         _, instance = self.find_instance(name)
-        instance.routes[path] = {'destination': destination, 'content': content}
+        instance.routes[path] = {'destination': destination, 'content': content, 'https_only': https_only}
 
     def delete_route(self, name, path):
         _, instance = self.find_instance(name)
