@@ -235,7 +235,7 @@ class ScaleInstanceTask(BaseManagerTask):
             lb = LoadBalancer.find(name, self.config)
             if lb is None:
                 raise storage.InstanceNotFoundError()
-            diff = quantity - len(lb.hosts)
+            diff = int(quantity) - len(lb.hosts)
             if diff == 0:
                 return
             for i in xrange(abs(diff)):
