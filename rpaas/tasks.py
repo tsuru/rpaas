@@ -213,6 +213,10 @@ class NewInstanceTask(BaseManagerTask):
 
 class RemoveInstanceTask(BaseManagerTask):
 
+    def _should_destroy_lb(self):
+        retain_lb = os.environ.get('RPAAS_RETAIN_LOAD_BALANCER', False) in ['True', 'true', 'Yes', 'yes', '1']
+        return not retain_lb
+
     def run(self, config, name):
         self.init_config(config)
         lb = LoadBalancer.find(name, self.config)
@@ -221,7 +225,10 @@ class RemoveInstanceTask(BaseManagerTask):
         for host in lb.hosts:
             self._delete_host(name, host, lb)
         self.consul_manager.destroy_instance(name)
-        lb.destroy()
+        if self._should_destroy_lb():
+            lb.destroy()
+        else:
+            logging.info('Skipping load balancer ({}/{}) removal', lb.id, lb.name)
         for cert in self.storage.find_le_certificates({'name': name}):
             self.storage.remove_le_certificate(name, cert['domain'])
         self.hc.destroy(name)
