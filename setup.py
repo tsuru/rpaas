@@ -45,6 +45,7 @@ setup(
         "Babel==2.3.4",
         "zope.interface==4.3.3",
         "parsedatetime==2.1",
+        "redis==2.10.6",
     ],
     extras_require={
         'tests': [
