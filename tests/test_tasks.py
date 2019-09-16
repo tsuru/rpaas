@@ -75,7 +75,7 @@ class TasksTestCase(unittest.TestCase):
         redis_conn.execute_command("sentinel failover mymaster")
         redis_conn = redis.StrictRedis().from_url("redis://:mypass@127.0.0.1:{}".format(self.master_port))
         timeout_failover = 0
-        while redis_conn.info()['role'] is not 'slave' and timeout_failover <= 30:
+        while redis_conn.info()['role'] == 'slave' and timeout_failover <= 30:
             time.sleep(1)
             timeout_failover += 1
         self.assertEqual(ch.client.info()['role'], 'master')
