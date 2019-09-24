@@ -214,7 +214,7 @@ class NewInstanceTask(BaseManagerTask):
 class RemoveInstanceTask(BaseManagerTask):
 
     def _should_destroy_lb(self):
-        retain_lb = os.environ.get('RPAAS_RETAIN_LOAD_BALANCER', False) in ['True', 'true', 'Yes', 'yes', '1']
+        retain_lb = self._get_conf('RPAAS_RETAIN_LOAD_BALANCER', False) in ['True', 'true', 'Yes', 'yes', '1']
         return not retain_lb
 
     def run(self, config, name):
