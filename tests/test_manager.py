@@ -904,6 +904,27 @@ destination = app1.host.com (https only)"""},
                                                                               "app.host.com")
 
     @mock.patch("rpaas.manager.LoadBalancer")
+    def test_unbind_instance_fail_for_custom_route_added(self, LoadBalancer):
+        self.storage.store_binding("inst", "app.host.com")
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        manager = Manager(self.config)
+        manager.add_route("inst", "/", "my.other.host", None, False)
+        manager.consul_manager = mock.Mock()
+        manager.unbind("inst")
+        binding_data = self.storage.find_binding("inst")
+        self.assertDictEqual(binding_data, {
+            "_id": "inst",
+            "app_host": "app.host.com",
+            "paths": [
+                {"path": "/", "destination": "my.other.host", "content": None, "https_only": False}
+            ]
+        })
+        LoadBalancer.find.assert_called_with("inst")
+        manager.consul_manager.write_location.assert_not_called()
+        manager.consul_manager.remove_server_upstream.assert_not_called()
+
+    @mock.patch("rpaas.manager.LoadBalancer")
     def test_unbind_instance_with_extra_path(self, LoadBalancer):
         self.storage.store_binding("inst", "app.host.com")
         self.storage.replace_binding_path("inst", "/me", "somewhere.com")

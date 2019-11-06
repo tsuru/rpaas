@@ -222,6 +222,10 @@ class Manager(object):
         binding_data = self.storage.find_binding(name)
         if not binding_data:
             return
+        paths = binding_data.get("paths")
+        for path in paths:
+            if path.get("path") == "/" and "content" in path:
+                return
         bound_host = binding_data.get("app_host")
         self.storage.remove_root_binding(name)
         self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
