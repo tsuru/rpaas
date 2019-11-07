@@ -868,6 +868,7 @@ destination = app1.host.com (https only)"""},
         manager = Manager(self.config)
         manager.consul_manager = mock.Mock()
         manager.add_route("x", "/somewhere", "my.other.host", None, False)
+        manager.add_route("x", "/", "my.other.host2", None, False)
         manager.bind("x", "apphost.com")
         binding_data = self.storage.find_binding("x")
         self.assertDictEqual(binding_data, {
@@ -875,13 +876,60 @@ destination = app1.host.com (https only)"""},
             "app_host": "apphost.com",
             "paths": [
                 {"path": "/somewhere", "destination": "my.other.host", "content": None, "https_only": False},
-                {"path": "/", "destination": "apphost.com"}
+                {"path": "/", "destination": "my.other.host2", "content": None, "https_only": False, }
             ]
         })
         LoadBalancer.find.assert_called_with("x")
         expected_calls = [mock.call("x", "/somewhere", destination="my.other.host", content=None, https_only=False),
-                          mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True,
-                                    https_only=False)]
+                          mock.call("x", "/", destination="my.other.host2", content=None, https_only=False)]
+        manager.consul_manager.write_location.assert_has_calls(expected_calls)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_add_route_bind_and_unbind(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = "h1"
+        lb.hosts[1].dns_name = "h2"
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.add_route("x", "/", "my.other.host", None, False)
+        manager.bind("x", "apphost.com")
+        manager.unbind("x")
+        binding_data = self.storage.find_binding("x")
+        self.assertDictEqual(binding_data, {
+            "_id": "x",
+            "paths": [
+                {"path": "/", "destination": "my.other.host", "content": None, "https_only": False, }
+            ]
+        })
+        LoadBalancer.find.assert_called_with("x")
+        expected_calls = [mock.call("x", "/", destination="my.other.host", content=None, https_only=False)]
+        manager.consul_manager.write_location.assert_has_calls(expected_calls)
+
+    @mock.patch("rpaas.manager.LoadBalancer")
+    def test_bind_on_x_add_route_unbind_and_bind_on_otherhost(self, LoadBalancer):
+        lb = LoadBalancer.find.return_value
+        lb.hosts = [mock.Mock(), mock.Mock()]
+        lb.hosts[0].dns_name = "h1"
+        lb.hosts[1].dns_name = "h2"
+        manager = Manager(self.config)
+        manager.consul_manager = mock.Mock()
+        manager.bind("x", "apphost.com")
+        manager.add_route("x", "/", "my.custom.host", None, False)
+        manager.unbind("x")
+        manager.bind("x", "otherhost.com")
+        binding_data = self.storage.find_binding("x")
+        self.assertDictEqual(binding_data, {
+            "_id": "x",
+            "app_host": "otherhost.com",
+            "paths": [
+                {"path": "/", "destination": "my.custom.host", "content": None, "https_only": False}
+            ]
+        })
+        LoadBalancer.find.assert_called_with("x")
+        expected_calls = [mock.call("x", "/", destination="apphost.com", router_mode=False, bind_mode=True,
+                                    https_only=False),
+                          mock.call("x", "/", destination="my.custom.host", content=None, https_only=False)]
         manager.consul_manager.write_location.assert_has_calls(expected_calls)
 
     @mock.patch("rpaas.manager.LoadBalancer")
@@ -915,7 +963,6 @@ destination = app1.host.com (https only)"""},
         binding_data = self.storage.find_binding("inst")
         self.assertDictEqual(binding_data, {
             "_id": "inst",
-            "app_host": "app.host.com",
             "paths": [
                 {"path": "/", "destination": "my.other.host", "content": None, "https_only": False}
             ]
