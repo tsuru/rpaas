@@ -183,7 +183,12 @@ class MongoDBStorage(storage.MongoDBStorage):
         del dict["_id"]
         return flavor.Flavor(**dict)
 
-    def store_binding(self, name, app_host):
+    def store_binding(self, name, app_host, app_host_only=False):
+        if app_host_only:
+            self.db[self.bindings_collection].update({'_id': name}, {
+                '$set': {'app_host': app_host}
+            }, upsert=True)
+            return
         try:
             self.delete_binding_path(name, '/')
         except:
@@ -199,8 +204,9 @@ class MongoDBStorage(storage.MongoDBStorage):
     def remove_binding(self, name):
         self.db[self.bindings_collection].remove({'_id': name})
 
-    def remove_root_binding(self, name):
-        self.delete_binding_path(name, '/')
+    def remove_root_binding(self, name, remove_root_binding_path):
+        if remove_root_binding_path:
+            self.delete_binding_path(name, '/')
         self.db[self.bindings_collection].update({'_id': name}, {
             '$unset': {'app_host': '1'}
         })

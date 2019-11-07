@@ -212,6 +212,7 @@ class Manager(object):
             paths = binding_data.get("paths")
             for path in paths:
                 if path.get("path") == "/" and "content" in path:
+                    self.storage.store_binding(name, app_host, app_host_only=True)
                     return
         bind_mode = not router_mode
         self.consul_manager.write_location(name, "/", destination=app_host, router_mode=router_mode,
@@ -229,9 +230,10 @@ class Manager(object):
         paths = binding_data.get("paths")
         for path in paths:
             if path.get("path") == "/" and "content" in path:
+                self.storage.remove_root_binding(name, False)
                 return
         bound_host = binding_data.get("app_host")
-        self.storage.remove_root_binding(name)
+        self.storage.remove_root_binding(name, True)
         self.consul_manager.write_location(name, "/", content=nginx.NGINX_LOCATION_INSTANCE_NOT_BOUND)
         self.consul_manager.remove_server_upstream(name, "rpaas_default_upstream", bound_host)
 
