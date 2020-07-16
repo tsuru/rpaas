@@ -809,7 +809,7 @@ destination = app1.host.com (https only)"""},
         lb.hosts = [mock.Mock(), mock.Mock()]
         manager = Manager(self.config)
         with self.assertRaises(ScaleError):
-            manager.scale_instance("x", 0)
+            manager.scale_instance("x", -1)
 
     @mock.patch("rpaas.manager.LoadBalancer")
     def test_bind_instance(self, LoadBalancer):
