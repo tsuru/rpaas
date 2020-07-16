@@ -369,7 +369,7 @@ class Manager(object):
     def scale_instance(self, name, quantity):
         self.task_manager.ensure_ready(name)
         if quantity < 0:
-            raise ScaleError("Can't have 0 instances")
+            raise ScaleError("Can't have negative instances")
         self.task_manager.create(name)
         config = copy.deepcopy(self.config)
         metadata = self.storage.find_instance_metadata(name)
