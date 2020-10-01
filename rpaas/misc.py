@@ -10,13 +10,13 @@ import urlparse
 class ValidationError(Exception):
     pass
 
-
+#Function that checks whether the option passed as a parameter is enabled or not
 def check_option_enable(option):
     if option is not None and str(option) in ('True', 'true', '1'):
         return True
     return False
 
-
+#Function that does the name validation
 def validate_name(name):
     instance_length = None
     if os.environ.get("INSTANCE_LENGTH"):
