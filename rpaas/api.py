@@ -403,6 +403,32 @@ def purge_location(name):
     return "Path found and purged on {} servers".format(instances_purged), 200
 
 
+@api.route("/resources/<name>/purge/bulk", methods=["POST"])
+def purge_bulk_location(name):
+    purges = request.get_json()
+    result = []
+    if not purges or not isinstance(purges, list):
+        return 'missing required list of purges', 400
+
+    for purge in purges:
+        path = purge.get("path")
+        preserve_path = purge.get("preserve_path", False)
+        try:
+            instances_purged = get_manager().purge_location(name, path, preserve_path)
+            result.append({"path": path, "instances_purged": instances_purged})
+        except storage.InstanceNotFoundError:
+            return "Instance not found", 404
+        except tasks.NotReadyError as e:
+            return "Instance not ready: {}".format(e), 412
+
+    response = api.response_class(
+        response=json.dumps(result),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
+
+
 @api.route("/resources/<name>/ssl", methods=["POST"])
 @auth.required
 def add_https(name):
