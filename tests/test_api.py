@@ -696,6 +696,23 @@ class APITestCase(unittest.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual('Path found and purged on 4 servers', resp.data)
 
+    def test_purge_bulk_location(self):
+        resp = self.api.post("/resources/someapp/purge/bulk", data=json.dumps([
+            {'path': '/somewhere', 'preserve_path': True},
+            {'path': '/otherpath', 'preserve_path': False},
+        ]), headers={'Content-Type': 'application/json'})
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual([
+            {"path": "/somewhere", "instances_purged": 3},
+            {"path": "/otherpath", "instances_purged": 4}
+        ], json.loads(resp.data))
+
+        resp = self.api.post("/resources/someapp/purge/bulk", data=json.dumps({
+            'path': '/somewhere', 'preserve_path': 'False'
+        }), headers={'Content-Type': 'application/json'})
+        self.assertEqual(400, resp.status_code)
+        self.assertEqual('missing required list of purges', resp.data)
+
     def open_with_auth(self, url, method, user, password, data=None, headers=None):
         encoded = base64.b64encode(user + ":" + password)
         if not headers:
