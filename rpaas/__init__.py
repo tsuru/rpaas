@@ -6,6 +6,11 @@ import os
 
 from rpaas import manager
 
+_manager = None
+
 
 def get_manager():
-    return manager.Manager(dict(os.environ))
+    global _manager
+    if _manager is None:
+        _manager = manager.Manager(dict(os.environ))
+    return _manager
