@@ -1,0 +1,32 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:4
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:3
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 2.7
+        uses: actions/setup-python@v2
+        with:
+          python-version: 2.7
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y unzip redis-server
+          pip install -U pip
+          make deps
+          curl -k -LO https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip
+          unzip consul_0.6.4_linux_amd64.zip
+          export GOMAXPROCS=8 PATH=$PATH:$PWD
+          sudo sed -i 's/bind 127.0.0.1 ::1/bind 127.0.0.1/g' /etc/redis/redis.conf && sudo service redis-server restart
+          make start-consul
+      - name: Run test
+        run: make ci-test
