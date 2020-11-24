@@ -14,11 +14,13 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 2.7
+      - uses: shogo82148/actions-setup-redis@v1
+        with:
+          redis-version: '4.x'
       - name: Install dependencies
         run: |
-          sudo mkdir /etc/redis
           printf "bind 127.0.0.1\ndaemonize yes\nlogfile /var/log/redis/redis-server.log\n" | sudo tee /etc/redis/redis.conf
-          sudo apt-get update && sudo -E apt-get install -y unzip redis-server || sudo cat /var/log/redis/redis-server.log && exit 1 || journalctl -u redis-server -n 30 && exit 1
+          sudo apt-get update && sudo -E apt-get install -y unzip
           pip install -U pip
           make deps
           curl -k -LO https://releases.hashicorp.com/consul/0.6.4/consul_0.6.4_linux_amd64.zip
