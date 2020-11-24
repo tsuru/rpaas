@@ -19,7 +19,6 @@ jobs:
           redis-version: '4.x'
       - name: Install dependencies
         run: |
-          printf "bind 127.0.0.1\ndaemonize yes\nlogfile /var/log/redis/redis-server.log\n" | sudo tee /etc/redis/redis.conf
           sudo apt-get update && sudo -E apt-get install -y unzip
           pip install -U pip
           make deps
