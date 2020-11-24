@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo mkdir /etc/redis
-          printf "bind 127.0.0.1\ndaemonize yes\n" | sudo tee /etc/redis/redis.conf
+          printf "bind 127.0.0.1\ndaemonize yes\npidfile /tmp/redis.pid\n" | sudo tee /etc/redis/redis.conf
           sudo apt-get update && sudo -E apt-get install -y unzip redis-server || journalctl -u redis-server -n 30 && exit 1
           pip install -U pip
           make deps
