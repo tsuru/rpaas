@@ -294,11 +294,13 @@ class Manager(object):
         if lb is None:
             raise storage.InstanceNotFoundError()
         hostnames = {}
+        node_status_return = {}
+        if len(lb.hosts) == 0:
+            return node_status_return
         for host in lb.hosts:
             hostname = self.consul_manager.node_hostname(host.dns_name)
             if hostname is not None:
                 hostnames[hostname] = host.dns_name
-        node_status_return = {}
         for node, status in self.consul_manager.node_status(name).iteritems():
             node_status_return[node] = {'status': status}
             if node in hostnames:
