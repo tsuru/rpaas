@@ -152,10 +152,10 @@ class TsuruPluginTestCase(unittest.TestCase):
     @mock.patch("sys.stderr")
     def test_scale_invalid_quantity(self, stderr):
         with self.assertRaises(SystemExit) as cm:
-            plugin.scale(["-s", "myservice", "-i", "abc", "-n", "0"])
+            plugin.scale(["-s", "myservice", "-i", "abc", "-n", "-1"])
         exc = cm.exception
         self.assertEqual(2, exc.code)
-        expected_msg = "quantity must be a positive integer\n"
+        expected_msg = "quantity should be >= 0\n"
         stderr.write.assert_called_with(expected_msg)
 
     @mock.patch("rpaas.plugin.urlopen")

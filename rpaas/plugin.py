@@ -423,8 +423,8 @@ def get_scale_args(args):
     parser.add_argument("-i", "--instance", required=True)
     parser.add_argument("-n", "--quantity", type=int, required=True)
     parsed_args = parser.parse_args(args)
-    if parsed_args.quantity < 1:
-        sys.stderr.write("quantity must be a positive integer\n")
+    if parsed_args.quantity < 0:
+        sys.stderr.write("quantity should be >= 0\n")
         sys.exit(2)
     return parsed_args.service, parsed_args.instance, parsed_args.quantity
 
