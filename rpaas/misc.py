@@ -5,6 +5,7 @@
 import os
 import re
 import urlparse
+import json
 
 
 class ValidationError(Exception):
@@ -15,6 +16,18 @@ def check_option_enable(option):
     if option is not None and str(option) in ('True', 'true', '1'):
         return True
     return False
+
+
+def validate_content(content):
+    if not content:
+        return
+    deny_patterns = os.environ.get("CONFIG_DENY_PATTERNS")
+    if not deny_patterns:
+        return
+    patterns = json.loads(deny_patterns)
+    for pattern in patterns:
+        if re.search(pattern, content):
+            raise ValidationError("content contains the forbidden pattern {}".format(pattern))
 
 
 def validate_name(name):

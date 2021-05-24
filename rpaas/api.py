@@ -14,7 +14,7 @@ import hm.log
 
 from rpaas import (admin_api, router_api, admin_plugin, auth, get_manager, manager,
                    plugin, storage, tasks)
-from rpaas.misc import (validate_name, ValidationError, require_plan, check_option_enable)
+from rpaas.misc import (validate_name, validate_content, ValidationError, require_plan, check_option_enable)
 
 api = Flask(__name__)
 api.register_blueprint(router_api.router)
@@ -315,6 +315,10 @@ def add_route(name):
     if content:
         content = content.encode("utf-8")
     try:
+        validate_content(content)
+    except ValidationError as e:
+        return str(e), 400
+    try:
         get_manager().add_route(name, path, destination, content, https_only)
     except storage.InstanceNotFoundError:
         return "Instance not found", 404
@@ -353,6 +357,10 @@ def list_routes(name):
 @auth.required
 def add_block(name):
     content = request.form.get('content')
+    try:
+        validate_content(content)
+    except ValidationError as e:
+        return str(e), 400
     block_name = request.form.get('block_name')
     if block_name not in ('server', 'http'):
         return 'invalid block_name (valid values are "server" or "http")', 400
