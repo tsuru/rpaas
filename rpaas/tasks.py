@@ -286,6 +286,8 @@ class RestoreMachineTask(BaseManagerTask):
                 healing_id = self.storage.store_healing(task['instance'], task['host'])
                 try:
                     Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
+                                    "manager": host['manager']}, conf=config).stop(forced=True)
+                    Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
                                     "manager": host['manager']}, conf=config).restore()
                     Host.from_dict({"_id": host['_id'], "dns_name": task['host'],
                                     "manager": host['manager']}, conf=config).start()

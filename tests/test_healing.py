@@ -44,6 +44,9 @@ class FakeManager(managers.BaseManager):
     def start_host(self, id):
         pass
 
+    def stop_host(self, id, forced=False):
+        pass
+
     def destroy_host(self, id):
         log.logging.info("Machine {} destroyed".format(id))
 
