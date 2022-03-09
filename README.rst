@@ -1,8 +1,7 @@
 Reverse proxy service for tsuru PaaS
 ====================================
 
-Work in progress. This README will be further improved in the near future.
-
+Deprecated in favor of https://github.com/tsuru/rpaas-operator
 
 .. image:: https://travis-ci.org/tsuru/rpaas.png?branch=master
    :target: https://travis-ci.org/tsuru/rpaas
