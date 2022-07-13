@@ -381,7 +381,7 @@ def status(args):
 def info(args):
     service, instance = get_info_args(args)
     result = proxy_request(service, instance, "/resources/{}/plans".format(instance), method="GET")
-    body = result.read().rstrip("\n")
+    body = result.read().decode("utf-8").rstrip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + body + "\n")
         sys.exit(1)
@@ -391,7 +391,7 @@ def info(args):
         sys.stdout.write("{name}\t\t{description}\n".format(**plan))
     sys.stdout.write("\n\n")
     result = proxy_request(service, instance, "/resources/{}/flavors".format(instance), method="GET")
-    body = result.read().rstrip("\n")
+    body = result.read().decode("utf-8").rstrip("\n")
     if result.getcode() != 200:
         sys.stderr.write("ERROR: " + body + "\n")
         sys.exit(1)
