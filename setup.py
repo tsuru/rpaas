@@ -73,7 +73,7 @@ setup(
         "tornado==4.2",
         "tsuru-hm==0.6.18",
         "tsuru-rpaas==0.4.1",
-        "urllib3==1.22",
+        "urllib3==1.26.5",
         "Werkzeug==0.11.15",
         "zope.component==4.6.2",
         "zope.deferredimport==4.3.1",
