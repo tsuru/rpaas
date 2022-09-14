@@ -51,7 +51,7 @@ setup(
         "idna==2.6",
         "ipaddress==1.0.23",
         "itsdangerous==1.1.0",
-        "Jinja2==2.11.2",
+        "Jinja2==2.11.3",
         "kombu==3.0.37",
         "letsencrypt==0.7.0",
         "MarkupSafe==1.1.1",
