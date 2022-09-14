@@ -42,7 +42,7 @@ setup(
         "cryptography==2.1.4",
         "enum34==1.1.10",
         "Flask==0.12.4",
-        "flower==0.9.1",
+        "flower==1.2.0",
         "futures==3.3.0",
         "gevent==1.1b6",
         "GloboNetworkAPI==0.8.1",
