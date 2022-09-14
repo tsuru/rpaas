@@ -39,7 +39,7 @@ setup(
         "click==7.1.2",
         "ConfigArgParse==1.2.3",
         "configobj==5.0.6",
-        "cryptography==2.1.4",
+        "cryptography==3.3.2",
         "enum34==1.1.10",
         "Flask==0.12.4",
         "flower==1.2.0",
