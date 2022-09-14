@@ -74,7 +74,7 @@ setup(
         "tsuru-hm==0.6.18",
         "tsuru-rpaas==0.4.1",
         "urllib3==1.22",
-        "Werkzeug==0.11.15",
+        "Werkzeug==0.15.3",
         "zope.component==4.6.2",
         "zope.deferredimport==4.3.1",
         "zope.deprecation==4.4.0",
