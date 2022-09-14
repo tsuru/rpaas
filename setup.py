@@ -26,7 +26,7 @@ setup(
         "amqp==1.4.9",
         "anyjson==0.3.3",
         "asn1crypto==1.4.0",
-        "Babel==2.3.4",
+        "Babel==2.9.1",
         "backports.ssl-match-hostname==3.7.0.1",
         "billiard==3.3.0.23",
         "blinker==1.4",
